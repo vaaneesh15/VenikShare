@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* --- Стили полностью совпадают с предыдущей финальной версией --- */
         * {
             margin: 0;
             padding: 0;
@@ -53,7 +52,6 @@
             --input-bg: rgba(255, 255, 255, 0.5);
             --chat-own-bg: var(--accent);
             --chat-other-bg: #e0e0f0;
-            --file-message-bg: rgba(74, 58, 255, 0.1);
             --chat-own-text: white;
             --chat-other-text: #1a1a2e;
             transition: background 0.2s, color 0.2s;
@@ -79,7 +77,6 @@
             --input-bg: rgba(40, 40, 55, 0.6);
             --chat-other-bg: #3a3a5a;
             --chat-other-text: #ffffff;
-            --file-message-bg: rgba(106, 90, 255, 0.2);
         }
 
         .screen {
@@ -357,43 +354,6 @@
             text-align: right;
         }
 
-        .file-message {
-            background: var(--file-message-bg);
-            border: 1px dashed var(--accent);
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .file-message:active {
-            background: var(--accent-light);
-            opacity: 0.8;
-        }
-
-        .file-message-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .file-message-icon {
-            font-size: 24px;
-            color: var(--accent);
-        }
-
-        .file-message-info {
-            flex: 1;
-        }
-
-        .file-message-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .file-message-size {
-            font-size: 12px;
-            opacity: 0.7;
-        }
-
         .chat-input-area {
             display: flex;
             align-items: center;
@@ -403,26 +363,6 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
-        }
-
-        .attach-btn {
-            background: var(--icon-bg);
-            width: 48px;
-            height: 48px;
-            border-radius: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
-            cursor: pointer;
-            border: 1px solid var(--container-border);
-            color: var(--accent);
-            font-size: 22px;
-            flex-shrink: 0;
-        }
-
-        .attach-btn:active {
-            transform: scale(0.94);
         }
 
         .chat-input-area textarea {
@@ -449,10 +389,6 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-        }
-
-        #file-input {
-            display: none;
         }
     </style>
 </head>
@@ -504,15 +440,11 @@
         <div class="chat-messages" id="chat-messages"></div>
 
         <div class="chat-input-area">
-            <div class="attach-btn" id="attach-btn" title="Прикрепить файл">
-                <i class="fas fa-paperclip"></i>
-            </div>
             <textarea id="chat-input" rows="1" placeholder="Написать..."></textarea>
             <button class="btn btn-primary" id="send-chat-btn">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
-        <input type="file" id="file-input" multiple>
     </div>
 
     <script>
@@ -596,8 +528,6 @@
             const chatMessages = document.getElementById('chat-messages');
             const chatInput = document.getElementById('chat-input');
             const sendChatBtn = document.getElementById('send-chat-btn');
-            const attachBtn = document.getElementById('attach-btn');
-            const fileInput = document.getElementById('file-input');
             const chatExitBtn = document.getElementById('chat-exit-btn');
 
             // --- Состояние ---
@@ -606,7 +536,6 @@
             let activeConn = null; // для клиента (единственное соединение)
             let isHost = false;
             let currentRoomId = null;
-            const fileBuffers = new Map();
             const connectionOpen = new Map(); // conn -> boolean
 
             function setDebug(message) {
@@ -632,56 +561,19 @@
                 });
             }
 
-            function getFileIcon(fileName) {
-                const ext = fileName.split('.').pop().toLowerCase();
-                if (['png','jpg','jpeg','gif','bmp','webp','svg'].includes(ext)) return 'fa-image';
-                if (['mp4','mov','avi','mkv','webm','flv','wmv'].includes(ext)) return 'fa-video';
-                if (['mp3','flac','wav','aac','ogg','m4a'].includes(ext)) return 'fa-music';
-                if (['txt','pdf','doc','docx','rtf','md','csv','json','xml','html','css','js','ts'].includes(ext)) return 'fa-file-alt';
-                return 'fa-file';
-            }
-
-            function addChatMessage(sender, text, own = false, isFile = false, fileData = null) {
+            function addChatMessage(sender, text, own = false) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
                 msgDiv.className = `message ${own ? 'message-own' : ''}`;
 
-                if (isFile && fileData) {
-                    const senderHtml = own ? '' : `<div class="message-sender">${escapeHtml(sender)}</div>`;
-                    msgDiv.innerHTML = `
-                        <div class="message-bubble file-message ${own ? 'message-bubble-own' : ''}" data-file="${fileData.id}">
-                            ${senderHtml}
-                            <div class="file-message-content">
-                                <div class="file-message-icon"><i class="fas ${getFileIcon(fileData.name)}"></i></div>
-                                <div class="file-message-info">
-                                    <div class="file-message-name">${escapeHtml(fileData.name)}</div>
-                                    <div class="file-message-size">${(fileData.size / 1024).toFixed(1)} KB</div>
-                                </div>
-                            </div>
-                            <div class="message-time">${time}</div>
-                        </div>
-                    `;
-                    const bubble = msgDiv.querySelector('.message-bubble');
-                    bubble.addEventListener('click', () => {
-                        if (fileData.blob) {
-                            const url = URL.createObjectURL(fileData.blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = fileData.name;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                        }
-                    });
-                } else {
-                    const senderHtml = own ? '' : `<div class="message-sender">${escapeHtml(sender)}</div>`;
-                    msgDiv.innerHTML = `
-                        <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
-                            ${senderHtml}
-                            <div class="message-text">${escapeHtml(text)}</div>
-                            <div class="message-time">${time}</div>
-                        </div>
-                    `;
-                }
+                const senderHtml = own ? '' : `<div class="message-sender">${escapeHtml(sender)}</div>`;
+                msgDiv.innerHTML = `
+                    <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
+                        ${senderHtml}
+                        <div class="message-text">${escapeHtml(text)}</div>
+                        <div class="message-time">${time}</div>
+                    </div>
+                `;
                 chatMessages.appendChild(msgDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
@@ -705,7 +597,6 @@
                 activeConn = null;
                 isHost = false;
                 currentRoomId = null;
-                fileBuffers.clear();
                 connectionOpen.clear();
                 chatScreen.classList.add('screen-hidden');
                 loginScreen.classList.remove('screen-hidden');
@@ -755,38 +646,8 @@
                         });
                     }
 
-                    // Обработка данных
-                    if (data.type === 'file-meta') {
-                        const fileId = data.fileId;
-                        fileBuffers.set(fileId, {
-                            name: data.name,
-                            size: data.size,
-                            type: data.type,
-                            chunks: [],
-                            receivedSize: 0,
-                            sender: data.sender || 'Аноним'
-                        });
-                    } else if (data.type === 'file-chunk') {
-                        const fileId = data.fileId;
-                        const fileData = fileBuffers.get(fileId);
-                        if (fileData) {
-                            fileData.chunks.push(data.data);
-                            fileData.receivedSize += data.data.byteLength;
-                        }
-                    } else if (data.type === 'file-end') {
-                        const fileId = data.fileId;
-                        const fileData = fileBuffers.get(fileId);
-                        if (fileData) {
-                            const blob = new Blob(fileData.chunks, { type: fileData.type });
-                            addChatMessage(fileData.sender, '', false, true, {
-                                name: fileData.name,
-                                size: fileData.size,
-                                blob: blob,
-                                id: fileId
-                            });
-                            fileBuffers.delete(fileId);
-                        }
-                    } else if (data.type === 'text') {
+                    // Обработка данных (только текстовые сообщения)
+                    if (data.type === 'text') {
                         addChatMessage(data.sender, data.text, false);
                     }
                 });
@@ -857,7 +718,6 @@
                     connections = [];
                     activeConn = null;
                     isHost = true;
-                    fileBuffers.clear();
                     connectionOpen.clear();
 
                     const server = peerServers[0];
@@ -923,7 +783,6 @@
                     connections = [];
                     activeConn = null;
                     isHost = false;
-                    fileBuffers.clear();
                     connectionOpen.clear();
 
                     const server = peerServers[0];
@@ -968,75 +827,6 @@
                     e.preventDefault();
                     sendChatBtn.click();
                 }
-            });
-
-            // --- Отправка файлов ---
-            attachBtn.addEventListener('click', () => {
-                fileInput.click();
-            });
-
-            fileInput.addEventListener('change', async (e) => {
-                const files = Array.from(e.target.files);
-                if (files.length === 0) return;
-
-                for (const file of files) {
-                    const fileId = Math.random().toString(36).substring(2) + Date.now();
-
-                    const targets = activeConn 
-                        ? (connectionOpen.get(activeConn) ? [activeConn] : [])
-                        : connections.filter(conn => connectionOpen.get(conn));
-
-                    if (targets.length > 0) {
-                        targets.forEach(conn => {
-                            conn.send({
-                                type: 'file-meta',
-                                fileId: fileId,
-                                name: file.name,
-                                size: file.size,
-                                type: file.type,
-                                sender: myUsername
-                            });
-                        });
-
-                        const chunkSize = 16384;
-                        let offset = 0;
-
-                        while (offset < file.size) {
-                            const chunk = file.slice(offset, offset + chunkSize);
-                            const buffer = await chunk.arrayBuffer();
-                            targets.forEach(conn => {
-                                conn.send({
-                                    type: 'file-chunk',
-                                    fileId: fileId,
-                                    data: buffer
-                                });
-                            });
-                            offset += chunkSize;
-                            await new Promise(r => setTimeout(r, 10));
-                        }
-
-                        targets.forEach(conn => {
-                            conn.send({
-                                type: 'file-end',
-                                fileId: fileId
-                            });
-                        });
-                    } else if (!activeConn && connections.length === 0) {
-                        setDebug('ℹ️ Нет подключений, файл сохранён локально');
-                    } else {
-                        setDebug('⚠️ Нет открытых соединений, файл сохранён локально');
-                    }
-
-                    const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-                    addChatMessage(myUsername, '', true, true, {
-                        name: file.name,
-                        size: file.size,
-                        blob: blob,
-                        id: fileId
-                    });
-                }
-
-                fileInput.value = '';
             });
 
             window.addEventListener('beforeunload', () => {
