@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* --- Все стили остаются без изменений (как в предыдущей версии) --- */
         * {
             margin: 0;
             padding: 0;
@@ -486,7 +487,17 @@
             });
             setLang(currentLang);
 
-            // --- Список публичных серверов PeerJS (20 штук) ---
+            // --- Сервер: только ваш собственный ---
+            const peerServers = [{
+                host: 'venikshare-server.onrender.com',  // адрес вашего сервера
+                port: 443,                                 // стандартный HTTPS порт
+                path: '/peerjs',                           // путь, который мы настроили в server.js
+                secure: true,
+                key: 'peerjs'
+            }];
+
+            // (Закомментировано) Если хотите использовать публичные серверы, раскомментируйте следующий массив:
+            /*
             const peerServers = [];
             for (let i = 0; i < 20; i++) {
                 peerServers.push({
@@ -497,8 +508,9 @@
                     key: 'peerjs'
                 });
             }
+            */
 
-            // Функция для создания пира с перебором серверов
+            // Функция для создания пира с перебором серверов (пробует по очереди)
             function createPeerWithFallback() {
                 return new Promise((resolve, reject) => {
                     let currentIndex = 0;
@@ -628,7 +640,7 @@
             selectFolderBtn.addEventListener('click', () => folderInput.click());
             folderInput.addEventListener('change', (e) => addFilesFromInput(e.target, true));
 
-            // --- Создание комнаты с перебором серверов ---
+            // --- Создание комнаты с вашим сервером ---
             createBtn.addEventListener('click', async () => {
                 if (peer) peer.destroy();
                 connectionStatus.textContent = currentLang === 'ru' ? 'Подключение к серверу...' : 'Connecting to server...';
@@ -654,11 +666,11 @@
 
                 } catch (err) {
                     console.error(err);
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться ни к одному серверу' : 'Could not connect to any server';
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться к серверу' : 'Could not connect to server';
                 }
             });
 
-            // --- Подключение к комнате с перебором серверов ---
+            // --- Подключение к комнате ---
             connectBtn.addEventListener('click', async () => {
                 const remoteId = peerIdInput.value.trim();
                 if (!remoteId) return;
@@ -681,7 +693,7 @@
 
                 } catch (err) {
                     console.error(err);
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться ни к одному серверу' : 'Could not connect to any server';
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться к серверу' : 'Could not connect to server';
                 }
             });
 
