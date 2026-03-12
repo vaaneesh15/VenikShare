@@ -1,7 +1,7 @@
 {
-  "name": "Веникшер",
-  "short_name": "Веникшер",
-  "description": "P2P передача файлов и сообщений",
+  "name": "ChatX",
+  "short_name": "ChatX",
+  "description": "Обмен файлами и сообщениями",
   "start_url": "/VenikShare/",
   "display": "standalone",
   "background_color": "#1a1a2e",
