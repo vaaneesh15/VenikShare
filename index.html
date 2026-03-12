@@ -5,17 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Веникшер</title>
     
+    <!-- PWA метатеги -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Веникшер">
     <meta name="theme-color" id="theme-color-meta" content="#4a3aff">
     <link rel="manifest" href="manifest.json">
     
+    <!-- PeerJS и Font Awesome -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Все стили (полностью как в предыдущих версиях) */
         * {
             margin: 0;
             padding: 0;
@@ -52,6 +53,8 @@
             --progress-bg: rgba(0,0,0,0.1);
             --progress-fill: #4a3aff;
             --tab-active: var(--accent);
+            --chat-own-bg: var(--accent);
+            --chat-other-bg: var(--card-bg);
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
@@ -76,6 +79,7 @@
             --input-bg: rgba(40, 40, 55, 0.6);
             --progress-bg: rgba(255,255,255,0.1);
             --progress-fill: #6d5fff;
+            --chat-other-bg: #2a2a40;
         }
 
         .app-container {
@@ -238,6 +242,86 @@
             font-size: 14px;
         }
 
+        .chat-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 36px;
+            padding: 16px;
+            border: 1px solid var(--container-border);
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            max-height: 300px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            padding-right: 8px;
+            scrollbar-width: thin;
+        }
+
+        .chat-message {
+            display: flex;
+            margin-bottom: 12px;
+        }
+
+        .chat-message-own {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            background: var(--chat-other-bg);
+            border-radius: 24px;
+            padding: 10px 16px;
+            border: 1px solid var(--card-border);
+            word-break: break-word;
+        }
+
+        .message-bubble-own {
+            background: var(--chat-own-bg);
+            color: white;
+            border-color: var(--accent-light);
+        }
+
+        .message-text {
+            font-size: 15px;
+            line-height: 1.4;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input-area textarea {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 30px;
+            padding: 12px 16px;
+            font-size: 15px;
+            color: var(--text-primary);
+            outline: none;
+            resize: none;
+            min-height: 44px;
+        }
+
+        .chat-input-area button {
+            width: auto;
+            padding: 0 24px;
+        }
+
         .file-list {
             list-style: none;
             margin: 12px 0;
@@ -334,19 +418,6 @@
             font-size: 14px;
         }
 
-        textarea {
-            width: 100%;
-            background: var(--input-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 24px;
-            padding: 14px;
-            font-size: 16px;
-            color: var(--text-primary);
-            outline: none;
-            resize: none;
-            margin-bottom: 12px;
-        }
-
         .cancel-btn {
             background: none;
             border: none;
@@ -383,11 +454,13 @@
             <div id="debug-info" class="status" style="color: var(--accent); font-size: 12px;"></div>
         </div>
 
-        <div class="panel">
-            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📝 Текст" data-en="📝 Text">📝 Текст</h3>
-            <textarea id="text-message" rows="2" placeholder="Введите сообщение..." data-ru="Введите сообщение..." data-en="Enter message..."></textarea>
-            <div class="flex">
-                <button class="btn" id="send-text-btn" disabled data-ru="Отправить текст" data-en="Send text">Отправить текст</button>
+        <!-- Чат -->
+        <div class="chat-panel">
+            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="💬 Чат" data-en="💬 Chat">💬 Чат</h3>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <textarea id="chat-input" rows="1" placeholder="Введите сообщение..." data-ru="Введите сообщение..." data-en="Enter message..."></textarea>
+                <button class="btn" id="send-chat-btn" disabled data-ru="Отправить" data-en="Send">Отправить</button>
             </div>
         </div>
 
@@ -495,7 +568,7 @@
             });
             setLang(currentLang);
 
-            // --- Конфигурация сервера и API ---
+            // --- Конфигурация ---
             const API_BASE = 'https://venikshare-server.onrender.com'; // URL вашего сервера
             const peerServers = [{
                 host: 'venikshare-server.onrender.com',
@@ -506,23 +579,22 @@
                 debug: 2
             }];
 
-            // --- Глобальные переменные ---
-            let peer = null;
-            let connections = [];     // для хоста (множество входящих)
-            let activeConn = null;     // для клиента (единственное исходящее)
-            let peerId = null;         // ID текущего пира (если хост)
-            const filesToSend = [];
-            const receivedFiles = [];
-            let nextFileId = 0;
+            // --- Элементы ---
+            const debugInfo = document.getElementById('debug-info');
+            function setDebug(message) {
+                debugInfo.textContent = message;
+                console.log('[DEBUG]', message);
+            }
 
-            // --- Элементы DOM ---
             const peerIdDisplay = document.getElementById('peer-id-display');
             const roomIdInput = document.getElementById('room-id-input');
             const roomPasswordInput = document.getElementById('room-password-input');
             const connectBtn = document.getElementById('connect-btn');
             const createBtn = document.getElementById('create-peer-btn');
             const connectionStatus = document.getElementById('connection-status');
-            const debugInfo = document.getElementById('debug-info');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatInput = document.getElementById('chat-input');
+            const sendChatBtn = document.getElementById('send-chat-btn');
             const fileInput = document.getElementById('file-input');
             const folderInput = document.getElementById('folder-input');
             const selectFilesBtn = document.getElementById('select-files-btn');
@@ -533,31 +605,46 @@
             const globalProgress = document.getElementById('global-progress');
             const globalProgressFill = document.getElementById('global-progress-fill');
             const globalProgressText = document.getElementById('global-progress-text');
-            const textMessage = document.getElementById('text-message');
-            const sendTextBtn = document.getElementById('send-text-btn');
             const tabs = document.querySelectorAll('.tab');
             let currentCategory = 'all';
 
-            // --- Вспомогательная функция для отладки ---
-            function setDebug(message) {
-                debugInfo.textContent = message;
-                console.log('[DEBUG]', message);
+            // --- Состояние ---
+            let peer = null;
+            let connections = []; // для хоста
+            let activeConn = null; // для клиента
+            let peerId = null;
+            const filesToSend = [];
+            const receivedFiles = [];
+            let nextFileId = 0;
+            const chatHistory = []; // массив объектов { text, time, own }
+
+            // --- Функции для работы с чатом ---
+            function addChatMessage(text, own = true) {
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `chat-message ${own ? 'chat-message-own' : ''}`;
+                msgDiv.innerHTML = `
+                    <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
+                        <div class="message-text">${escapeHtml(text)}</div>
+                        <div class="message-time">${time}</div>
+                    </div>
+                `;
+                chatMessages.appendChild(msgDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                chatHistory.push({ text, time, own });
             }
 
-            // --- Копирование ID по клику ---
-            peerIdDisplay.addEventListener('click', () => {
-                const text = peerIdDisplay.textContent;
-                if (text && text !== '—') {
-                    navigator.clipboard.writeText(text).then(() => {
-                        setDebug('✅ ID скопирован в буфер обмена');
-                        const original = connectionStatus.textContent;
-                        connectionStatus.textContent = currentLang === 'ru' ? 'ID скопирован!' : 'ID copied!';
-                        setTimeout(() => { connectionStatus.textContent = original; }, 2000);
-                    }).catch(() => setDebug('❌ Не удалось скопировать ID'));
-                }
-            });
+            function escapeHtml(unsafe) {
+                return unsafe.replace(/[&<>"]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    if (m === '"') return '&quot;';
+                    return m;
+                });
+            }
 
-            // --- Функции для категорий файлов (как в предыдущих версиях) ---
+            // --- Функции для файлов ---
             function getFileCategory(fileName) {
                 const ext = fileName.split('.').pop().toLowerCase();
                 const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
@@ -580,10 +667,9 @@
                 return 'fa-file';
             }
 
-            // --- Обновление списка файлов для отправки ---
             function updateFileList() {
                 fileListEl.innerHTML = '';
-                filesToSend.forEach((item) => {
+                filesToSend.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.className = 'file-item';
                     li.dataset.id = item.id;
@@ -607,14 +693,19 @@
                         const idx = filesToSend.findIndex(f => f.id === id);
                         if (idx !== -1) filesToSend.splice(idx, 1);
                         updateFileList();
-                        sendFilesBtn.disabled = filesToSend.length === 0 || (connections.length === 0 && !activeConn);
+                        updateSendButtonState();
                     });
                     fileListEl.appendChild(li);
                 });
-                sendFilesBtn.disabled = filesToSend.length === 0 || (connections.length === 0 && !activeConn);
+                updateSendButtonState();
             }
 
-            // --- Добавление файлов из input ---
+            function updateSendButtonState() {
+                const hasConnections = (connections.length > 0 || activeConn);
+                sendFilesBtn.disabled = filesToSend.length === 0 || !hasConnections;
+                sendChatBtn.disabled = !hasConnections;
+            }
+
             function addFilesFromInput(input, isFolder = false) {
                 Array.from(input.files).forEach(file => {
                     const path = isFolder ? file.webkitRelativePath : file.name;
@@ -636,32 +727,43 @@
             selectFolderBtn.addEventListener('click', () => folderInput.click());
             folderInput.addEventListener('change', (e) => addFilesFromInput(e.target, true));
 
-            // --- Функция отправки данных всем подключённым ---
-            function sendToAll(data) {
-                if (activeConn) {
-                    activeConn.send(data);
-                } else {
-                    connections.forEach(conn => conn.send(data));
+            // --- Копирование ID по клику ---
+            peerIdDisplay.addEventListener('click', () => {
+                const text = peerIdDisplay.textContent;
+                if (text && text !== '—') {
+                    navigator.clipboard.writeText(text).then(() => {
+                        setDebug('✅ ID скопирован в буфер обмена');
+                        const original = connectionStatus.textContent;
+                        connectionStatus.textContent = currentLang === 'ru' ? 'ID скопирован!' : 'ID copied!';
+                        setTimeout(() => { connectionStatus.textContent = original; }, 2000);
+                    }).catch(() => setDebug('❌ Не удалось скопировать ID'));
                 }
-            }
+            });
 
-            // --- Функция настройки соединения (одинакова для входящих и исходящих) ---
+            // --- Функция настройки соединения (общая для входящих и исходящих) ---
             function setupConnection(connection) {
                 const conn = connection;
+                // Добавляем в список соединений (для хоста) или сохраняем как активное (для клиента)
                 if (!activeConn) {
-                    // Мы хост: добавляем в массив соединений
                     connections.push(conn);
-                } // иначе клиент: activeConn уже установлен
+                } else {
+                    // У клиента уже есть activeConn, но он может быть равен этому conn
+                    // Для клиента мы уже сохранили activeConn ранее, поэтому просто добавим его в список,
+                    // чтобы можно было отправлять всем (но клиент обычно только с одним)
+                    if (!connections.includes(conn)) {
+                        connections.push(conn);
+                    }
+                }
 
                 conn.on('open', () => {
                     connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
-                    sendFilesBtn.disabled = filesToSend.length === 0;
-                    sendTextBtn.disabled = false;
+                    updateSendButtonState();
                     setDebug('Соединение установлено');
                 });
 
                 conn.on('data', (data) => {
                     if (data.type === 'file-meta') {
+                        // Начало приёма файла
                         const fileMeta = data;
                         const fileBuffer = [];
                         let receivedSize = 0;
@@ -693,6 +795,7 @@
 
                         const progressFill = tempItem.querySelector('.progress-fill');
 
+                        // Функция для обработки чанков
                         const handleChunk = (chunk) => {
                             if (abortReceive) return;
                             if (chunk.type === 'file-chunk') {
@@ -717,38 +820,45 @@
                                         category: getFileCategory(fileMeta.name)
                                     });
                                     updateReceivedFiles();
+
+                                    // Добавляем сообщение в чат о получении файла (опционально)
+                                    addChatMessage(`📎 Файл: ${fileMeta.name}`, false);
                                 }
                                 tempItem.remove();
                             }
                         };
 
-                        const originalDataHandler = conn.on('data');
+                        // Перехватываем последующие данные для этого файла
+                        const originalHandler = conn.on('data');
                         conn.on('data', (d) => {
                             if (d.type === 'file-chunk' || d.type === 'file-end') {
                                 handleChunk(d);
                             } else {
-                                if (originalDataHandler) originalDataHandler(d);
+                                if (originalHandler) originalHandler(d);
                             }
                         });
 
                     } else if (data.type === 'text') {
-                        alert(currentLang === 'ru' ? 'Сообщение: ' + data.text : 'Message: ' + data.text);
+                        // Получено текстовое сообщение
+                        addChatMessage(data.text, false);
+                    } else if (data.type === 'chat') {
+                        // Альтернативный тип для чата (если используем)
+                        addChatMessage(data.text, false);
                     } else {
                         console.log('Данные от собеседника:', data);
                     }
                 });
 
                 conn.on('close', () => {
+                    // Удаляем из списка соединений
+                    const index = connections.indexOf(conn);
+                    if (index !== -1) connections.splice(index, 1);
                     if (activeConn === conn) {
                         activeConn = null;
                         connectionStatus.textContent = currentLang === 'ru' ? 'Соединение закрыто' : 'Connection closed';
-                        sendFilesBtn.disabled = true;
-                        sendTextBtn.disabled = true;
-                        setDebug('Соединение закрыто');
-                    } else {
-                        const index = connections.indexOf(conn);
-                        if (index !== -1) connections.splice(index, 1);
                     }
+                    updateSendButtonState();
+                    setDebug('Соединение закрыто');
                 });
 
                 conn.on('error', (err) => {
@@ -758,7 +868,16 @@
                 });
             }
 
-            // --- Создание комнаты (хост) ---
+            // --- Функция отправки данных всем (хосту) или одному (клиенту) ---
+            function sendToAll(data) {
+                if (activeConn) {
+                    activeConn.send(data);
+                } else {
+                    connections.forEach(conn => conn.send(data));
+                }
+            }
+
+            // --- Создание комнаты ---
             createBtn.addEventListener('click', async () => {
                 const roomId = roomIdInput.value.trim();
                 const password = roomPasswordInput.value.trim();
@@ -788,6 +907,8 @@
                     if (peer) peer.destroy();
                     connections = [];
                     activeConn = null;
+                    chatMessages.innerHTML = ''; // очистить чат
+                    chatHistory.length = 0;
 
                     const server = peerServers[0];
                     const newPeer = new Peer(roomId, server);
@@ -811,8 +932,8 @@
 
                     newPeer.on('error', (err) => {
                         if (err.type === 'id-taken') {
-                            setDebug(`❌ ID ${roomId} уже занят на сервере PeerJS (возможно, кто-то подключился напрямую).`);
-                            // Попытаемся удалить регистрацию на сервере (опционально)
+                            setDebug(`❌ ID ${roomId} уже занят на сервере PeerJS. Возможно, хост уже онлайн?`);
+                            alert(currentLang === 'ru' ? 'Этот ID уже используется. Возможно, комната уже активна.' : 'This ID is already in use. Maybe the room is active.');
                         } else {
                             setDebug(`❌ Ошибка при создании пира: ${err.type} — ${err.message}`);
                         }
@@ -820,10 +941,11 @@
 
                 } catch (err) {
                     setDebug('❌ ' + err.message);
+                    alert(err.message);
                 }
             });
 
-            // --- Подключение к комнате (клиент) ---
+            // --- Подключение к комнате ---
             connectBtn.addEventListener('click', async () => {
                 const roomId = roomIdInput.value.trim();
                 const password = roomPasswordInput.value.trim();
@@ -842,13 +964,21 @@
                     });
                     const data = await response.json();
                     if (!response.ok) {
-                        throw new Error(data.error || 'Ошибка сервера');
+                        if (response.status === 404) {
+                            throw new Error('Комната не найдена. Возможно, она не создана или истек срок действия.');
+                        } else if (response.status === 401) {
+                            throw new Error('Неверный пароль');
+                        } else {
+                            throw new Error(data.error || 'Ошибка сервера');
+                        }
                     }
 
                     setDebug('✅ Комната существует, подключаемся к пиру...');
                     if (peer) peer.destroy();
                     connections = [];
                     activeConn = null;
+                    chatMessages.innerHTML = '';
+                    chatHistory.length = 0;
 
                     const server = peerServers[0];
                     const newPeer = new Peer(server); // без ID
@@ -862,35 +992,48 @@
 
                     newPeer.on('error', (err) => {
                         console.error(err);
-                        connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка подключения' : 'Connection error';
-                        setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
+                        if (err.type === 'peer-unavailable') {
+                            connectionStatus.textContent = currentLang === 'ru' ? '❌ Хост не в сети' : '❌ Host is offline';
+                            setDebug('Пир не найден. Возможно, хост отключился.');
+                        } else {
+                            connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка подключения' : 'Connection error';
+                            setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
+                        }
                     });
 
                 } catch (err) {
                     setDebug('❌ ' + err.message);
+                    alert(err.message);
                 }
             });
 
-            // --- Отправка текста ---
-            sendTextBtn.addEventListener('click', () => {
-                const text = textMessage.value.trim();
+            // --- Отправка сообщения чата ---
+            sendChatBtn.addEventListener('click', () => {
+                const text = chatInput.value.trim();
                 if (!text) return;
 
-                if (activeConn) {
-                    activeConn.send({ type: 'text', text });
-                    textMessage.value = '';
-                } else if (connections.length > 0) {
-                    connections.forEach(conn => conn.send({ type: 'text', text }));
-                    textMessage.value = '';
-                } else {
-                    alert(currentLang === 'ru' ? 'Нет активного соединения' : 'No active connection');
+                // Отправляем всем
+                sendToAll({ type: 'text', text });
+
+                // Добавляем в свой чат
+                addChatMessage(text, true);
+
+                // Очищаем поле
+                chatInput.value = '';
+            });
+
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatBtn.click();
                 }
             });
 
             // --- Отправка файлов ---
             sendFilesBtn.addEventListener('click', async () => {
                 if (filesToSend.length === 0) return;
-                if (connections.length === 0 && !activeConn) {
+                const targets = activeConn ? [activeConn] : connections;
+                if (targets.length === 0) {
                     alert(currentLang === 'ru' ? 'Нет активного соединения' : 'No active connection');
                     return;
                 }
@@ -898,8 +1041,6 @@
                 globalProgress.style.display = 'block';
                 let totalSent = 0;
                 let totalSize = filesToSend.reduce((acc, f) => acc + f.file.size, 0);
-
-                const targets = activeConn ? [activeConn] : connections;
 
                 for (let i = 0; i < filesToSend.length; i++) {
                     const item = filesToSend[i];
@@ -910,7 +1051,7 @@
                     const progressFill = progressBar?.querySelector('.progress-fill');
                     if (progressBar) progressBar.style.display = 'block';
 
-                    // Отправляем метаданные каждому целевому соединению
+                    // Отправляем метаданные
                     targets.forEach(conn => {
                         conn.send({
                             type: 'file-meta',
@@ -950,12 +1091,16 @@
                             conn.send({ type: 'file-end' });
                         });
 
+                        // Добавляем в свои полученные (для отправителя)
                         receivedFiles.push({
                             name: item.path || item.file.name,
                             size: item.file.size,
                             category: getFileCategory(item.file.name)
                         });
                         updateReceivedFiles();
+
+                        // Сообщение в чат
+                        addChatMessage(`📎 Отправлен файл: ${item.path || item.file.name}`, true);
 
                         if (fileItemEl) fileItemEl.remove();
                     } else {
@@ -968,11 +1113,10 @@
                 updateFileList();
             });
 
-            // --- Обновление списка полученных файлов ---
             function updateReceivedFiles() {
                 receivedFilesEl.innerHTML = '';
                 const filtered = currentCategory === 'all' ? receivedFiles : receivedFiles.filter(f => f.category === currentCategory);
-                filtered.forEach((f) => {
+                filtered.forEach((f, i) => {
                     const li = document.createElement('li');
                     li.className = 'file-item';
                     li.innerHTML = `
@@ -988,7 +1132,6 @@
                 });
             }
 
-            // --- Переключение вкладок ---
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     tabs.forEach(t => t.classList.remove('active'));
@@ -998,7 +1141,6 @@
                 });
             });
 
-            // --- Очистка при закрытии ---
             window.addEventListener('beforeunload', () => {
                 if (peer) peer.destroy();
             });
