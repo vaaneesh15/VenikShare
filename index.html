@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* (стили как в предыдущей версии, добавим класс для отступа) */
         * {
             margin: 0;
             padding: 0;
@@ -255,6 +256,12 @@
             font-size: 14px;
         }
 
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* добавим отступ между кнопками */
+        }
+
         /* --- Экран чата --- */
         .chat-screen {
             background: var(--container-bg);
@@ -299,6 +306,17 @@
 
         .chat-room-id:active {
             background: var(--card-bg);
+        }
+
+        .participant-count {
+            background: var(--icon-bg);
+            border-radius: 30px;
+            padding: 4px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+            border: 1px solid var(--card-border);
+            margin-left: 8px;
         }
 
         .chat-exit-btn {
@@ -501,6 +519,7 @@
                     <i class="fas fa-sun"></i>
                 </div>
                 <div class="chat-room-id" id="chat-room-id" title="Нажмите, чтобы скопировать ID">—</div>
+                <div class="participant-count" id="participant-count">1</div>
             </div>
             <div class="chat-exit-btn" id="chat-exit-btn" title="Выйти из комнаты">
                 <i class="fas fa-times"></i>
@@ -531,7 +550,7 @@
                 path: '/',
                 secure: true,
                 key: 'peerjs',
-                debug: 0 // отключаем подробные логи
+                debug: 0
             }];
 
             // --- Тема (общая для обоих экранов) ---
@@ -617,6 +636,7 @@
             const loginScreen = document.getElementById('login-screen');
             const chatScreen = document.getElementById('chat-screen');
             const chatRoomId = document.getElementById('chat-room-id');
+            const participantCount = document.getElementById('participant-count');
             const chatMessages = document.getElementById('chat-messages');
             const chatInput = document.getElementById('chat-input');
             const sendChatBtn = document.getElementById('send-chat-btn');
@@ -635,6 +655,16 @@
             function setDebug(message) {
                 debugInfo.textContent = message;
                 console.log('[DEBUG]', message);
+            }
+
+            // --- Обновление счётчика участников ---
+            function updateParticipantCount() {
+                if (isHost) {
+                    participantCount.textContent = connections.length + 1;
+                } else {
+                    // Клиент: предположим, что есть хост и мы, итого 2
+                    participantCount.textContent = activeConn ? '2' : '1';
+                }
             }
 
             // --- Функции для работы с чатом ---
@@ -710,6 +740,7 @@
                 currentRoomId = roomId;
                 chatRoomId.textContent = roomId;
                 chatMessages.innerHTML = ''; // очищаем предыдущие сообщения
+                updateParticipantCount();
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
                 // Активируем кнопки
@@ -750,32 +781,37 @@
             // --- Функция настройки соединения (общая) ---
             function setupConnection(conn) {
                 // Добавляем в список соединений (для хоста) или сохраняем как активное (для клиента)
-                if (!activeConn) {
+                if (isHost) {
                     connections.push(conn);
+                    setDebug(`Новый клиент подключился. Всего клиентов: ${connections.length}`);
+                    updateParticipantCount();
                 } else {
-                    if (!connections.includes(conn)) {
-                        connections.push(conn);
-                    }
+                    activeConn = conn;
+                    // Для клиента тоже добавим в connections, чтобы использовать в sendToAll
+                    connections.push(conn);
                 }
 
                 conn.on('open', () => {
                     connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
                     sendChatBtn.disabled = false;
                     setDebug('Соединение установлено');
-                    // Если это первое соединение и мы хост, то уже на экране чата
+                    updateParticipantCount();
                 });
 
                 conn.on('data', (data) => {
-                    // Ретрансляция: если мы хост (activeConn === null) и есть другие клиенты, пересылаем всем, кроме отправителя
-                    if (activeConn === null && connections.length > 0) {
+                    setDebug(`Получены данные: ${data.type}`);
+                    
+                    // Ретрансляция: если мы хост (isHost === true) и есть другие клиенты, пересылаем всем, кроме отправителя
+                    if (isHost && connections.length > 0) {
                         connections.forEach(otherConn => {
                             if (otherConn !== conn) {
                                 otherConn.send(data);
+                                setDebug(`Ретрансляция клиенту ${otherConn.peer}`);
                             }
                         });
                     }
 
-                    // Обработка данных
+                    // Обработка данных локально
                     if (data.type === 'file-meta') {
                         // Начинаем приём файла
                         const fileMeta = data;
@@ -783,8 +819,6 @@
                         let receivedSize = 0;
                         let abortReceive = false;
 
-                        // Создаём временный элемент в чате для прогресса (опционально)
-                        // Но для простоты будем отображать только после полного получения
                         const fileId = 'file-' + Date.now() + Math.random();
 
                         const handleChunk = (chunk) => {
@@ -802,6 +836,7 @@
                                         blob: blob,
                                         id: fileId
                                     });
+                                    setDebug(`Файл ${fileMeta.name} получен`);
                                 }
                             }
                         };
@@ -819,6 +854,7 @@
                     } else if (data.type === 'text' || data.type === 'chat') {
                         // Текстовое сообщение
                         addChatMessage(data.text, false);
+                        setDebug(`Текст от ${conn.peer}: ${data.text}`);
                     } else {
                         console.log('Данные от собеседника:', data);
                     }
@@ -833,6 +869,7 @@
                         exitToLogin();
                     } else {
                         setDebug('Один из клиентов отключился');
+                        updateParticipantCount();
                     }
                 });
 
@@ -958,7 +995,6 @@
                     newPeer.on('open', () => {
                         peer = newPeer;
                         const conn = peer.connect(roomId);
-                        activeConn = conn;
                         setupConnection(conn);
                         // Переходим на экран чата
                         showChatScreen(roomId);
