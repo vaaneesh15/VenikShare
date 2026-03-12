@@ -81,7 +81,7 @@
 
         .app-container {
             width: 100%;
-            min-height: 100vh;
+            height: 100%;
             background: var(--container-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -453,7 +453,6 @@
             // --- Язык ---
             const langToggle = document.getElementById('lang-toggle');
             const appTitle = document.getElementById('app-title');
-            // По умолчанию русский
             let currentLang = localStorage.getItem('venikshareLang') || 'ru';
 
             function setLang(lang) {
@@ -487,19 +486,17 @@
             });
             setLang(currentLang);
 
-            // --- Список публичных серверов PeerJS (10 штук) ---
-            const peerServers = [
-                { host: 'peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '0.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '1.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '2.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '3.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '4.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '5.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '6.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '7.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-                { host: '8.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
-            ];
+            // --- Список публичных серверов PeerJS (20 штук) ---
+            const peerServers = [];
+            for (let i = 0; i < 20; i++) {
+                peerServers.push({
+                    host: `${i}.peerjs.com`,
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    key: 'peerjs'
+                });
+            }
 
             // Функция для создания пира с перебором серверов
             function createPeerWithFallback() {
@@ -513,7 +510,7 @@
                             return;
                         }
                         const server = peerServers[currentIndex];
-                        const peer = new Peer({ ...server, debug: 0 }); // отключаем debug
+                        const peer = new Peer({ ...server, debug: 0 });
                         peer.on('open', () => {
                             resolve(peer);
                         });
