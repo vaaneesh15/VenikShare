@@ -1,6 +1,6 @@
 {
-  "name": "VenikShare",
-  "short_name": "VenikShare",
+  "name": "Веникшер",
+  "short_name": "Веникшер",
   "description": "P2P передача файлов и сообщений",
   "start_url": "/VenikShare/",
   "display": "standalone",
