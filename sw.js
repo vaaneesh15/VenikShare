@@ -1,4 +1,4 @@
-const CACHE_NAME = 'venishare-v1';
+const CACHE_NAME = 'venikshare-v1';
 const urlsToCache = [
   './',
   './index.html',
