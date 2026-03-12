@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* --- Стили без изменений (как в предыдущей финальной версии) --- */
         * {
             margin: 0;
             padding: 0;
@@ -53,13 +52,12 @@
             --input-bg: rgba(255, 255, 255, 0.5);
             --progress-bg: rgba(0,0,0,0.1);
             --progress-fill: #4a3aff;
-            --tab-active: var(--accent);
             --chat-own-bg: var(--accent);
             --chat-other-bg: var(--card-bg);
+            --file-message-bg: rgba(74, 58, 255, 0.1);
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
-            min-height: 100vh;
         }
 
         body.dark {
@@ -81,22 +79,36 @@
             --progress-bg: rgba(255,255,255,0.1);
             --progress-fill: #6d5fff;
             --chat-other-bg: #2a2a40;
+            --file-message-bg: rgba(106, 90, 255, 0.2);
         }
 
-        .app-container {
+        /* --- Экраны --- */
+        .screen {
             width: 100%;
             height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.3s;
+        }
+
+        .screen-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* --- Экран входа --- */
+        .login-screen {
             background: var(--container-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            box-shadow: var(--shadow), inset 0 1px 2px rgba(255,255,255,0.3);
             padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)) 16px;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
         }
 
-        .header {
+        .login-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -124,7 +136,7 @@
             transform: scale(0.94);
         }
 
-        .header h1 {
+        .login-header h1 {
             font-size: 28px;
             font-weight: 700;
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
@@ -243,33 +255,86 @@
             font-size: 14px;
         }
 
-        .chat-panel {
-            background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 36px;
-            padding: 16px;
-            border: 1px solid var(--container-border);
-            box-shadow: var(--shadow);
-            margin-bottom: 16px;
+        /* --- Экран чата --- */
+        .chat-screen {
+            background: var(--container-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             display: flex;
             flex-direction: column;
-            max-height: 300px;
+            height: 100%;
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: max(24px, env(safe-area-inset-top)) 16px 12px 16px;
+            border-bottom: 1px solid var(--container-border);
+            flex-shrink: 0;
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header-left .theme-toggle {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+        }
+
+        .chat-room-id {
+            background: var(--input-bg);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+            cursor: pointer;
+        }
+
+        .chat-room-id:active {
+            background: var(--card-bg);
+        }
+
+        .chat-exit-btn {
+            background: var(--icon-bg);
+            width: 44px;
+            height: 44px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            cursor: pointer;
+            border: 1px solid var(--container-border);
+            color: var(--accent);
+            font-size: 22px;
+        }
+
+        .chat-exit-btn:active {
+            transform: scale(0.94);
         }
 
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            margin-bottom: 12px;
-            padding-right: 8px;
-            scrollbar-width: thin;
-        }
-
-        .chat-message {
+            padding: 16px;
             display: flex;
-            margin-bottom: 12px;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        .chat-message-own {
+        .message {
+            display: flex;
+            margin-bottom: 4px;
+        }
+
+        .message-own {
             justify-content: flex-end;
         }
 
@@ -300,9 +365,73 @@
             text-align: right;
         }
 
+        /* Файловое сообщение */
+        .file-message {
+            background: var(--file-message-bg);
+            border: 1px dashed var(--accent);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .file-message:active {
+            background: var(--accent-light);
+            opacity: 0.8;
+        }
+
+        .file-message-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .file-message-icon {
+            font-size: 24px;
+            color: var(--accent);
+        }
+
+        .file-message-info {
+            flex: 1;
+        }
+
+        .file-message-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .file-message-size {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
         .chat-input-area {
             display: flex;
+            align-items: center;
             gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--container-border);
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            flex-shrink: 0;
+        }
+
+        .attach-btn {
+            background: var(--icon-bg);
+            width: 48px;
+            height: 48px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            cursor: pointer;
+            border: 1px solid var(--container-border);
+            color: var(--accent);
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .attach-btn:active {
+            transform: scale(0.94);
         }
 
         .chat-input-area textarea {
@@ -310,137 +439,45 @@
             background: var(--input-bg);
             border: 1px solid var(--card-border);
             border-radius: 30px;
-            padding: 12px 16px;
-            font-size: 15px;
+            padding: 14px 18px;
+            font-size: 16px;
             color: var(--text-primary);
             outline: none;
             resize: none;
-            min-height: 44px;
+            min-height: 48px;
+            max-height: 120px;
         }
 
         .chat-input-area button {
-            width: auto;
-            padding: 0 24px;
-        }
-
-        .file-list {
-            list-style: none;
-            margin: 12px 0;
-            max-height: 200px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-        }
-
-        .file-item {
-            background: var(--card-bg);
+            width: 48px;
+            height: 48px;
             border-radius: 30px;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            border: 1px solid var(--card-border);
-            position: relative;
-        }
-
-        .file-item-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .file-name {
-            color: var(--text-primary);
-            font-weight: 500;
-            max-width: 60%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .file-size {
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: var(--progress-bg);
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 8px 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--progress-fill);
-            width: 0%;
-            transition: width 0.2s;
-        }
-
-        .flex {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .flex-col {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-
-        .tab {
-            background: var(--input-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 30px;
-            padding: 8px 16px;
-            font-size: 14px;
-            color: var(--text-primary);
-            cursor: pointer;
-            transition: 0.1s;
+            padding: 0;
+            font-size: 22px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
-        .tab.active {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-        }
-
-        .tab i {
-            font-size: 14px;
-        }
-
-        .cancel-btn {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 18px;
-            margin-left: 8px;
+        /* Скрытый input для файлов */
+        #file-input {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <div class="header">
+    <!-- Экран входа -->
+    <div class="screen login-screen" id="login-screen">
+        <div class="login-header">
             <div class="lang-toggle" id="lang-toggle">RU</div>
             <h1 id="app-title" data-ru="Веникшер" data-en="VenikShare">Веникшер</h1>
-            <div class="theme-toggle" id="theme-toggle">
+            <div class="theme-toggle" id="login-theme-toggle">
                 <i class="fas fa-sun"></i>
             </div>
         </div>
 
         <div class="panel">
-            <div id="peer-id-display" class="id-display">—</div>
             <div class="input-group">
                 <input type="text" id="room-id-input" placeholder="ID комнаты (любые символы, до 20)" data-ru="ID комнаты (любые символы, до 20)" data-en="Room ID (any chars, max 20)">
             </div>
@@ -454,54 +491,55 @@
             <div id="connection-status" class="status" data-ru="Не подключено" data-en="Not connected">Не подключено</div>
             <div id="debug-info" class="status" style="color: var(--accent); font-size: 12px;"></div>
         </div>
+    </div>
 
-        <!-- Чат -->
-        <div class="chat-panel">
-            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="💬 Чат" data-en="💬 Chat">💬 Чат</h3>
-            <div id="chat-messages" class="chat-messages"></div>
-            <div class="chat-input-area">
-                <textarea id="chat-input" rows="1" placeholder="Введите сообщение..." data-ru="Введите сообщение..." data-en="Enter message..."></textarea>
-                <button class="btn" id="send-chat-btn" disabled data-ru="Отправить" data-en="Send">Отправить</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📎 Файлы и папки" data-en="📎 Files & Folders">📎 Файлы и папки</h3>
-            <input type="file" id="file-input" multiple style="display: none;">
-            <input type="file" id="folder-input" webkitdirectory multiple style="display: none;">
-            <div class="flex">
-                <button class="btn" id="select-files-btn" data-ru="Выбрать файлы" data-en="Select files">Выбрать файлы</button>
-                <button class="btn" id="select-folder-btn" data-ru="Выбрать папку" data-en="Select folder">Выбрать папку</button>
-                <button class="btn" id="send-files-btn" disabled data-ru="Отправить всё" data-en="Send all">Отправить всё</button>
-            </div>
-            <ul id="file-list" class="file-list"></ul>
-            <div id="global-progress" style="display: none;">
-                <div class="progress-bar">
-                    <div id="global-progress-fill" class="progress-fill"></div>
+    <!-- Экран чата (изначально скрыт) -->
+    <div class="screen chat-screen screen-hidden" id="chat-screen">
+        <div class="chat-header">
+            <div class="chat-header-left">
+                <div class="theme-toggle" id="chat-theme-toggle">
+                    <i class="fas fa-sun"></i>
                 </div>
-                <div id="global-progress-text" class="status"></div>
+                <div class="chat-room-id" id="chat-room-id" title="Нажмите, чтобы скопировать ID">—</div>
+            </div>
+            <div class="chat-exit-btn" id="chat-exit-btn" title="Выйти из комнаты">
+                <i class="fas fa-times"></i>
             </div>
         </div>
 
-        <div class="panel">
-            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📥 Полученные файлы" data-en="📥 Received files">📥 Полученные файлы</h3>
-            <div class="tabs" id="file-tabs">
-                <div class="tab active" data-category="all"><i class="fas fa-folder"></i> <span data-ru="Все" data-en="All">Все</span></div>
-                <div class="tab" data-category="image"><i class="fas fa-image"></i> <span data-ru="Фото" data-en="Photos">Фото</span></div>
-                <div class="tab" data-category="video"><i class="fas fa-video"></i> <span data-ru="Видео" data-en="Videos">Видео</span></div>
-                <div class="tab" data-category="audio"><i class="fas fa-music"></i> <span data-ru="Аудио" data-en="Audio">Аудио</span></div>
-                <div class="tab" data-category="text"><i class="fas fa-file-alt"></i> <span data-ru="Текст" data-en="Text">Текст</span></div>
-                <div class="tab" data-category="other"><i class="fas fa-file"></i> <span data-ru="Другое" data-en="Other">Другое</span></div>
+        <div class="chat-messages" id="chat-messages"></div>
+
+        <div class="chat-input-area">
+            <div class="attach-btn" id="attach-btn" title="Прикрепить файл">
+                <i class="fas fa-paperclip"></i>
             </div>
-            <ul id="received-files" class="file-list"></ul>
+            <textarea id="chat-input" rows="1" placeholder="Введите сообщение..."></textarea>
+            <button class="btn btn-primary" id="send-chat-btn" disabled>
+                <i class="fas fa-paper-plane"></i>
+            </button>
         </div>
+        <input type="file" id="file-input" multiple>
     </div>
 
     <script>
         (function() {
-            // --- Тема ---
-            const themeToggle = document.getElementById('theme-toggle');
-            const themeIcon = themeToggle.querySelector('i');
+            // --- Глобальные переменные ---
+            const API_BASE = 'https://venikshare-server.onrender.com';
+            const peerServers = [{
+                host: 'venikshare-server.onrender.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                key: 'peerjs',
+                debug: 0 // отключаем подробные логи
+            }];
+
+            // --- Тема (общая для обоих экранов) ---
+            const themeToggles = [
+                document.getElementById('login-theme-toggle'),
+                document.getElementById('chat-theme-toggle')
+            ];
+            const themeIcons = themeToggles.map(t => t.querySelector('i'));
             let currentTheme = localStorage.getItem('venikshareTheme') || 'system';
 
             function setTheme(theme) {
@@ -517,7 +555,8 @@
                 else if (currentTheme === 'system') isDark = systemDark;
 
                 document.body.classList.toggle('dark', isDark);
-                themeIcon.className = currentTheme === 'light' ? 'fas fa-sun' : (currentTheme === 'dark' ? 'fas fa-moon' : 'fas fa-circle-half-stroke');
+                const iconClass = currentTheme === 'light' ? 'fas fa-sun' : (currentTheme === 'dark' ? 'fas fa-moon' : 'fas fa-circle-half-stroke');
+                themeIcons.forEach(icon => icon.className = iconClass);
                 
                 const themeColorMeta = document.getElementById('theme-color-meta');
                 if (themeColorMeta) {
@@ -525,15 +564,17 @@
                 }
             }
 
-            themeToggle.addEventListener('click', () => {
-                if (currentTheme === 'light') setTheme('dark');
-                else if (currentTheme === 'dark') setTheme('system');
-                else setTheme('light');
+            themeToggles.forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    if (currentTheme === 'light') setTheme('dark');
+                    else if (currentTheme === 'dark') setTheme('system');
+                    else setTheme('light');
+                });
             });
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // --- Язык ---
+            // --- Язык (только на экране входа) ---
             const langToggle = document.getElementById('lang-toggle');
             const appTitle = document.getElementById('app-title');
             let currentLang = localStorage.getItem('venikshareLang') || 'ru';
@@ -547,7 +588,7 @@
 
             function updateUILanguage() {
                 appTitle.textContent = currentLang === 'ru' ? appTitle.dataset.ru : appTitle.dataset.en;
-                document.querySelectorAll('[data-ru]').forEach(el => {
+                document.querySelectorAll('#login-screen [data-ru]').forEach(el => {
                     if (el === appTitle) return;
                     const key = el.getAttribute('data-ru');
                     const en = el.getAttribute('data-en');
@@ -557,11 +598,6 @@
                         el.textContent = currentLang === 'ru' ? key : en;
                     }
                 });
-                document.querySelectorAll('.tab span').forEach(span => {
-                    const ru = span.closest('.tab').querySelector('[data-ru]')?.getAttribute('data-ru');
-                    const en = span.closest('.tab').querySelector('[data-en]')?.getAttribute('data-en');
-                    if (ru && en) span.textContent = currentLang === 'ru' ? ru : en;
-                });
             }
 
             langToggle.addEventListener('click', () => {
@@ -569,70 +605,81 @@
             });
             setLang(currentLang);
 
-            // --- Конфигурация ---
-            const API_BASE = 'https://venikshare-server.onrender.com'; // URL вашего сервера
-            const peerServers = [{
-                host: 'venikshare-server.onrender.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                key: 'peerjs',
-                debug: 2
-            }];
-
-            // --- Элементы ---
-            const debugInfo = document.getElementById('debug-info');
-            function setDebug(message) {
-                debugInfo.textContent = message;
-                console.log('[DEBUG]', message);
-            }
-
-            const peerIdDisplay = document.getElementById('peer-id-display');
+            // --- Элементы экрана входа ---
             const roomIdInput = document.getElementById('room-id-input');
             const roomPasswordInput = document.getElementById('room-password-input');
             const connectBtn = document.getElementById('connect-btn');
             const createBtn = document.getElementById('create-peer-btn');
             const connectionStatus = document.getElementById('connection-status');
+            const debugInfo = document.getElementById('debug-info');
+
+            // --- Элементы экрана чата ---
+            const loginScreen = document.getElementById('login-screen');
+            const chatScreen = document.getElementById('chat-screen');
+            const chatRoomId = document.getElementById('chat-room-id');
             const chatMessages = document.getElementById('chat-messages');
             const chatInput = document.getElementById('chat-input');
             const sendChatBtn = document.getElementById('send-chat-btn');
+            const attachBtn = document.getElementById('attach-btn');
             const fileInput = document.getElementById('file-input');
-            const folderInput = document.getElementById('folder-input');
-            const selectFilesBtn = document.getElementById('select-files-btn');
-            const selectFolderBtn = document.getElementById('select-folder-btn');
-            const sendFilesBtn = document.getElementById('send-files-btn');
-            const fileListEl = document.getElementById('file-list');
-            const receivedFilesEl = document.getElementById('received-files');
-            const globalProgress = document.getElementById('global-progress');
-            const globalProgressFill = document.getElementById('global-progress-fill');
-            const globalProgressText = document.getElementById('global-progress-text');
-            const tabs = document.querySelectorAll('.tab');
-            let currentCategory = 'all';
+            const chatExitBtn = document.getElementById('chat-exit-btn');
 
-            // --- Состояние ---
+            // --- Состояние приложения ---
             let peer = null;
-            let connections = []; // для хоста
-            let activeConn = null; // для клиента
-            let peerId = null;
-            const filesToSend = [];
-            const receivedFiles = [];
-            let nextFileId = 0;
-            const chatHistory = []; // массив объектов { text, time, own }
+            let connections = []; // все активные соединения (для хоста)
+            let activeConn = null; // для клиента (единственное соединение)
+            let isHost = false;    // true, если мы создали комнату и ждём подключений
+            let currentRoomId = null;
+
+            // --- Вспомогательные функции ---
+            function setDebug(message) {
+                debugInfo.textContent = message;
+                console.log('[DEBUG]', message);
+            }
 
             // --- Функции для работы с чатом ---
-            function addChatMessage(text, own = true) {
+            function addChatMessage(text, own = true, isFile = false, fileData = null) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
-                msgDiv.className = `chat-message ${own ? 'chat-message-own' : ''}`;
-                msgDiv.innerHTML = `
-                    <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
-                        <div class="message-text">${escapeHtml(text)}</div>
-                        <div class="message-time">${time}</div>
-                    </div>
-                `;
+                msgDiv.className = `message ${own ? 'message-own' : ''}`;
+                
+                if (isFile && fileData) {
+                    // Файловое сообщение
+                    msgDiv.innerHTML = `
+                        <div class="message-bubble file-message ${own ? 'message-bubble-own' : ''}" data-file="${fileData.id}">
+                            <div class="file-message-content">
+                                <div class="file-message-icon"><i class="fas ${getFileIcon(fileData.name)}"></i></div>
+                                <div class="file-message-info">
+                                    <div class="file-message-name">${escapeHtml(fileData.name)}</div>
+                                    <div class="file-message-size">${(fileData.size / 1024).toFixed(1)} KB</div>
+                                </div>
+                            </div>
+                            <div class="message-time">${time}</div>
+                        </div>
+                    `;
+                    // Добавляем обработчик скачивания
+                    const bubble = msgDiv.querySelector('.message-bubble');
+                    bubble.addEventListener('click', () => {
+                        if (fileData.blob) {
+                            const url = URL.createObjectURL(fileData.blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fileData.name;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        }
+                    });
+                } else {
+                    // Текстовое сообщение
+                    msgDiv.innerHTML = `
+                        <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
+                            <div class="message-text">${escapeHtml(text)}</div>
+                            <div class="message-time">${time}</div>
+                        </div>
+                    `;
+                }
                 chatMessages.appendChild(msgDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
-                chatHistory.push({ text, time, own });
             }
 
             function escapeHtml(unsafe) {
@@ -645,111 +692,67 @@
                 });
             }
 
-            // --- Функции для файлов ---
-            function getFileCategory(fileName) {
+            function getFileIcon(fileName) {
                 const ext = fileName.split('.').pop().toLowerCase();
                 const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
                 const videoExt = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv'];
                 const audioExt = ['mp3', 'flac', 'wav', 'aac', 'ogg', 'm4a'];
                 const textExt = ['txt', 'pdf', 'doc', 'docx', 'rtf', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts'];
-                if (imageExt.includes(ext)) return 'image';
-                if (videoExt.includes(ext)) return 'video';
-                if (audioExt.includes(ext)) return 'audio';
-                if (textExt.includes(ext)) return 'text';
-                return 'other';
-            }
-
-            function getFileIcon(fileName) {
-                const cat = getFileCategory(fileName);
-                if (cat === 'image') return 'fa-image';
-                if (cat === 'video') return 'fa-video';
-                if (cat === 'audio') return 'fa-music';
-                if (cat === 'text') return 'fa-file-alt';
+                if (imageExt.includes(ext)) return 'fa-image';
+                if (videoExt.includes(ext)) return 'fa-video';
+                if (audioExt.includes(ext)) return 'fa-music';
+                if (textExt.includes(ext)) return 'fa-file-alt';
                 return 'fa-file';
             }
 
-            function updateFileList() {
-                fileListEl.innerHTML = '';
-                filesToSend.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item';
-                    li.dataset.id = item.id;
-                    const pathDisplay = item.path || item.file.name;
-                    li.innerHTML = `
-                        <div class="file-item-row">
-                            <span style="display: flex; align-items: center; gap: 8px;">
-                                <i class="fas ${getFileIcon(item.file.name)}" style="color: var(--accent);"></i>
-                                <span class="file-name" title="${pathDisplay}">${pathDisplay}</span>
-                            </span>
-                            <span class="file-size">${(item.file.size / 1024).toFixed(1)} KB</span>
-                            <button class="cancel-btn" data-id="${item.id}" title="Удалить из списка">✕</button>
-                        </div>
-                        <div class="progress-bar" id="progress-${item.id}" style="display: none;">
-                            <div class="progress-fill" style="width: 0%;"></div>
-                        </div>
-                    `;
-                    li.querySelector('.cancel-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const id = parseInt(e.target.dataset.id);
-                        const idx = filesToSend.findIndex(f => f.id === id);
-                        if (idx !== -1) filesToSend.splice(idx, 1);
-                        updateFileList();
-                        updateSendButtonState();
-                    });
-                    fileListEl.appendChild(li);
-                });
-                updateSendButtonState();
+            // --- Функция переключения на экран чата ---
+            function showChatScreen(roomId) {
+                currentRoomId = roomId;
+                chatRoomId.textContent = roomId;
+                chatMessages.innerHTML = ''; // очищаем предыдущие сообщения
+                loginScreen.classList.add('screen-hidden');
+                chatScreen.classList.remove('screen-hidden');
+                // Активируем кнопки
+                sendChatBtn.disabled = false;
             }
 
-            function updateSendButtonState() {
-                const hasConnections = (connections.length > 0 || activeConn);
-                sendFilesBtn.disabled = filesToSend.length === 0 || !hasConnections;
-                sendChatBtn.disabled = !hasConnections;
+            // --- Возврат на экран входа ---
+            function exitToLogin() {
+                // Закрываем все соединения
+                if (peer) {
+                    peer.destroy();
+                    peer = null;
+                }
+                connections = [];
+                activeConn = null;
+                isHost = false;
+                currentRoomId = null;
+                chatScreen.classList.add('screen-hidden');
+                loginScreen.classList.remove('screen-hidden');
+                connectionStatus.textContent = currentLang === 'ru' ? 'Не подключено' : 'Not connected';
+                setDebug('');
             }
 
-            function addFilesFromInput(input, isFolder = false) {
-                Array.from(input.files).forEach(file => {
-                    const path = isFolder ? file.webkitRelativePath : file.name;
-                    filesToSend.push({
-                        file: file,
-                        path: path,
-                        id: nextFileId++,
-                        progress: 0,
-                        abort: false
-                    });
-                });
-                updateFileList();
-                input.value = '';
-            }
+            chatExitBtn.addEventListener('click', exitToLogin);
 
-            selectFilesBtn.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => addFilesFromInput(e.target, false));
-
-            selectFolderBtn.addEventListener('click', () => folderInput.click());
-            folderInput.addEventListener('change', (e) => addFilesFromInput(e.target, true));
-
-            // --- Копирование ID по клику ---
-            peerIdDisplay.addEventListener('click', () => {
-                const text = peerIdDisplay.textContent;
-                if (text && text !== '—') {
-                    navigator.clipboard.writeText(text).then(() => {
-                        setDebug('✅ ID скопирован в буфер обмена');
+            // --- Копирование ID комнаты ---
+            chatRoomId.addEventListener('click', () => {
+                if (currentRoomId) {
+                    navigator.clipboard.writeText(currentRoomId).then(() => {
+                        setDebug('✅ ID скопирован');
                         const original = connectionStatus.textContent;
                         connectionStatus.textContent = currentLang === 'ru' ? 'ID скопирован!' : 'ID copied!';
                         setTimeout(() => { connectionStatus.textContent = original; }, 2000);
-                    }).catch(() => setDebug('❌ Не удалось скопировать ID'));
+                    });
                 }
             });
 
-            // --- Функция настройки соединения (общая для входящих и исходящих) ---
-            function setupConnection(connection) {
-                const conn = connection;
+            // --- Функция настройки соединения (общая) ---
+            function setupConnection(conn) {
                 // Добавляем в список соединений (для хоста) или сохраняем как активное (для клиента)
                 if (!activeConn) {
                     connections.push(conn);
                 } else {
-                    // У клиента уже есть activeConn, но он может быть равен этому conn
-                    // Добавляем в список для возможности ретрансляции (если вдруг клиент станет хостом? но нет)
                     if (!connections.includes(conn)) {
                         connections.push(conn);
                     }
@@ -757,13 +760,13 @@
 
                 conn.on('open', () => {
                     connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
-                    updateSendButtonState();
+                    sendChatBtn.disabled = false;
                     setDebug('Соединение установлено');
+                    // Если это первое соединение и мы хост, то уже на экране чата
                 });
 
                 conn.on('data', (data) => {
-                    // Ретрансляция: если мы хост (activeConn === null) и у нас >1 соединений,
-                    // пересылаем данные всем остальным клиентам (кроме отправителя)
+                    // Ретрансляция: если мы хост (activeConn === null) и есть другие клиенты, пересылаем всем, кроме отправителя
                     if (activeConn === null && connections.length > 0) {
                         connections.forEach(otherConn => {
                             if (otherConn !== conn) {
@@ -772,70 +775,34 @@
                         });
                     }
 
-                    // Обработка данных локально
+                    // Обработка данных
                     if (data.type === 'file-meta') {
-                        // Начало приёма файла
+                        // Начинаем приём файла
                         const fileMeta = data;
                         const fileBuffer = [];
                         let receivedSize = 0;
                         let abortReceive = false;
 
-                        const tempId = 'recv-' + Date.now() + Math.random();
-                        const tempItem = document.createElement('li');
-                        tempItem.className = 'file-item';
-                        tempItem.dataset.id = tempId;
-                        tempItem.innerHTML = `
-                            <div class="file-item-row">
-                                <span style="display: flex; align-items: center; gap: 8px;">
-                                    <i class="fas ${getFileIcon(fileMeta.name)}" style="color: var(--accent);"></i>
-                                    <span class="file-name" title="${fileMeta.name}">${fileMeta.name}</span>
-                                </span>
-                                <span class="file-size">${(fileMeta.size / 1024).toFixed(1)} KB</span>
-                                <button class="cancel-btn" data-id="${tempId}" title="Отменить">✕</button>
-                            </div>
-                            <div class="progress-bar" id="progress-${tempId}">
-                                <div class="progress-fill" style="width: 0%;"></div>
-                            </div>
-                        `;
-                        receivedFilesEl.prepend(tempItem);
-                        const cancelBtn = tempItem.querySelector('.cancel-btn');
-                        cancelBtn.addEventListener('click', () => {
-                            abortReceive = true;
-                            tempItem.remove();
-                        });
+                        // Создаём временный элемент в чате для прогресса (опционально)
+                        // Но для простоты будем отображать только после полного получения
+                        const fileId = 'file-' + Date.now() + Math.random();
 
-                        const progressFill = tempItem.querySelector('.progress-fill');
-
-                        // Функция для обработки чанков
                         const handleChunk = (chunk) => {
                             if (abortReceive) return;
                             if (chunk.type === 'file-chunk') {
                                 fileBuffer.push(chunk.data);
                                 receivedSize += chunk.data.byteLength;
-                                const percent = (receivedSize / fileMeta.size) * 100;
-                                progressFill.style.width = percent + '%';
                             } else if (chunk.type === 'file-end') {
                                 if (!abortReceive) {
                                     const blob = new Blob(fileBuffer, { type: fileMeta.type });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = fileMeta.name;
-                                    a.click();
-                                    URL.revokeObjectURL(url);
-
-                                    receivedFiles.push({
+                                    // Добавляем сообщение в чат
+                                    addChatMessage('', false, true, {
                                         name: fileMeta.name,
                                         size: fileMeta.size,
                                         blob: blob,
-                                        category: getFileCategory(fileMeta.name)
+                                        id: fileId
                                     });
-                                    updateReceivedFiles();
-
-                                    // Добавляем сообщение в чат о получении файла
-                                    addChatMessage(`📎 Файл: ${fileMeta.name}`, false);
                                 }
-                                tempItem.remove();
                             }
                         };
 
@@ -850,7 +817,7 @@
                         });
 
                     } else if (data.type === 'text' || data.type === 'chat') {
-                        // Получено текстовое сообщение
+                        // Текстовое сообщение
                         addChatMessage(data.text, false);
                     } else {
                         console.log('Данные от собеседника:', data);
@@ -858,25 +825,24 @@
                 });
 
                 conn.on('close', () => {
-                    // Удаляем из списка соединений
                     const index = connections.indexOf(conn);
                     if (index !== -1) connections.splice(index, 1);
                     if (activeConn === conn) {
                         activeConn = null;
-                        connectionStatus.textContent = currentLang === 'ru' ? 'Соединение закрыто' : 'Connection closed';
+                        // Если это был клиент и соединение закрылось, возвращаем на вход
+                        exitToLogin();
+                    } else {
+                        setDebug('Один из клиентов отключился');
                     }
-                    updateSendButtonState();
-                    setDebug('Соединение закрыто');
                 });
 
                 conn.on('error', (err) => {
                     console.error(err);
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка соединения' : 'Connection error';
                     setDebug(`Ошибка соединения: ${err.message}`);
                 });
             }
 
-            // --- Функция отправки данных всем (хосту) или одному (клиенту) ---
+            // --- Функция отправки сообщения всем ---
             function sendToAll(data) {
                 if (activeConn) {
                     activeConn.send(data);
@@ -885,7 +851,7 @@
                 }
             }
 
-            // --- Создание комнаты ---
+            // --- Создание комнаты (хост) ---
             createBtn.addEventListener('click', async () => {
                 const roomId = roomIdInput.value.trim();
                 const password = roomPasswordInput.value.trim();
@@ -894,7 +860,6 @@
                     alert(currentLang === 'ru' ? 'Введите ID и пароль' : 'Enter room ID and password');
                     return;
                 }
-                // Разрешаем любые символы, кроме пробелов, максимум 20
                 if (roomId.length > 20) {
                     alert(currentLang === 'ru' ? 'ID слишком длинный (макс. 20 символов)' : 'ID too long (max 20 characters)');
                     return;
@@ -916,17 +881,16 @@
                     if (peer) peer.destroy();
                     connections = [];
                     activeConn = null;
-                    chatMessages.innerHTML = ''; // очистить чат
-                    chatHistory.length = 0;
+                    isHost = true;
 
                     const server = peerServers[0];
                     const newPeer = new Peer(roomId, server);
 
                     newPeer.on('open', (id) => {
                         peer = newPeer;
-                        peerIdDisplay.textContent = id;
-                        connectionStatus.textContent = currentLang === 'ru' ? 'Ожидание подключений...' : 'Waiting for connections...';
                         setDebug('✅ Комната создана. ID: ' + id);
+                        // Переходим на экран чата
+                        showChatScreen(id);
 
                         newPeer.on('connection', (connection) => {
                             setupConnection(connection);
@@ -941,7 +905,7 @@
 
                     newPeer.on('error', (err) => {
                         if (err.type === 'id-taken') {
-                            setDebug(`❌ ID ${roomId} уже занят на сервере PeerJS. Возможно, хост уже онлайн?`);
+                            setDebug(`❌ ID ${roomId} уже занят на сервере PeerJS.`);
                             alert(currentLang === 'ru' ? 'Этот ID уже используется. Возможно, комната уже активна.' : 'This ID is already in use. Maybe the room is active.');
                         } else {
                             setDebug(`❌ Ошибка при создании пира: ${err.type} — ${err.message}`);
@@ -954,7 +918,7 @@
                 }
             });
 
-            // --- Подключение к комнате ---
+            // --- Подключение к комнате (клиент) ---
             connectBtn.addEventListener('click', async () => {
                 const roomId = roomIdInput.value.trim();
                 const password = roomPasswordInput.value.trim();
@@ -986,8 +950,7 @@
                     if (peer) peer.destroy();
                     connections = [];
                     activeConn = null;
-                    chatMessages.innerHTML = '';
-                    chatHistory.length = 0;
+                    isHost = false;
 
                     const server = peerServers[0];
                     const newPeer = new Peer(server); // без ID
@@ -997,6 +960,8 @@
                         const conn = peer.connect(roomId);
                         activeConn = conn;
                         setupConnection(conn);
+                        // Переходим на экран чата
+                        showChatScreen(roomId);
                     });
 
                     newPeer.on('error', (err) => {
@@ -1016,7 +981,7 @@
                 }
             });
 
-            // --- Отправка сообщения чата ---
+            // --- Отправка текстового сообщения ---
             sendChatBtn.addEventListener('click', () => {
                 const text = chatInput.value.trim();
                 if (!text) return;
@@ -1027,7 +992,6 @@
                 // Добавляем в свой чат
                 addChatMessage(text, true);
 
-                // Очищаем поле
                 chatInput.value = '';
             });
 
@@ -1039,42 +1003,37 @@
             });
 
             // --- Отправка файлов ---
-            sendFilesBtn.addEventListener('click', async () => {
-                if (filesToSend.length === 0) return;
+            attachBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                // Определяем, кому отправляем
                 const targets = activeConn ? [activeConn] : connections;
                 if (targets.length === 0) {
                     alert(currentLang === 'ru' ? 'Нет активного соединения' : 'No active connection');
                     return;
                 }
 
-                globalProgress.style.display = 'block';
-                let totalSent = 0;
-                let totalSize = filesToSend.reduce((acc, f) => acc + f.file.size, 0);
-
-                for (let i = 0; i < filesToSend.length; i++) {
-                    const item = filesToSend[i];
-                    if (item.abort) continue;
-
-                    const fileItemEl = document.querySelector(`.file-item[data-id="${item.id}"]`);
-                    const progressBar = fileItemEl?.querySelector('.progress-bar');
-                    const progressFill = progressBar?.querySelector('.progress-fill');
-                    if (progressBar) progressBar.style.display = 'block';
-
+                for (const file of files) {
                     // Отправляем метаданные
                     targets.forEach(conn => {
                         conn.send({
                             type: 'file-meta',
-                            name: item.path || item.file.name,
-                            size: item.file.size,
-                            type: item.file.type
+                            name: file.name,
+                            size: file.size,
+                            type: file.type
                         });
                     });
 
                     const chunkSize = 16384;
                     let offset = 0;
 
-                    while (offset < item.file.size && !item.abort) {
-                        const chunk = item.file.slice(offset, offset + chunkSize);
+                    while (offset < file.size) {
+                        const chunk = file.slice(offset, offset + chunkSize);
                         const buffer = await chunk.arrayBuffer();
                         targets.forEach(conn => {
                             conn.send({
@@ -1083,73 +1042,27 @@
                             });
                         });
                         offset += chunkSize;
-
-                        const percent = (offset / item.file.size) * 100;
-                        if (progressFill) progressFill.style.width = percent + '%';
-
-                        totalSent = filesToSend.slice(0, i).reduce((acc, f) => acc + f.file.size, 0) + offset;
-                        const globalPercent = (totalSent / totalSize) * 100;
-                        globalProgressFill.style.width = globalPercent + '%';
-                        globalProgressText.textContent = (currentLang === 'ru' ? 'Отправка ' : 'Sending ') + Math.round(globalPercent) + '%';
-
+                        // Небольшая задержка для UI
                         await new Promise(r => setTimeout(r, 10));
                     }
 
-                    if (!item.abort) {
-                        targets.forEach(conn => {
-                            conn.send({ type: 'file-end' });
-                        });
+                    targets.forEach(conn => {
+                        conn.send({ type: 'file-end' });
+                    });
 
-                        // Добавляем в свои полученные (для отправителя)
-                        receivedFiles.push({
-                            name: item.path || item.file.name,
-                            size: item.file.size,
-                            category: getFileCategory(item.file.name)
-                        });
-                        updateReceivedFiles();
-
-                        // Сообщение в чат
-                        addChatMessage(`📎 Отправлен файл: ${item.path || item.file.name}`, true);
-
-                        if (fileItemEl) fileItemEl.remove();
-                    } else {
-                        if (fileItemEl) fileItemEl.remove();
-                    }
+                    // Добавляем файл в свой чат (с blob для скачивания)
+                    const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+                    addChatMessage('', true, true, {
+                        name: file.name,
+                        size: file.size,
+                        blob: blob
+                    });
                 }
 
-                filesToSend.splice(0, filesToSend.length);
-                globalProgress.style.display = 'none';
-                updateFileList();
+                fileInput.value = '';
             });
 
-            function updateReceivedFiles() {
-                receivedFilesEl.innerHTML = '';
-                const filtered = currentCategory === 'all' ? receivedFiles : receivedFiles.filter(f => f.category === currentCategory);
-                filtered.forEach((f, i) => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item';
-                    li.innerHTML = `
-                        <div class="file-item-row">
-                            <span style="display: flex; align-items: center; gap: 8px;">
-                                <i class="fas ${getFileIcon(f.name)}" style="color: var(--accent);"></i>
-                                <span class="file-name">${f.name}</span>
-                            </span>
-                            <span class="file-size">${(f.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                    `;
-                    receivedFilesEl.appendChild(li);
-                });
-            }
-
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    currentCategory = tab.dataset.category;
-                    updateReceivedFiles();
-                });
-            });
-
+            // --- Завершение работы при закрытии ---
             window.addEventListener('beforeunload', () => {
                 if (peer) peer.destroy();
             });
