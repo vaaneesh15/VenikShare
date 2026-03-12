@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* --- Стили без изменений (как в предыдущей финальной версии) --- */
         * {
             margin: 0;
             padding: 0;
@@ -441,7 +442,7 @@
         <div class="panel">
             <div id="peer-id-display" class="id-display">—</div>
             <div class="input-group">
-                <input type="text" id="room-id-input" placeholder="ID комнаты (англ буквы/цифры, 1-10)" data-ru="ID комнаты (англ буквы/цифры, 1-10)" data-en="Room ID (a-z,0-9, 1-10)">
+                <input type="text" id="room-id-input" placeholder="ID комнаты (любые символы, до 20)" data-ru="ID комнаты (любые символы, до 20)" data-en="Room ID (any chars, max 20)">
             </div>
             <div class="input-group">
                 <input type="password" id="room-password-input" placeholder="Пароль" data-ru="Пароль" data-en="Password">
@@ -748,8 +749,7 @@
                     connections.push(conn);
                 } else {
                     // У клиента уже есть activeConn, но он может быть равен этому conn
-                    // Для клиента мы уже сохранили activeConn ранее, поэтому просто добавим его в список,
-                    // чтобы можно было отправлять всем (но клиент обычно только с одним)
+                    // Добавляем в список для возможности ретрансляции (если вдруг клиент станет хостом? но нет)
                     if (!connections.includes(conn)) {
                         connections.push(conn);
                     }
@@ -762,6 +762,17 @@
                 });
 
                 conn.on('data', (data) => {
+                    // Ретрансляция: если мы хост (activeConn === null) и у нас >1 соединений,
+                    // пересылаем данные всем остальным клиентам (кроме отправителя)
+                    if (activeConn === null && connections.length > 0) {
+                        connections.forEach(otherConn => {
+                            if (otherConn !== conn) {
+                                otherConn.send(data);
+                            }
+                        });
+                    }
+
+                    // Обработка данных локально
                     if (data.type === 'file-meta') {
                         // Начало приёма файла
                         const fileMeta = data;
@@ -821,7 +832,7 @@
                                     });
                                     updateReceivedFiles();
 
-                                    // Добавляем сообщение в чат о получении файла (опционально)
+                                    // Добавляем сообщение в чат о получении файла
                                     addChatMessage(`📎 Файл: ${fileMeta.name}`, false);
                                 }
                                 tempItem.remove();
@@ -838,11 +849,8 @@
                             }
                         });
 
-                    } else if (data.type === 'text') {
+                    } else if (data.type === 'text' || data.type === 'chat') {
                         // Получено текстовое сообщение
-                        addChatMessage(data.text, false);
-                    } else if (data.type === 'chat') {
-                        // Альтернативный тип для чата (если используем)
                         addChatMessage(data.text, false);
                     } else {
                         console.log('Данные от собеседника:', data);
@@ -886,8 +894,9 @@
                     alert(currentLang === 'ru' ? 'Введите ID и пароль' : 'Enter room ID and password');
                     return;
                 }
-                if (!/^[a-zA-Z0-9]{1,10}$/.test(roomId)) {
-                    alert(currentLang === 'ru' ? 'ID должен содержать только буквы и цифры, 1-10 символов' : 'ID must be 1-10 alphanumeric characters');
+                // Разрешаем любые символы, кроме пробелов, максимум 20
+                if (roomId.length > 20) {
+                    alert(currentLang === 'ru' ? 'ID слишком длинный (макс. 20 символов)' : 'ID too long (max 20 characters)');
                     return;
                 }
 
