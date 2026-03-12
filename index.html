@@ -711,7 +711,9 @@
                         body: JSON.stringify({ roomId, password })
                     });
                     const data = await response.json();
-                    if (!response.ok) throw new Error(data.error || 'Ошибка сервера');
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Ошибка сервера');
+                    }
 
                     setDebug('✅ Комната зарегистрирована, создаём пир...');
                     if (peer) peer.destroy();
@@ -773,9 +775,13 @@
                     });
                     const data = await response.json();
                     if (!response.ok) {
-                        if (response.status === 404) throw new Error('Комната не найдена. Возможно, она не создана или истек срок действия.');
-                        if (response.status === 401) throw new Error('Неверный пароль');
-                        throw new Error(data.error || 'Ошибка сервера');
+                        if (response.status === 404) {
+                            throw new Error('Комната не найдена. Возможно, она не создана или истек срок действия.');
+                        } else if (response.status === 401) {
+                            throw new Error('Неверный пароль');
+                        } else {
+                            throw new Error(data.error || 'Ошибка сервера');
+                        }
                     }
 
                     setDebug('✅ Комната существует, подключаемся к пиру...');
