@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Веникшер</title>
     
-    <!-- PWA / Метатеги -->
+    <!-- PWA метатеги -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Веникшер">
     <meta name="theme-color" id="theme-color-meta" content="#4a3aff">
     <link rel="manifest" href="manifest.json">
     
-    <!-- PeerJS -->
+    <!-- PeerJS и Font Awesome -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Стили полностью как в предыдущей версии (без изменений) */
         * {
             margin: 0;
             padding: 0;
@@ -251,10 +251,14 @@
             border-radius: 30px;
             padding: 12px 16px;
             margin-bottom: 8px;
+            border: 1px solid var(--card-border);
+            position: relative;
+        }
+
+        .file-item-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid var(--card-border);
         }
 
         .file-name {
@@ -277,7 +281,7 @@
             background: var(--progress-bg);
             border-radius: 10px;
             overflow: hidden;
-            margin: 12px 0;
+            margin: 8px 0;
         }
 
         .progress-fill {
@@ -340,13 +344,22 @@
             resize: none;
             margin-bottom: 12px;
         }
+
+        .cancel-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
         <div class="header">
             <div class="lang-toggle" id="lang-toggle">RU</div>
-            <h1>Веникшер</h1>
+            <h1 id="app-title" data-ru="Веникшер" data-en="VenikShare">Веникшер</h1>
             <div class="theme-toggle" id="theme-toggle">
                 <i class="fas fa-sun"></i>
             </div>
@@ -373,18 +386,20 @@
         </div>
 
         <div class="panel">
-            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📎 Файлы для отправки" data-en="📎 Files to send">📎 Файлы для отправки</h3>
+            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📎 Файлы и папки" data-en="📎 Files & Folders">📎 Файлы и папки</h3>
             <input type="file" id="file-input" multiple style="display: none;">
+            <input type="file" id="folder-input" webkitdirectory multiple style="display: none;">
             <div class="flex">
                 <button class="btn" id="select-files-btn" data-ru="Выбрать файлы" data-en="Select files">Выбрать файлы</button>
-                <button class="btn" id="send-files-btn" disabled data-ru="Отправить" data-en="Send">Отправить</button>
+                <button class="btn" id="select-folder-btn" data-ru="Выбрать папку" data-en="Select folder">Выбрать папку</button>
+                <button class="btn" id="send-files-btn" disabled data-ru="Отправить всё" data-en="Send all">Отправить всё</button>
             </div>
             <ul id="file-list" class="file-list"></ul>
-            <div id="progress-container" style="display: none;">
+            <div id="global-progress" style="display: none;">
                 <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
+                    <div id="global-progress-fill" class="progress-fill"></div>
                 </div>
-                <div id="progress-text" class="status"></div>
+                <div id="global-progress-text" class="status"></div>
             </div>
         </div>
 
@@ -407,11 +422,11 @@
             // --- Тема ---
             const themeToggle = document.getElementById('theme-toggle');
             const themeIcon = themeToggle.querySelector('i');
-            let currentTheme = localStorage.getItem('venishareTheme') || 'system';
+            let currentTheme = localStorage.getItem('venikshareTheme') || 'system';
 
             function setTheme(theme) {
                 currentTheme = theme;
-                localStorage.setItem('venishareTheme', theme);
+                localStorage.setItem('venikshareTheme', theme);
                 applyTheme();
             }
 
@@ -440,17 +455,23 @@
 
             // --- Язык ---
             const langToggle = document.getElementById('lang-toggle');
-            let currentLang = localStorage.getItem('venishareLang') || 'ru';
+            const appTitle = document.getElementById('app-title');
+            let currentLang = localStorage.getItem('venikshareLang') || 'ru';
 
             function setLang(lang) {
                 currentLang = lang;
-                localStorage.setItem('venishareLang', lang);
+                localStorage.setItem('venikshareLang', lang);
                 langToggle.textContent = lang.toUpperCase();
                 updateUILanguage();
             }
 
             function updateUILanguage() {
+                // Заголовок приложения
+                appTitle.textContent = currentLang === 'ru' ? appTitle.dataset.ru : appTitle.dataset.en;
+                
+                // Все остальные элементы с атрибутами
                 document.querySelectorAll('[data-ru]').forEach(el => {
+                    if (el === appTitle) return; // уже обработали
                     const key = el.getAttribute('data-ru');
                     const en = el.getAttribute('data-en');
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
@@ -459,7 +480,7 @@
                         el.textContent = currentLang === 'ru' ? key : en;
                     }
                 });
-                // Обновить вкладки (текст внутри span)
+                // Вкладки (текст внутри span)
                 document.querySelectorAll('.tab span').forEach(span => {
                     const ru = span.closest('.tab').querySelector('[data-ru]')?.getAttribute('data-ru');
                     const en = span.closest('.tab').querySelector('[data-en]')?.getAttribute('data-en');
@@ -470,14 +491,15 @@
             langToggle.addEventListener('click', () => {
                 setLang(currentLang === 'ru' ? 'en' : 'ru');
             });
-            setLang(currentLang); // инициализация
+            setLang(currentLang);
 
-            // --- PeerJS логика (как в предыдущей версии, с дополнениями для текста) ---
+            // --- PeerJS логика (без истории) ---
             let peer = null;
             let conn = null;
             let peerId = null;
-            const filesToSend = [];
-            const receivedFiles = [];
+            const filesToSend = [];          // массив объектов { file, path, id, progress, abort }
+            const receivedFiles = [];         // полученные файлы
+            let nextFileId = 0;
 
             // Элементы
             const peerIdDisplay = document.getElementById('peer-id-display');
@@ -486,19 +508,21 @@
             const createBtn = document.getElementById('create-peer-btn');
             const connectionStatus = document.getElementById('connection-status');
             const fileInput = document.getElementById('file-input');
+            const folderInput = document.getElementById('folder-input');
             const selectFilesBtn = document.getElementById('select-files-btn');
+            const selectFolderBtn = document.getElementById('select-folder-btn');
             const sendFilesBtn = document.getElementById('send-files-btn');
             const fileListEl = document.getElementById('file-list');
             const receivedFilesEl = document.getElementById('received-files');
-            const progressContainer = document.getElementById('progress-container');
-            const progressFill = document.getElementById('progress-fill');
-            const progressText = document.getElementById('progress-text');
+            const globalProgress = document.getElementById('global-progress');
+            const globalProgressFill = document.getElementById('global-progress-fill');
+            const globalProgressText = document.getElementById('global-progress-text');
             const textMessage = document.getElementById('text-message');
             const sendTextBtn = document.getElementById('send-text-btn');
             const tabs = document.querySelectorAll('.tab');
             let currentCategory = 'all';
 
-            // --- Функция определения категории файла по расширению ---
+            // --- Функция определения категории файла ---
             function getFileCategory(fileName) {
                 const ext = fileName.split('.').pop().toLowerCase();
                 const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
@@ -512,64 +536,6 @@
                 return 'other';
             }
 
-            // --- Обновление списка полученных файлов с учётом выбранной вкладки ---
-            function updateReceivedFiles() {
-                receivedFilesEl.innerHTML = '';
-                const filtered = currentCategory === 'all' ? receivedFiles : receivedFiles.filter(f => f.category === currentCategory);
-                filtered.forEach((f, i) => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item';
-                    let icon = 'fa-file';
-                    if (f.category === 'image') icon = 'fa-image';
-                    else if (f.category === 'video') icon = 'fa-video';
-                    else if (f.category === 'audio') icon = 'fa-music';
-                    else if (f.category === 'text') icon = 'fa-file-alt';
-                    li.innerHTML = `
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas ${icon}" style="color: var(--accent);"></i>
-                            <span class="file-name">${f.name}</span>
-                        </span>
-                        <span class="file-size">${(f.size / 1024).toFixed(1)} KB</span>
-                    `;
-                    receivedFilesEl.appendChild(li);
-                });
-            }
-
-            // --- Переключение вкладок ---
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    currentCategory = tab.dataset.category;
-                    updateReceivedFiles();
-                });
-            });
-
-            // --- Обновление списка выбранных файлов ---
-            function updateFileList() {
-                fileListEl.innerHTML = '';
-                filesToSend.forEach((file, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item';
-                    li.innerHTML = `
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas ${getFileIcon(file.name)}" style="color: var(--accent);"></i>
-                            <span class="file-name">${file.name}</span>
-                        </span>
-                        <span class="file-size">${(file.size / 1024).toFixed(1)} KB</span>
-                        <button class="btn" style="padding:4px 8px;" data-index="${index}">✕</button>
-                    `;
-                    li.querySelector('button').addEventListener('click', (e) => {
-                        const idx = e.target.dataset.index;
-                        filesToSend.splice(idx, 1);
-                        updateFileList();
-                        sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
-                    });
-                    fileListEl.appendChild(li);
-                });
-                sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
-            }
-
             function getFileIcon(fileName) {
                 const cat = getFileCategory(fileName);
                 if (cat === 'image') return 'fa-image';
@@ -579,12 +545,61 @@
                 return 'fa-file';
             }
 
-            selectFilesBtn.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => {
-                Array.from(e.target.files).forEach(f => filesToSend.push(f));
+            // --- Обновление списка файлов для отправки ---
+            function updateFileList() {
+                fileListEl.innerHTML = '';
+                filesToSend.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item';
+                    li.dataset.id = item.id;
+                    const pathDisplay = item.path || item.file.name;
+                    li.innerHTML = `
+                        <div class="file-item-row">
+                            <span style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas ${getFileIcon(item.file.name)}" style="color: var(--accent);"></i>
+                                <span class="file-name" title="${pathDisplay}">${pathDisplay}</span>
+                            </span>
+                            <span class="file-size">${(item.file.size / 1024).toFixed(1)} KB</span>
+                            <button class="cancel-btn" data-id="${item.id}" title="Удалить из списка">✕</button>
+                        </div>
+                        <div class="progress-bar" id="progress-${item.id}" style="display: none;">
+                            <div class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    `;
+                    li.querySelector('.cancel-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const id = parseInt(e.target.dataset.id);
+                        const idx = filesToSend.findIndex(f => f.id === id);
+                        if (idx !== -1) filesToSend.splice(idx, 1);
+                        updateFileList();
+                        sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
+                    });
+                    fileListEl.appendChild(li);
+                });
+                sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
+            }
+
+            // --- Добавление файлов (из обычного выбора или папки) ---
+            function addFilesFromInput(input, isFolder = false) {
+                Array.from(input.files).forEach(file => {
+                    const path = isFolder ? file.webkitRelativePath : file.name;
+                    filesToSend.push({
+                        file: file,
+                        path: path,
+                        id: nextFileId++,
+                        progress: 0,
+                        abort: false
+                    });
+                });
                 updateFileList();
-                fileInput.value = '';
-            });
+                input.value = '';
+            }
+
+            selectFilesBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => addFilesFromInput(e.target, false));
+
+            selectFolderBtn.addEventListener('click', () => folderInput.click());
+            folderInput.addEventListener('change', (e) => addFilesFromInput(e.target, true));
 
             // --- Создание комнаты ---
             createBtn.addEventListener('click', async () => {
@@ -629,6 +644,7 @@
                 }
             });
 
+            // --- Настройка соединения (обработчики) ---
             function setupConnection(connection) {
                 conn = connection;
                 
@@ -640,41 +656,72 @@
 
                 conn.on('data', (data) => {
                     if (data.type === 'file-meta') {
-                        // Приём файла
+                        // Начало приёма файла
                         const fileMeta = data;
                         const fileBuffer = [];
                         let receivedSize = 0;
+                        let abortReceive = false;
 
+                        // Показываем прогресс в списке полученных (создаём временный элемент)
+                        const tempId = 'recv-' + Date.now() + Math.random();
+                        const tempItem = document.createElement('li');
+                        tempItem.className = 'file-item';
+                        tempItem.dataset.id = tempId;
+                        tempItem.innerHTML = `
+                            <div class="file-item-row">
+                                <span style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas ${getFileIcon(fileMeta.name)}" style="color: var(--accent);"></i>
+                                    <span class="file-name" title="${fileMeta.name}">${fileMeta.name}</span>
+                                </span>
+                                <span class="file-size">${(fileMeta.size / 1024).toFixed(1)} KB</span>
+                                <button class="cancel-btn" data-id="${tempId}" title="Отменить">✕</button>
+                            </div>
+                            <div class="progress-bar" id="progress-${tempId}">
+                                <div class="progress-fill" style="width: 0%;"></div>
+                            </div>
+                        `;
+                        receivedFilesEl.prepend(tempItem);
+                        const cancelBtn = tempItem.querySelector('.cancel-btn');
+                        cancelBtn.addEventListener('click', () => {
+                            abortReceive = true;
+                            tempItem.remove();
+                        });
+
+                        const progressFill = tempItem.querySelector('.progress-fill');
+
+                        // Временный обработчик для получения чанков
                         const handleChunk = (chunk) => {
+                            if (abortReceive) return;
                             if (chunk.type === 'file-chunk') {
                                 fileBuffer.push(chunk.data);
                                 receivedSize += chunk.data.byteLength;
-                                const progress = (receivedSize / fileMeta.size) * 100;
-                                progressContainer.style.display = 'block';
-                                progressFill.style.width = progress + '%';
-                                progressText.textContent = (currentLang === 'ru' ? 'Получение ' : 'Receiving ') + fileMeta.name + ': ' + Math.round(progress) + '%';
+                                const percent = (receivedSize / fileMeta.size) * 100;
+                                progressFill.style.width = percent + '%';
                             } else if (chunk.type === 'file-end') {
-                                const blob = new Blob(fileBuffer, { type: fileMeta.type });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = fileMeta.name;
-                                a.click();
-                                URL.revokeObjectURL(url);
+                                if (!abortReceive) {
+                                    const blob = new Blob(fileBuffer, { type: fileMeta.type });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = fileMeta.name; // имя файла
+                                    a.click();
+                                    URL.revokeObjectURL(url);
 
-                                receivedFiles.push({ 
-                                    name: fileMeta.name, 
-                                    size: fileMeta.size, 
-                                    blob, 
-                                    category: getFileCategory(fileMeta.name) 
-                                });
-                                updateReceivedFiles();
-
-                                progressContainer.style.display = 'none';
-                                progressFill.style.width = '0%';
+                                    // Добавляем в полученные
+                                    const fileEntry = {
+                                        name: fileMeta.name,
+                                        size: fileMeta.size,
+                                        blob: blob,
+                                        category: getFileCategory(fileMeta.name)
+                                    };
+                                    receivedFiles.push(fileEntry);
+                                    updateReceivedFiles();
+                                }
+                                tempItem.remove();
                             }
                         };
 
+                        // Перенаправляем обработку
                         const originalDataHandler = conn.on('data');
                         conn.on('data', (d) => {
                             if (d.type === 'file-chunk' || d.type === 'file-end') {
@@ -685,9 +732,7 @@
                         });
 
                     } else if (data.type === 'text') {
-                        // Получен текст
                         alert(currentLang === 'ru' ? 'Сообщение: ' + data.text : 'Message: ' + data.text);
-                        // Можно также добавить в отдельный список, но для простоты пока алерт
                     } else {
                         console.log('Данные от собеседника:', data);
                     }
@@ -716,55 +761,107 @@
                 }
             });
 
-            // --- Отправка файлов ---
+            // --- Отправка всех файлов ---
             sendFilesBtn.addEventListener('click', async () => {
                 if (!conn || filesToSend.length === 0) return;
 
-                for (const file of filesToSend) {
+                globalProgress.style.display = 'block';
+                let totalSent = 0;
+                let totalSize = filesToSend.reduce((acc, f) => acc + f.file.size, 0);
+
+                for (let i = 0; i < filesToSend.length; i++) {
+                    const item = filesToSend[i];
+                    if (item.abort) continue;
+
+                    const fileItemEl = document.querySelector(`.file-item[data-id="${item.id}"]`);
+                    const progressBar = fileItemEl?.querySelector('.progress-bar');
+                    const progressFill = progressBar?.querySelector('.progress-fill');
+                    if (progressBar) progressBar.style.display = 'block';
+
                     conn.send({
                         type: 'file-meta',
-                        name: file.name,
-                        size: file.size,
-                        type: file.type
+                        name: item.path || item.file.name,
+                        size: item.file.size,
+                        type: item.file.type
                     });
 
                     const chunkSize = 16384;
                     let offset = 0;
 
-                    while (offset < file.size) {
-                        const chunk = file.slice(offset, offset + chunkSize);
+                    while (offset < item.file.size && !item.abort) {
+                        const chunk = item.file.slice(offset, offset + chunkSize);
                         const buffer = await chunk.arrayBuffer();
                         conn.send({
                             type: 'file-chunk',
                             data: buffer
                         });
                         offset += chunkSize;
-                        
-                        const progress = (offset / file.size) * 100;
-                        progressContainer.style.display = 'block';
-                        progressFill.style.width = progress + '%';
-                        progressText.textContent = (currentLang === 'ru' ? 'Отправка ' : 'Sending ') + file.name + ': ' + Math.round(progress) + '%';
+
+                        const percent = (offset / item.file.size) * 100;
+                        if (progressFill) progressFill.style.width = percent + '%';
+
+                        totalSent = filesToSend.slice(0, i).reduce((acc, f) => acc + f.file.size, 0) + offset;
+                        const globalPercent = (totalSent / totalSize) * 100;
+                        globalProgressFill.style.width = globalPercent + '%';
+                        globalProgressText.textContent = (currentLang === 'ru' ? 'Отправка ' : 'Sending ') + Math.round(globalPercent) + '%';
 
                         await new Promise(r => setTimeout(r, 10));
                     }
 
-                    conn.send({ type: 'file-end' });
+                    if (!item.abort) {
+                        conn.send({ type: 'file-end' });
 
-                    receivedFiles.push({ 
-                        name: file.name, 
-                        size: file.size, 
-                        outgoing: true, 
-                        category: getFileCategory(file.name) 
-                    });
-                    updateReceivedFiles();
+                        // Добавляем в полученные (для себя)
+                        const fileEntry = {
+                            name: item.path || item.file.name,
+                            size: item.file.size,
+                            category: getFileCategory(item.file.name)
+                        };
+                        receivedFiles.push(fileEntry);
+                        updateReceivedFiles();
+
+                        if (fileItemEl) fileItemEl.remove();
+                    } else {
+                        if (fileItemEl) fileItemEl.remove();
+                    }
                 }
 
-                filesToSend.length = 0;
+                filesToSend.splice(0, filesToSend.length);
+                globalProgress.style.display = 'none';
                 updateFileList();
-                progressContainer.style.display = 'none';
             });
 
-            // Очистка при разрыве
+            // --- Обновление списка полученных файлов ---
+            function updateReceivedFiles() {
+                receivedFilesEl.innerHTML = '';
+                const filtered = currentCategory === 'all' ? receivedFiles : receivedFiles.filter(f => f.category === currentCategory);
+                filtered.forEach((f, i) => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item';
+                    li.innerHTML = `
+                        <div class="file-item-row">
+                            <span style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas ${getFileIcon(f.name)}" style="color: var(--accent);"></i>
+                                <span class="file-name">${f.name}</span>
+                            </span>
+                            <span class="file-size">${(f.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                    `;
+                    receivedFilesEl.appendChild(li);
+                });
+            }
+
+            // --- Переключение вкладок ---
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentCategory = tab.dataset.category;
+                    updateReceivedFiles();
+                });
+            });
+
+            // --- Очистка при закрытии ---
             window.addEventListener('beforeunload', () => {
                 if (peer) peer.destroy();
             });
