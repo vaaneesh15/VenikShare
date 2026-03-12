@@ -106,9 +106,10 @@
         .login-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center; /* центрируем по горизонтали */
             margin-bottom: 24px;
             flex-shrink: 0;
+            position: relative;
         }
 
         .login-header h1 {
@@ -119,7 +120,6 @@
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
             text-align: center;
-            flex: 1;
         }
 
         .theme-toggle {
@@ -135,6 +135,9 @@
             border: 1px solid var(--container-border);
             color: var(--accent);
             font-size: 20px;
+            position: absolute;
+            right: 0;
+            top: 0;
         }
 
         .theme-toggle:active {
@@ -245,6 +248,7 @@
             width: 40px;
             height: 40px;
             font-size: 18px;
+            position: static; /* убираем абсолютное позиционирование */
         }
 
         .chat-room-id {
@@ -409,9 +413,6 @@
             <div class="input-group">
                 <input type="text" id="room-id-input" placeholder="ID комнаты (латиница, цифры, дефис, _)">
             </div>
-            <div class="input-group">
-                <input type="password" id="room-password-input" placeholder="Пароль">
-            </div>
             <div class="flex-col">
                 <button class="btn" id="connect-btn">Подключиться</button>
                 <button class="btn btn-primary" id="create-peer-btn">➕ Создать комнату</button>
@@ -449,28 +450,17 @@
 
     <script>
         (function() {
-            // --- Глобальные переменные ---
-            const API_BASE = 'https://venikshare-server.onrender.com';
-            const peerServers = [{
-                host: 'venikshare-server.onrender.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                key: 'peerjs',
-                debug: 0
-            }];
-
             // --- Тема ---
             const themeToggles = [
                 document.getElementById('login-theme-toggle'),
                 document.getElementById('chat-theme-toggle')
             ];
             const themeIcons = themeToggles.map(t => t.querySelector('i'));
-            let currentTheme = localStorage.getItem('venikshareTheme') || 'system';
+            let currentTheme = localStorage.getItem('chatxTheme') || 'system';
 
             function setTheme(theme) {
                 currentTheme = theme;
-                localStorage.setItem('venikshareTheme', theme);
+                localStorage.setItem('chatxTheme', theme);
                 applyTheme();
             }
 
@@ -502,24 +492,21 @@
 
             // --- Имя пользователя ---
             const usernameInput = document.getElementById('username-input');
-            let myUsername = localStorage.getItem('venikshareUsername') || 'Аноним';
+            let myUsername = localStorage.getItem('chatxUsername') || 'Аноним';
             usernameInput.value = myUsername;
             usernameInput.addEventListener('change', () => {
                 myUsername = usernameInput.value.trim() || 'Аноним';
-                localStorage.setItem('venikshareUsername', myUsername);
+                localStorage.setItem('chatxUsername', myUsername);
                 const mySpan = document.getElementById('my-username');
                 if (mySpan) mySpan.textContent = myUsername;
             });
 
-            // --- Элементы экрана входа ---
+            // --- Элементы ---
             const roomIdInput = document.getElementById('room-id-input');
-            const roomPasswordInput = document.getElementById('room-password-input');
             const connectBtn = document.getElementById('connect-btn');
             const createBtn = document.getElementById('create-peer-btn');
             const connectionStatus = document.getElementById('connection-status');
             const debugInfo = document.getElementById('debug-info');
-
-            // --- Элементы экрана чата ---
             const loginScreen = document.getElementById('login-screen');
             const chatScreen = document.getElementById('chat-screen');
             const chatRoomId = document.getElementById('chat-room-id');
@@ -532,23 +519,15 @@
 
             // --- Состояние ---
             let peer = null;
-            let connections = []; // все активные соединения (для хоста)
+            let connections = []; // все соединения (для хоста)
             let activeConn = null; // для клиента (единственное соединение)
             let isHost = false;
             let currentRoomId = null;
-            const connectionOpen = new Map(); // conn -> boolean
 
-            function setDebug(message) {
-                debugInfo.textContent = message;
-                console.log('[DEBUG]', message);
-            }
-
-            function updateParticipantCount() {
-                if (isHost) {
-                    participantCount.textContent = connections.length + 1;
-                } else {
-                    participantCount.textContent = activeConn ? 2 : 1;
-                }
+            // --- Вспомогательные ---
+            function setDebug(msg) {
+                debugInfo.textContent = msg;
+                console.log('[DEBUG]', msg);
             }
 
             function escapeHtml(unsafe) {
@@ -578,6 +557,14 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
 
+            function updateParticipantCount() {
+                if (isHost) {
+                    participantCount.textContent = connections.length + 1;
+                } else {
+                    participantCount.textContent = activeConn ? 2 : 1;
+                }
+            }
+
             function showChatScreen(roomId) {
                 currentRoomId = roomId;
                 chatRoomId.textContent = roomId;
@@ -597,7 +584,6 @@
                 activeConn = null;
                 isHost = false;
                 currentRoomId = null;
-                connectionOpen.clear();
                 chatScreen.classList.add('screen-hidden');
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = 'Не подключено';
@@ -617,22 +603,18 @@
                 }
             });
 
-            // --- Настройка соединения ---
+            // --- Настройка соединения (общая для входящих и исходящих) ---
             function setupConnection(conn) {
                 if (isHost) {
                     connections.push(conn);
-                    setDebug(`Новый клиент подключается. Всего клиентов: ${connections.length}`);
                 } else {
                     activeConn = conn;
-                    connections.push(conn);
+                    connections.push(conn); // для удобства
                 }
-
-                connectionOpen.set(conn, false);
 
                 conn.on('open', () => {
                     connectionStatus.textContent = `✅ Подключено к ${conn.peer}`;
                     setDebug('Соединение установлено');
-                    connectionOpen.set(conn, true);
                     updateParticipantCount();
                 });
 
@@ -640,13 +622,13 @@
                     // Ретрансляция для хоста
                     if (isHost && connections.length > 0) {
                         connections.forEach(otherConn => {
-                            if (otherConn !== conn && connectionOpen.get(otherConn)) {
+                            if (otherConn !== conn) {
                                 otherConn.send(data);
                             }
                         });
                     }
 
-                    // Обработка данных (только текстовые сообщения)
+                    // Принимаем сообщение
                     if (data.type === 'text') {
                         addChatMessage(data.sender, data.text, false);
                     }
@@ -655,7 +637,6 @@
                 conn.on('close', () => {
                     const index = connections.indexOf(conn);
                     if (index !== -1) connections.splice(index, 1);
-                    connectionOpen.delete(conn);
                     if (activeConn === conn) {
                         activeConn = null;
                         exitToLogin();
@@ -671,159 +652,91 @@
                 });
             }
 
-            // --- Отправка данных только по открытым соединениям ---
+            // --- Отправка всем ---
             function sendToAll(data) {
                 if (activeConn) {
-                    if (connectionOpen.get(activeConn)) {
-                        activeConn.send(data);
-                    } else {
-                        setDebug('⚠️ Соединение ещё не открыто, сообщение не отправлено');
-                    }
+                    activeConn.send(data);
                 } else if (connections.length > 0) {
-                    connections.forEach(conn => {
-                        if (connectionOpen.get(conn)) {
-                            conn.send(data);
-                        }
-                    });
+                    connections.forEach(conn => conn.send(data));
                 }
-                // Если никого нет, ничего не отправляем
             }
 
             // --- Создание комнаты ---
-            createBtn.addEventListener('click', async () => {
+            createBtn.addEventListener('click', () => {
                 const roomId = roomIdInput.value.trim();
-                const password = roomPasswordInput.value.trim();
-
-                if (!roomId || !password) {
-                    alert('Введите ID и пароль');
+                if (!roomId) {
+                    alert('Введите ID комнаты');
                     return;
                 }
-                if (roomId.length > 20) {
-                    alert('ID слишком длинный (макс. 20 символов)');
-                    return;
-                }
-                // Проверка на допустимые символы (латиница, цифры, дефис, подчеркивание)
                 if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
                     alert('ID может содержать только латинские буквы, цифры, дефис и подчеркивание');
                     return;
                 }
 
-                setDebug('🔄 Регистрация комнаты на сервере...');
-                try {
-                    const response = await fetch(`${API_BASE}/api/rooms`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ roomId, password })
+                if (peer) peer.destroy();
+                connections = [];
+                activeConn = null;
+                isHost = true;
+
+                setDebug('Создаём комнату...');
+                const server = { host: 'venikshare-server.onrender.com', port: 443, path: '/', secure: true, key: 'peerjs' };
+                const newPeer = new Peer(roomId, server);
+
+                newPeer.on('open', (id) => {
+                    peer = newPeer;
+                    setDebug('✅ Комната создана, ID: ' + id);
+                    showChatScreen(id);
+
+                    newPeer.on('connection', (connection) => {
+                        setupConnection(connection);
                     });
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Ошибка сервера');
+                });
+
+                newPeer.on('error', (err) => {
+                    setDebug('❌ Ошибка: ' + err.type);
+                    if (err.type === 'id-taken') {
+                        alert('Этот ID уже занят. Попробуйте другой.');
+                    } else {
+                        alert('Не удалось создать комнату: ' + err.type);
                     }
-
-                    setDebug('✅ Комната зарегистрирована, создаём пир...');
-                    if (peer) peer.destroy();
-                    connections = [];
-                    activeConn = null;
-                    isHost = true;
-                    connectionOpen.clear();
-
-                    const server = peerServers[0];
-                    const newPeer = new Peer(roomId, server);
-
-                    newPeer.on('open', (id) => {
-                        peer = newPeer;
-                        setDebug('✅ Комната создана. ID: ' + id);
-                        showChatScreen(id);
-
-                        newPeer.on('connection', (connection) => {
-                            setupConnection(connection);
-                        });
-
-                        newPeer.on('error', (err) => {
-                            console.error(err);
-                            connectionStatus.textContent = 'Ошибка: ' + err.type;
-                            setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
-                        });
-                    });
-
-                    newPeer.on('error', (err) => {
-                        if (err.type === 'id-taken') {
-                            setDebug(`❌ ID ${roomId} уже занят на сервере PeerJS.`);
-                            alert('Этот ID уже используется. Возможно, комната уже активна.');
-                        } else {
-                            setDebug(`❌ Ошибка при создании пира: ${err.type} — ${err.message}`);
-                        }
-                    });
-
-                } catch (err) {
-                    setDebug('❌ ' + err.message);
-                    alert(err.message);
-                }
+                });
             });
 
             // --- Подключение к комнате ---
-            connectBtn.addEventListener('click', async () => {
+            connectBtn.addEventListener('click', () => {
                 const roomId = roomIdInput.value.trim();
-                const password = roomPasswordInput.value.trim();
-
-                if (!roomId || !password) {
-                    alert('Введите ID и пароль');
+                if (!roomId) {
+                    alert('Введите ID комнаты');
                     return;
                 }
 
-                setDebug('🔄 Проверка комнаты на сервере...');
-                try {
-                    const response = await fetch(`${API_BASE}/api/rooms/check`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ roomId, password })
-                    });
-                    const data = await response.json();
-                    if (!response.ok) {
-                        if (response.status === 404) {
-                            throw new Error('Комната не найдена. Возможно, она не создана или истек срок действия.');
-                        } else if (response.status === 401) {
-                            throw new Error('Неверный пароль');
-                        } else {
-                            throw new Error(data.error || 'Ошибка сервера');
-                        }
+                if (peer) peer.destroy();
+                connections = [];
+                activeConn = null;
+                isHost = false;
+
+                setDebug('Подключаемся...');
+                const server = { host: 'venikshare-server.onrender.com', port: 443, path: '/', secure: true, key: 'peerjs' };
+                const newPeer = new Peer(server);
+
+                newPeer.on('open', () => {
+                    peer = newPeer;
+                    const conn = peer.connect(roomId);
+                    setupConnection(conn);
+                    showChatScreen(roomId);
+                });
+
+                newPeer.on('error', (err) => {
+                    setDebug('❌ Ошибка: ' + err.type);
+                    if (err.type === 'peer-unavailable') {
+                        alert('Хост не в сети. Комната не существует или хост отключился.');
+                    } else {
+                        alert('Ошибка подключения: ' + err.type);
                     }
-
-                    setDebug('✅ Комната существует, подключаемся к пиру...');
-                    if (peer) peer.destroy();
-                    connections = [];
-                    activeConn = null;
-                    isHost = false;
-                    connectionOpen.clear();
-
-                    const server = peerServers[0];
-                    const newPeer = new Peer(server);
-
-                    newPeer.on('open', () => {
-                        peer = newPeer;
-                        const conn = peer.connect(roomId);
-                        setupConnection(conn);
-                        showChatScreen(roomId);
-                    });
-
-                    newPeer.on('error', (err) => {
-                        console.error(err);
-                        if (err.type === 'peer-unavailable') {
-                            connectionStatus.textContent = '❌ Хост не в сети';
-                            setDebug('Пир не найден. Возможно, хост отключился.');
-                        } else {
-                            connectionStatus.textContent = 'Ошибка подключения';
-                            setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
-                        }
-                    });
-
-                } catch (err) {
-                    setDebug('❌ ' + err.message);
-                    alert(err.message);
-                }
+                });
             });
 
-            // --- Отправка текста ---
+            // --- Отправка сообщения ---
             sendChatBtn.addEventListener('click', () => {
                 const text = chatInput.value.trim();
                 if (!text) return;
