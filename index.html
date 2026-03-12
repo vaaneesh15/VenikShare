@@ -55,7 +55,8 @@
             --chat-own-bg: var(--accent);
             --chat-other-bg: var(--card-bg);
             --file-message-bg: rgba(74, 58, 255, 0.1);
-            --other-text-color: #ffffff; /* цвет текста сообщений других в темной теме */
+            --chat-own-text: white;
+            --chat-other-text: var(--text-primary);
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
@@ -81,7 +82,7 @@
             --progress-fill: #6d5fff;
             --chat-other-bg: #2a2a40;
             --file-message-bg: rgba(106, 90, 255, 0.2);
-            --other-text-color: #ffffff;
+            --chat-other-text: #ffffff; /* белый для контраста */
         }
 
         /* --- Экраны --- */
@@ -176,6 +177,25 @@
             border: 1px solid var(--container-border);
             box-shadow: var(--shadow);
             margin-bottom: 16px;
+        }
+
+        .id-display {
+            background: var(--input-bg);
+            border-radius: 40px;
+            padding: 14px 20px;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            word-break: break-all;
+            border: 1px solid var(--card-border);
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .id-display:active {
+            background: var(--card-bg);
         }
 
         .input-group {
@@ -331,25 +351,11 @@
 
         .message {
             display: flex;
-            flex-direction: column;
             margin-bottom: 4px;
         }
 
         .message-own {
-            align-items: flex-end;
-        }
-
-        .message-other {
-            align-items: flex-start;
-        }
-
-        .message-sender {
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 2px;
-            color: var(--accent);
-            padding-left: 12px;
-            padding-right: 12px;
+            justify-content: flex-end;
         }
 
         .message-bubble {
@@ -359,13 +365,20 @@
             padding: 10px 16px;
             border: 1px solid var(--card-border);
             word-break: break-word;
-            color: var(--other-text-color);
+            color: var(--chat-other-text);
         }
 
         .message-bubble-own {
             background: var(--chat-own-bg);
-            color: white;
+            color: var(--chat-own-text);
             border-color: var(--accent-light);
+        }
+
+        .message-sender {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--accent);
         }
 
         .message-text {
@@ -494,7 +507,7 @@
 
         <div class="panel">
             <div class="input-group">
-                <input type="text" id="username-input" placeholder="Ваше имя" data-ru="Ваше имя" data-en="Your name">
+                <input type="text" id="username-input" placeholder="Ваше имя (сохранится)" data-ru="Ваше имя (сохранится)" data-en="Your name (saved)">
             </div>
             <div class="input-group">
                 <input type="text" id="room-id-input" placeholder="ID комнаты (любые символы, до 20)" data-ru="ID комнаты (любые символы, до 20)" data-en="Room ID (any chars, max 20)">
@@ -553,7 +566,7 @@
                 debug: 0
             }];
 
-            // --- Тема (общая) ---
+            // --- Тема ---
             const themeToggles = [
                 document.getElementById('login-theme-toggle'),
                 document.getElementById('chat-theme-toggle')
@@ -593,7 +606,7 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // --- Язык (только на экране входа) ---
+            // --- Язык ---
             const langToggle = document.getElementById('lang-toggle');
             const appTitle = document.getElementById('app-title');
             let currentLang = localStorage.getItem('venikshareLang') || 'ru';
@@ -624,8 +637,16 @@
             });
             setLang(currentLang);
 
-            // --- Элементы экрана входа ---
+            // --- Имя пользователя (сохраняем) ---
             const usernameInput = document.getElementById('username-input');
+            let myUsername = localStorage.getItem('venikshareUsername') || 'Аноним';
+            usernameInput.value = myUsername;
+            usernameInput.addEventListener('change', () => {
+                myUsername = usernameInput.value.trim() || 'Аноним';
+                localStorage.setItem('venikshareUsername', myUsername);
+            });
+
+            // --- Элементы экрана входа ---
             const roomIdInput = document.getElementById('room-id-input');
             const roomPasswordInput = document.getElementById('room-password-input');
             const connectBtn = document.getElementById('connect-btn');
@@ -649,18 +670,11 @@
             let peer = null;
             let connections = []; // все активные соединения (для хоста)
             let activeConn = null; // для клиента (единственное соединение)
-            let isHost = false;    // true, если мы создали комнату и ждём подключений
+            let isHost = false;
             let currentRoomId = null;
-            let myUsername = '';
+            // Для файлов: хранилище частично полученных файлов (ключ - уникальный ID)
+            const fileBuffers = new Map();
 
-            // Загружаем сохранённое имя из localStorage
-            const savedUsername = localStorage.getItem('venikshareUsername');
-            if (savedUsername) {
-                usernameInput.value = savedUsername;
-                myUsername = savedUsername;
-            }
-
-            // --- Вспомогательные функции ---
             function setDebug(message) {
                 debugInfo.textContent = message;
                 console.log('[DEBUG]', message);
@@ -669,28 +683,24 @@
             // --- Обновление счётчика участников ---
             function updateParticipantCount() {
                 if (isHost) {
+                    // Хост + количество подключённых клиентов
                     participantCount.textContent = connections.length + 1;
-                    // Рассылаем всем клиентам обновлённое количество
-                    const countMsg = { type: 'participant-count', count: connections.length + 1 };
-                    connections.forEach(conn => conn.send(countMsg));
                 } else {
-                    // Клиент получает обновления от хоста, но пока оставим локальное
+                    // Клиент: если есть активное соединение, то 2 (мы + хост), иначе 1
+                    participantCount.textContent = activeConn ? 2 : 1;
                 }
             }
 
             // --- Функции для работы с чатом ---
-            function addChatMessage(text, own = true, sender = '', isFile = false, fileData = null) {
+            function addChatMessage(sender, text, own = false, isFile = false, fileData = null) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
-                msgDiv.className = `message ${own ? 'message-own' : 'message-other'}`;
-                
-                // Отображаем имя отправителя, если оно есть и сообщение не своё
-                const senderHtml = sender && !own ? `<div class="message-sender">${escapeHtml(sender)}</div>` : '';
+                msgDiv.className = `message ${own ? 'message-own' : ''}`;
                 
                 if (isFile && fileData) {
                     msgDiv.innerHTML = `
-                        ${senderHtml}
                         <div class="message-bubble file-message ${own ? 'message-bubble-own' : ''}" data-file="${fileData.id}">
+                            <div class="message-sender">${escapeHtml(sender)}</div>
                             <div class="file-message-content">
                                 <div class="file-message-icon"><i class="fas ${getFileIcon(fileData.name)}"></i></div>
                                 <div class="file-message-info">
@@ -714,8 +724,8 @@
                     });
                 } else {
                     msgDiv.innerHTML = `
-                        ${senderHtml}
                         <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
+                            <div class="message-sender">${escapeHtml(sender)}</div>
                             <div class="message-text">${escapeHtml(text)}</div>
                             <div class="message-time">${time}</div>
                         </div>
@@ -769,6 +779,7 @@
                 activeConn = null;
                 isHost = false;
                 currentRoomId = null;
+                fileBuffers.clear();
                 chatScreen.classList.add('screen-hidden');
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = currentLang === 'ru' ? 'Не подключено' : 'Not connected';
@@ -789,12 +800,8 @@
                 }
             });
 
-            // --- Словарь для хранения состояния приёма файлов по соединению и fileId ---
-            const fileReceives = new Map(); // ключ: connId + '_' + fileId
-
             // --- Настройка соединения ---
             function setupConnection(conn) {
-                const connId = conn.peer || Math.random().toString(36);
                 if (isHost) {
                     connections.push(conn);
                     setDebug(`Новый клиент подключился. Всего клиентов: ${connections.length}`);
@@ -808,83 +815,58 @@
                     connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
                     sendChatBtn.disabled = false;
                     setDebug('Соединение установлено');
-                    // Отправляем своё имя хосту (или всем)
-                    if (myUsername) {
-                        conn.send({ type: 'user-name', name: myUsername });
-                    }
                     updateParticipantCount();
                 });
 
                 conn.on('data', (data) => {
-                    setDebug(`Получены данные: ${data.type}`);
-                    
-                    // Ретрансляция: если мы хост, пересылаем всем, кроме отправителя
+                    // 1. Ретрансляция: если мы хост, пересылаем всем, кроме отправителя
                     if (isHost && connections.length > 0) {
                         connections.forEach(otherConn => {
                             if (otherConn !== conn) {
                                 otherConn.send(data);
-                                setDebug(`Ретрансляция клиенту ${otherConn.peer}`);
                             }
                         });
                     }
 
-                    // Обработка системных сообщений
-                    if (data.type === 'user-name') {
-                        // Сохраняем имя пользователя для этого соединения
-                        conn.userName = data.name;
-                        setDebug(`Пользователь ${conn.peer} имеет имя ${data.name}`);
-                        // Можно отправить всем список имён, но пока не нужно
-                        return;
-                    }
-
-                    if (data.type === 'participant-count') {
-                        participantCount.textContent = data.count;
-                        return;
-                    }
-
-                    // Обработка файлов
+                    // 2. Обработка данных
                     if (data.type === 'file-meta') {
-                        const fileMeta = data;
-                        const fileId = fileMeta.fileId;
-                        const key = connId + '_' + fileId;
-                        // Создаём запись о приёме файла
-                        fileReceives.set(key, {
-                            buffer: [],
-                            size: fileMeta.size,
-                            name: fileMeta.name,
-                            type: fileMeta.type,
-                            received: 0,
-                            sender: conn.userName || 'Неизвестно'
+                        const fileId = data.fileId || Math.random().toString(36).substring(2); // уникальный ID для этого файла
+                        // Сохраняем метаданные в буфер
+                        fileBuffers.set(fileId, {
+                            name: data.name,
+                            size: data.size,
+                            type: data.type,
+                            chunks: [],
+                            receivedSize: 0,
+                            sender: data.sender || 'Аноним'
                         });
-                        setDebug(`Начат приём файла ${fileMeta.name} (${fileId})`);
+                        // Можно показать прогресс (опционально)
                     } else if (data.type === 'file-chunk') {
                         const fileId = data.fileId;
-                        const key = connId + '_' + fileId;
-                        const fileRec = fileReceives.get(key);
-                        if (fileRec) {
-                            fileRec.buffer.push(data.data);
-                            fileRec.received += data.data.byteLength;
-                            setDebug(`Получен чанк файла ${fileId}: ${fileRec.received}/${fileRec.size}`);
+                        const fileData = fileBuffers.get(fileId);
+                        if (fileData) {
+                            fileData.chunks.push(data.data);
+                            fileData.receivedSize += data.data.byteLength;
+                            // Здесь можно обновить прогресс, если нужно
                         }
                     } else if (data.type === 'file-end') {
                         const fileId = data.fileId;
-                        const key = connId + '_' + fileId;
-                        const fileRec = fileReceives.get(key);
-                        if (fileRec) {
-                            const blob = new Blob(fileRec.buffer, { type: fileRec.type });
-                            addChatMessage('', false, fileRec.sender, true, {
-                                name: fileRec.name,
-                                size: fileRec.size,
+                        const fileData = fileBuffers.get(fileId);
+                        if (fileData) {
+                            const blob = new Blob(fileData.chunks, { type: fileData.type });
+                            // Добавляем сообщение в чат
+                            addChatMessage(fileData.sender, '', false, true, {
+                                name: fileData.name,
+                                size: fileData.size,
                                 blob: blob,
                                 id: fileId
                             });
-                            fileReceives.delete(key);
-                            setDebug(`Файл ${fileRec.name} получен полностью`);
+                            fileBuffers.delete(fileId);
                         }
-                    } else if (data.type === 'text' || data.type === 'chat') {
-                        // Текстовое сообщение
-                        addChatMessage(data.text, false, data.sender || 'Неизвестно');
-                        setDebug(`Текст от ${data.sender || conn.userName || conn.peer}: ${data.text}`);
+                    } else if (data.type === 'text') {
+                        addChatMessage(data.sender || 'Аноним', data.text, false);
+                    } else if (data.type === 'chat') { // старый формат
+                        addChatMessage(data.sender || 'Аноним', data.text, false);
                     }
                 });
 
@@ -906,7 +888,7 @@
                 });
             }
 
-            // --- Отправка всем ---
+            // --- Отправка сообщения всем ---
             function sendToAll(data) {
                 if (activeConn) {
                     activeConn.send(data);
@@ -919,20 +901,15 @@
             createBtn.addEventListener('click', async () => {
                 const roomId = roomIdInput.value.trim();
                 const password = roomPasswordInput.value.trim();
-                const username = usernameInput.value.trim();
 
-                if (!roomId || !password || !username) {
-                    alert(currentLang === 'ru' ? 'Введите имя, ID и пароль' : 'Enter name, room ID and password');
+                if (!roomId || !password) {
+                    alert(currentLang === 'ru' ? 'Введите ID и пароль' : 'Enter room ID and password');
                     return;
                 }
                 if (roomId.length > 20) {
                     alert(currentLang === 'ru' ? 'ID слишком длинный (макс. 20 символов)' : 'ID too long (max 20 characters)');
                     return;
                 }
-
-                // Сохраняем имя
-                localStorage.setItem('venikshareUsername', username);
-                myUsername = username;
 
                 setDebug('🔄 Регистрация комнаты на сервере...');
                 try {
@@ -951,6 +928,7 @@
                     connections = [];
                     activeConn = null;
                     isHost = true;
+                    fileBuffers.clear();
 
                     const server = peerServers[0];
                     const newPeer = new Peer(roomId, server);
@@ -962,8 +940,6 @@
 
                         newPeer.on('connection', (connection) => {
                             setupConnection(connection);
-                            // Отправляем своё имя новому клиенту
-                            connection.send({ type: 'user-name', name: myUsername });
                         });
 
                         newPeer.on('error', (err) => {
@@ -992,15 +968,11 @@
             connectBtn.addEventListener('click', async () => {
                 const roomId = roomIdInput.value.trim();
                 const password = roomPasswordInput.value.trim();
-                const username = usernameInput.value.trim();
 
-                if (!roomId || !password || !username) {
-                    alert(currentLang === 'ru' ? 'Введите имя, ID и пароль' : 'Enter name, room ID and password');
+                if (!roomId || !password) {
+                    alert(currentLang === 'ru' ? 'Введите ID и пароль' : 'Enter room ID and password');
                     return;
                 }
-
-                localStorage.setItem('venikshareUsername', username);
-                myUsername = username;
 
                 setDebug('🔄 Проверка комнаты на сервере...');
                 try {
@@ -1025,6 +997,7 @@
                     connections = [];
                     activeConn = null;
                     isHost = false;
+                    fileBuffers.clear();
 
                     const server = peerServers[0];
                     const newPeer = new Peer(server);
@@ -1058,9 +1031,9 @@
                 const text = chatInput.value.trim();
                 if (!text) return;
 
-                const msg = { type: 'text', text, sender: myUsername };
-                sendToAll(msg);
-                addChatMessage(text, true, myUsername);
+                const sender = myUsername;
+                sendToAll({ type: 'text', sender, text });
+                addChatMessage(sender, text, true);
                 chatInput.value = '';
             });
 
@@ -1087,8 +1060,7 @@
                 }
 
                 for (const file of files) {
-                    const fileId = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-
+                    const fileId = Math.random().toString(36).substring(2) + Date.now();
                     // Отправляем метаданные
                     targets.forEach(conn => {
                         conn.send({
@@ -1101,7 +1073,7 @@
                         });
                     });
 
-                    const chunkSize = 16384;
+                    const chunkSize = 16384; // 16 KB
                     let offset = 0;
 
                     while (offset < file.size) {
@@ -1115,15 +1087,21 @@
                             });
                         });
                         offset += chunkSize;
+                        // Небольшая задержка для UI
                         await new Promise(r => setTimeout(r, 10));
                     }
 
+                    // Сигнал об окончании
                     targets.forEach(conn => {
-                        conn.send({ type: 'file-end', fileId: fileId });
+                        conn.send({
+                            type: 'file-end',
+                            fileId: fileId
+                        });
                     });
 
+                    // Добавляем файл в свой чат
                     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-                    addChatMessage('', true, myUsername, true, {
+                    addChatMessage(myUsername, '', true, true, {
                         name: file.name,
                         size: file.size,
                         blob: blob,
