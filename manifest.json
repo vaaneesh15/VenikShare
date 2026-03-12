@@ -1,8 +1,8 @@
 {
-  "name": "Веникшер",
-  "short_name": "Веникшер",
+  "name": "VenikShare",
+  "short_name": "VenikShare",
   "description": "P2P передача файлов и сообщений",
-  "start_url": "/venishare/",
+  "start_url": "/VenikShare/",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#4a3aff",
