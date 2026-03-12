@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Стили без изменений (как в предыдущей версии) */
         * {
             margin: 0;
             padding: 0;
@@ -601,11 +602,13 @@
 
             // --- Состояние ---
             let peer = null;
-            let connections = [];
-            let activeConn = null;
+            let connections = []; // список всех соединений (для хоста) и клиента (активное)
+            let activeConn = null; // для клиента (единственное соединение)
             let isHost = false;
             let currentRoomId = null;
-            const fileBuffers = new Map();
+            const fileBuffers = new Map(); // для сборки файлов
+            // Следим за статусом соединений (открыто/закрыто)
+            const connectionOpen = new Map(); // conn -> boolean
 
             function setDebug(message) {
                 debugInfo.textContent = message;
@@ -645,7 +648,6 @@
                 msgDiv.className = `message ${own ? 'message-own' : ''}`;
 
                 if (isFile && fileData) {
-                    // Своё имя не показываем в сообщении, только в шапке
                     const senderHtml = own ? '' : `<div class="message-sender">${escapeHtml(sender)}</div>`;
                     msgDiv.innerHTML = `
                         <div class="message-bubble file-message ${own ? 'message-bubble-own' : ''}" data-file="${fileData.id}">
@@ -705,6 +707,7 @@
                 isHost = false;
                 currentRoomId = null;
                 fileBuffers.clear();
+                connectionOpen.clear();
                 chatScreen.classList.add('screen-hidden');
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = 'Не подключено';
@@ -726,18 +729,22 @@
 
             // --- Настройка соединения ---
             function setupConnection(conn) {
+                // Добавляем в список соединений
                 if (isHost) {
                     connections.push(conn);
-                    setDebug(`Новый клиент подключился. Всего клиентов: ${connections.length}`);
-                    updateParticipantCount();
+                    setDebug(`Новый клиент подключается. Всего клиентов: ${connections.length}`);
                 } else {
                     activeConn = conn;
                     connections.push(conn);
                 }
 
+                // Изначально соединение не открыто
+                connectionOpen.set(conn, false);
+
                 conn.on('open', () => {
                     connectionStatus.textContent = `✅ Подключено к ${conn.peer}`;
                     setDebug('Соединение установлено');
+                    connectionOpen.set(conn, true);
                     updateParticipantCount();
                 });
 
@@ -745,13 +752,13 @@
                     // Ретрансляция для хоста
                     if (isHost && connections.length > 0) {
                         connections.forEach(otherConn => {
-                            if (otherConn !== conn) {
+                            if (otherConn !== conn && connectionOpen.get(otherConn)) {
                                 otherConn.send(data);
                             }
                         });
                     }
 
-                    // Обработка
+                    // Обработка данных
                     if (data.type === 'file-meta') {
                         const fileId = data.fileId;
                         fileBuffers.set(fileId, {
@@ -790,6 +797,7 @@
                 conn.on('close', () => {
                     const index = connections.indexOf(conn);
                     if (index !== -1) connections.splice(index, 1);
+                    connectionOpen.delete(conn);
                     if (activeConn === conn) {
                         activeConn = null;
                         exitToLogin();
@@ -805,11 +813,20 @@
                 });
             }
 
+            // --- Отправка данных только по открытым соединениям ---
             function sendToAll(data) {
                 if (activeConn) {
-                    activeConn.send(data);
+                    if (connectionOpen.get(activeConn)) {
+                        activeConn.send(data);
+                    } else {
+                        setDebug('⚠️ Соединение ещё не открыто, сообщение не отправлено');
+                    }
                 } else if (connections.length > 0) {
-                    connections.forEach(conn => conn.send(data));
+                    connections.forEach(conn => {
+                        if (connectionOpen.get(conn)) {
+                            conn.send(data);
+                        }
+                    });
                 }
                 // Если никого нет, ничего не отправляем
             }
@@ -844,6 +861,7 @@
                     activeConn = null;
                     isHost = true;
                     fileBuffers.clear();
+                    connectionOpen.clear();
 
                     const server = peerServers[0];
                     const newPeer = new Peer(roomId, server);
@@ -909,6 +927,7 @@
                     activeConn = null;
                     isHost = false;
                     fileBuffers.clear();
+                    connectionOpen.clear();
 
                     const server = peerServers[0];
                     const newPeer = new Peer(server);
@@ -966,10 +985,12 @@
                 for (const file of files) {
                     const fileId = Math.random().toString(36).substring(2) + Date.now();
 
-                    // Определяем получателей
-                    const targets = activeConn ? [activeConn] : connections;
+                    // Определяем получателей (только открытые соединения)
+                    const targets = activeConn 
+                        ? (connectionOpen.get(activeConn) ? [activeConn] : [])
+                        : connections.filter(conn => connectionOpen.get(conn));
 
-                    // Отправляем, если есть соединения
+                    // Отправляем, если есть открытые соединения
                     if (targets.length > 0) {
                         targets.forEach(conn => {
                             conn.send({
@@ -1005,6 +1026,10 @@
                                 fileId: fileId
                             });
                         });
+                    } else if (!activeConn && connections.length === 0) {
+                        setDebug('ℹ️ Нет подключений, файл сохранён локально');
+                    } else {
+                        setDebug('⚠️ Нет открытых соединений, файл сохранён локально');
                     }
 
                     // Добавляем в свой чат
