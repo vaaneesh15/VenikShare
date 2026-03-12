@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Стили полностью как в предыдущей версии (без изменений) */
         * {
             margin: 0;
             padding: 0;
@@ -55,6 +54,9 @@
             --progress-fill: #4a3aff;
             --tab-active: var(--accent);
             transition: background 0.2s, color 0.2s;
+            
+            background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            min-height: 100vh;
         }
 
         body.dark {
@@ -77,20 +79,9 @@
             --progress-fill: #6d5fff;
         }
 
-        body {
-            background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            padding: 0;
-        }
-
         .app-container {
             width: 100%;
-            max-width: 100%;
-            height: 100vh;
+            min-height: 100vh;
             background: var(--container-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -98,6 +89,7 @@
             padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)) 16px;
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
         }
 
         .header {
@@ -214,6 +206,9 @@
             transition: 0.1s;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
             white-space: nowrap;
+            width: 100%;
+            text-align: center;
+            justify-content: center;
         }
 
         .btn-primary {
@@ -297,6 +292,12 @@
             flex-wrap: wrap;
         }
 
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
         .tabs {
             display: flex;
             gap: 8px;
@@ -326,10 +327,6 @@
 
         .tab i {
             font-size: 14px;
-        }
-
-        .center {
-            text-align: center;
         }
 
         textarea {
@@ -369,9 +366,9 @@
             <div id="peer-id-display" class="id-display">—</div>
             <div class="input-group">
                 <input type="text" id="peer-id-input" placeholder="ID комнаты" data-ru="ID комнаты" data-en="Room ID">
-                <button class="btn" id="connect-btn" data-ru="Подключиться" data-en="Connect">Подключиться</button>
             </div>
-            <div class="flex">
+            <div class="flex-col">
+                <button class="btn" id="connect-btn" data-ru="Подключиться" data-en="Connect">Подключиться</button>
                 <button class="btn btn-primary" id="create-peer-btn" data-ru="➕ Создать комнату" data-en="➕ Create room">➕ Создать комнату</button>
             </div>
             <div id="connection-status" class="status" data-ru="Не подключено" data-en="Not connected">Не подключено</div>
@@ -456,6 +453,7 @@
             // --- Язык ---
             const langToggle = document.getElementById('lang-toggle');
             const appTitle = document.getElementById('app-title');
+            // По умолчанию русский
             let currentLang = localStorage.getItem('venikshareLang') || 'ru';
 
             function setLang(lang) {
@@ -466,12 +464,9 @@
             }
 
             function updateUILanguage() {
-                // Заголовок приложения
                 appTitle.textContent = currentLang === 'ru' ? appTitle.dataset.ru : appTitle.dataset.en;
-                
-                // Все остальные элементы с атрибутами
                 document.querySelectorAll('[data-ru]').forEach(el => {
-                    if (el === appTitle) return; // уже обработали
+                    if (el === appTitle) return;
                     const key = el.getAttribute('data-ru');
                     const en = el.getAttribute('data-en');
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
@@ -480,7 +475,6 @@
                         el.textContent = currentLang === 'ru' ? key : en;
                     }
                 });
-                // Вкладки (текст внутри span)
                 document.querySelectorAll('.tab span').forEach(span => {
                     const ru = span.closest('.tab').querySelector('[data-ru]')?.getAttribute('data-ru');
                     const en = span.closest('.tab').querySelector('[data-en]')?.getAttribute('data-en');
@@ -493,12 +487,51 @@
             });
             setLang(currentLang);
 
-            // --- PeerJS логика (без истории) ---
+            // --- Список публичных серверов PeerJS (10 штук) ---
+            const peerServers = [
+                { host: 'peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '0.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '1.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '2.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '3.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '4.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '5.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '6.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '7.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+                { host: '8.peerjs.com', port: 443, path: '/', secure: true, key: 'peerjs' },
+            ];
+
+            // Функция для создания пира с перебором серверов
+            function createPeerWithFallback() {
+                return new Promise((resolve, reject) => {
+                    let currentIndex = 0;
+                    let lastError = null;
+
+                    function tryNext() {
+                        if (currentIndex >= peerServers.length) {
+                            reject(new Error('All peer servers failed'));
+                            return;
+                        }
+                        const server = peerServers[currentIndex];
+                        const peer = new Peer({ ...server, debug: 0 }); // отключаем debug
+                        peer.on('open', () => {
+                            resolve(peer);
+                        });
+                        peer.on('error', (err) => {
+                            lastError = err;
+                            currentIndex++;
+                            tryNext();
+                        });
+                    }
+                    tryNext();
+                });
+            }
+
             let peer = null;
             let conn = null;
             let peerId = null;
-            const filesToSend = [];          // массив объектов { file, path, id, progress, abort }
-            const receivedFiles = [];         // полученные файлы
+            const filesToSend = [];
+            const receivedFiles = [];
             let nextFileId = 0;
 
             // Элементы
@@ -522,7 +555,6 @@
             const tabs = document.querySelectorAll('.tab');
             let currentCategory = 'all';
 
-            // --- Функция определения категории файла ---
             function getFileCategory(fileName) {
                 const ext = fileName.split('.').pop().toLowerCase();
                 const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
@@ -545,7 +577,6 @@
                 return 'fa-file';
             }
 
-            // --- Обновление списка файлов для отправки ---
             function updateFileList() {
                 fileListEl.innerHTML = '';
                 filesToSend.forEach((item, index) => {
@@ -579,7 +610,6 @@
                 sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
             }
 
-            // --- Добавление файлов (из обычного выбора или папки) ---
             function addFilesFromInput(input, isFolder = false) {
                 Array.from(input.files).forEach(file => {
                     const path = isFolder ? file.webkitRelativePath : file.name;
@@ -601,50 +631,63 @@
             selectFolderBtn.addEventListener('click', () => folderInput.click());
             folderInput.addEventListener('change', (e) => addFilesFromInput(e.target, true));
 
-            // --- Создание комнаты ---
+            // --- Создание комнаты с перебором серверов ---
             createBtn.addEventListener('click', async () => {
                 if (peer) peer.destroy();
-                peer = new Peer();
-                
-                peer.on('open', (id) => {
-                    peerId = id;
-                    peerIdDisplay.textContent = id;
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Ожидание подключения...' : 'Waiting for connection...';
-                });
+                connectionStatus.textContent = currentLang === 'ru' ? 'Подключение к серверу...' : 'Connecting to server...';
+                try {
+                    peer = await createPeerWithFallback();
+                    
+                    peer.on('open', (id) => {
+                        peerId = id;
+                        peerIdDisplay.textContent = id;
+                        connectionStatus.textContent = currentLang === 'ru' ? 'Ожидание подключения...' : 'Waiting for connection...';
+                    });
 
-                peer.on('connection', (connection) => {
-                    conn = connection;
-                    setupConnection(conn);
-                    connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
-                });
+                    peer.on('connection', (connection) => {
+                        conn = connection;
+                        setupConnection(conn);
+                        connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
+                    });
 
-                peer.on('error', (err) => {
+                    peer.on('error', (err) => {
+                        console.error(err);
+                        connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка: ' + err.type : 'Error: ' + err.type;
+                    });
+
+                } catch (err) {
                     console.error(err);
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка: ' + err.type : 'Error: ' + err.type;
-                });
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться ни к одному серверу' : 'Could not connect to any server';
+                }
             });
 
-            // --- Подключение к комнате ---
-            connectBtn.addEventListener('click', () => {
+            // --- Подключение к комнате с перебором серверов ---
+            connectBtn.addEventListener('click', async () => {
                 const remoteId = peerIdInput.value.trim();
                 if (!remoteId) return;
-                
-                if (!peer) {
-                    peer = new Peer();
-                }
-                
-                peer.on('open', () => {
-                    conn = peer.connect(remoteId);
-                    setupConnection(conn);
-                });
 
-                if (peer.open) {
-                    conn = peer.connect(remoteId);
-                    setupConnection(conn);
+                if (peer) peer.destroy();
+                connectionStatus.textContent = currentLang === 'ru' ? 'Подключение к серверу...' : 'Connecting to server...';
+
+                try {
+                    peer = await createPeerWithFallback();
+
+                    peer.on('open', () => {
+                        conn = peer.connect(remoteId);
+                        setupConnection(conn);
+                    });
+
+                    peer.on('error', (err) => {
+                        console.error(err);
+                        connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка подключения' : 'Connection error';
+                    });
+
+                } catch (err) {
+                    console.error(err);
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться ни к одному серверу' : 'Could not connect to any server';
                 }
             });
 
-            // --- Настройка соединения (обработчики) ---
             function setupConnection(connection) {
                 conn = connection;
                 
@@ -656,13 +699,11 @@
 
                 conn.on('data', (data) => {
                     if (data.type === 'file-meta') {
-                        // Начало приёма файла
                         const fileMeta = data;
                         const fileBuffer = [];
                         let receivedSize = 0;
                         let abortReceive = false;
 
-                        // Показываем прогресс в списке полученных (создаём временный элемент)
                         const tempId = 'recv-' + Date.now() + Math.random();
                         const tempItem = document.createElement('li');
                         tempItem.className = 'file-item';
@@ -689,7 +730,6 @@
 
                         const progressFill = tempItem.querySelector('.progress-fill');
 
-                        // Временный обработчик для получения чанков
                         const handleChunk = (chunk) => {
                             if (abortReceive) return;
                             if (chunk.type === 'file-chunk') {
@@ -703,25 +743,22 @@
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = fileMeta.name; // имя файла
+                                    a.download = fileMeta.name;
                                     a.click();
                                     URL.revokeObjectURL(url);
 
-                                    // Добавляем в полученные
-                                    const fileEntry = {
+                                    receivedFiles.push({
                                         name: fileMeta.name,
                                         size: fileMeta.size,
                                         blob: blob,
                                         category: getFileCategory(fileMeta.name)
-                                    };
-                                    receivedFiles.push(fileEntry);
+                                    });
                                     updateReceivedFiles();
                                 }
                                 tempItem.remove();
                             }
                         };
 
-                        // Перенаправляем обработку
                         const originalDataHandler = conn.on('data');
                         conn.on('data', (d) => {
                             if (d.type === 'file-chunk' || d.type === 'file-end') {
@@ -751,7 +788,6 @@
                 });
             }
 
-            // --- Отправка текста ---
             sendTextBtn.addEventListener('click', () => {
                 if (!conn) return;
                 const text = textMessage.value.trim();
@@ -761,7 +797,6 @@
                 }
             });
 
-            // --- Отправка всех файлов ---
             sendFilesBtn.addEventListener('click', async () => {
                 if (!conn || filesToSend.length === 0) return;
 
@@ -811,13 +846,11 @@
                     if (!item.abort) {
                         conn.send({ type: 'file-end' });
 
-                        // Добавляем в полученные (для себя)
-                        const fileEntry = {
+                        receivedFiles.push({
                             name: item.path || item.file.name,
                             size: item.file.size,
                             category: getFileCategory(item.file.name)
-                        };
-                        receivedFiles.push(fileEntry);
+                        });
                         updateReceivedFiles();
 
                         if (fileItemEl) fileItemEl.remove();
@@ -831,7 +864,6 @@
                 updateFileList();
             });
 
-            // --- Обновление списка полученных файлов ---
             function updateReceivedFiles() {
                 receivedFilesEl.innerHTML = '';
                 const filtered = currentCategory === 'all' ? receivedFiles : receivedFiles.filter(f => f.category === currentCategory);
@@ -851,7 +883,6 @@
                 });
             }
 
-            // --- Переключение вкладок ---
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     tabs.forEach(t => t.classList.remove('active'));
@@ -861,7 +892,6 @@
                 });
             });
 
-            // --- Очистка при закрытии ---
             window.addEventListener('beforeunload', () => {
                 if (peer) peer.destroy();
             });
