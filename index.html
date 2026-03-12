@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Веникшер</title>
+    <title>ChatX</title>
     
     <!-- PWA метатеги -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Веникшер">
+    <meta name="apple-mobile-web-app-title" content="ChatX">
     <meta name="theme-color" id="theme-color-meta" content="#4a3aff">
     <link rel="manifest" href="manifest.json">
     
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Стили без изменений (как в предыдущей версии) */
+        /* --- Стили полностью совпадают с предыдущей финальной версией --- */
         * {
             margin: 0;
             padding: 0;
@@ -460,7 +460,7 @@
     <!-- Экран входа -->
     <div class="screen login-screen" id="login-screen">
         <div class="login-header">
-            <h1>Веникшер</h1>
+            <h1>ChatX</h1>
             <div class="theme-toggle" id="login-theme-toggle">
                 <i class="fas fa-sun"></i>
             </div>
@@ -471,7 +471,7 @@
                 <input type="text" id="username-input" placeholder="Имя пользователя">
             </div>
             <div class="input-group">
-                <input type="text" id="room-id-input" placeholder="ID комнаты (любые символы, до 20)">
+                <input type="text" id="room-id-input" placeholder="ID комнаты (до 20 символов)">
             </div>
             <div class="input-group">
                 <input type="password" id="room-password-input" placeholder="Пароль">
@@ -602,12 +602,11 @@
 
             // --- Состояние ---
             let peer = null;
-            let connections = []; // список всех соединений (для хоста) и клиента (активное)
+            let connections = []; // все активные соединения (для хоста)
             let activeConn = null; // для клиента (единственное соединение)
             let isHost = false;
             let currentRoomId = null;
-            const fileBuffers = new Map(); // для сборки файлов
-            // Следим за статусом соединений (открыто/закрыто)
+            const fileBuffers = new Map();
             const connectionOpen = new Map(); // conn -> boolean
 
             function setDebug(message) {
@@ -729,7 +728,6 @@
 
             // --- Настройка соединения ---
             function setupConnection(conn) {
-                // Добавляем в список соединений
                 if (isHost) {
                     connections.push(conn);
                     setDebug(`Новый клиент подключается. Всего клиентов: ${connections.length}`);
@@ -738,7 +736,6 @@
                     connections.push(conn);
                 }
 
-                // Изначально соединение не открыто
                 connectionOpen.set(conn, false);
 
                 conn.on('open', () => {
@@ -985,12 +982,10 @@
                 for (const file of files) {
                     const fileId = Math.random().toString(36).substring(2) + Date.now();
 
-                    // Определяем получателей (только открытые соединения)
                     const targets = activeConn 
                         ? (connectionOpen.get(activeConn) ? [activeConn] : [])
                         : connections.filter(conn => connectionOpen.get(conn));
 
-                    // Отправляем, если есть открытые соединения
                     if (targets.length > 0) {
                         targets.forEach(conn => {
                             conn.send({
@@ -1032,7 +1027,6 @@
                         setDebug('⚠️ Нет открытых соединений, файл сохранён локально');
                     }
 
-                    // Добавляем в свой чат
                     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
                     addChatMessage(myUsername, '', true, true, {
                         name: file.name,
