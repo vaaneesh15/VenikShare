@@ -407,7 +407,7 @@
                 <input type="text" id="username-input" placeholder="Имя пользователя">
             </div>
             <div class="input-group">
-                <input type="text" id="room-id-input" placeholder="ID комнаты (до 20 символов)">
+                <input type="text" id="room-id-input" placeholder="ID комнаты (латиница, цифры, дефис, _)">
             </div>
             <div class="input-group">
                 <input type="password" id="room-password-input" placeholder="Пароль">
@@ -700,6 +700,11 @@
                 }
                 if (roomId.length > 20) {
                     alert('ID слишком длинный (макс. 20 символов)');
+                    return;
+                }
+                // Проверка на допустимые символы (латиница, цифры, дефис, подчеркивание)
+                if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
+                    alert('ID может содержать только латинские буквы, цифры, дефис и подчеркивание');
                     return;
                 }
 
