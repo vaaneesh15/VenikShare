@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* --- Все стили остаются без изменений (как в предыдущей версии) --- */
         * {
             margin: 0;
             padding: 0;
@@ -373,6 +372,7 @@
                 <button class="btn btn-primary" id="create-peer-btn" data-ru="➕ Создать комнату" data-en="➕ Create room">➕ Создать комнату</button>
             </div>
             <div id="connection-status" class="status" data-ru="Не подключено" data-en="Not connected">Не подключено</div>
+            <div id="debug-info" class="status" style="color: var(--accent); font-size: 12px;"></div>
         </div>
 
         <div class="panel">
@@ -487,30 +487,25 @@
             });
             setLang(currentLang);
 
-            // --- Сервер: только ваш собственный ---
+            // --- Сервер: ваш собственный ---
             const peerServers = [{
-                host: 'venikshare-server.onrender.com',  // адрес вашего сервера
-                port: 443,                                 // стандартный HTTPS порт
-                path: '/peerjs',                           // путь, который мы настроили в server.js
+                host: 'venikshare-server.onrender.com',
+                port: 443,
+                path: '/',
                 secure: true,
-                key: 'peerjs'
+                key: 'peerjs',
+                debug: 2
             }];
 
-            // (Закомментировано) Если хотите использовать публичные серверы, раскомментируйте следующий массив:
-            /*
-            const peerServers = [];
-            for (let i = 0; i < 20; i++) {
-                peerServers.push({
-                    host: `${i}.peerjs.com`,
-                    port: 443,
-                    path: '/',
-                    secure: true,
-                    key: 'peerjs'
-                });
-            }
-            */
+            // --- Элементы для диагностики ---
+            const debugInfo = document.getElementById('debug-info');
 
-            // Функция для создания пира с перебором серверов (пробует по очереди)
+            function setDebug(message) {
+                debugInfo.textContent = message;
+                console.log('[DEBUG]', message);
+            }
+
+            // --- Функция создания пира с перебором и подробными ошибками ---
             function createPeerWithFallback() {
                 return new Promise((resolve, reject) => {
                     let currentIndex = 0;
@@ -518,16 +513,22 @@
 
                     function tryNext() {
                         if (currentIndex >= peerServers.length) {
+                            setDebug(`❌ Все серверы недоступны. Последняя ошибка: ${lastError?.message || lastError?.type || 'неизвестная'}`);
                             reject(new Error('All peer servers failed'));
                             return;
                         }
                         const server = peerServers[currentIndex];
-                        const peer = new Peer({ ...server, debug: 0 });
-                        peer.on('open', () => {
+                        setDebug(`🔄 Попытка подключения к ${server.host} (${currentIndex+1}/${peerServers.length})...`);
+                        const peer = new Peer(server);
+                        
+                        peer.on('open', (id) => {
+                            setDebug(`✅ Успешно подключено к ${server.host}, ID: ${id}`);
                             resolve(peer);
                         });
+                        
                         peer.on('error', (err) => {
                             lastError = err;
+                            setDebug(`❌ Ошибка на сервере ${server.host}: ${err.type} — ${err.message}`);
                             currentIndex++;
                             tryNext();
                         });
@@ -640,10 +641,11 @@
             selectFolderBtn.addEventListener('click', () => folderInput.click());
             folderInput.addEventListener('change', (e) => addFilesFromInput(e.target, true));
 
-            // --- Создание комнаты с вашим сервером ---
+            // --- Создание комнаты ---
             createBtn.addEventListener('click', async () => {
                 if (peer) peer.destroy();
                 connectionStatus.textContent = currentLang === 'ru' ? 'Подключение к серверу...' : 'Connecting to server...';
+                setDebug('');
                 try {
                     peer = await createPeerWithFallback();
                     
@@ -662,6 +664,7 @@
                     peer.on('error', (err) => {
                         console.error(err);
                         connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка: ' + err.type : 'Error: ' + err.type;
+                        setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
                     });
 
                 } catch (err) {
@@ -677,6 +680,7 @@
 
                 if (peer) peer.destroy();
                 connectionStatus.textContent = currentLang === 'ru' ? 'Подключение к серверу...' : 'Connecting to server...';
+                setDebug('');
 
                 try {
                     peer = await createPeerWithFallback();
@@ -689,6 +693,7 @@
                     peer.on('error', (err) => {
                         console.error(err);
                         connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка подключения' : 'Connection error';
+                        setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
                     });
 
                 } catch (err) {
@@ -704,6 +709,7 @@
                     connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
                     sendFilesBtn.disabled = filesToSend.length === 0;
                     sendTextBtn.disabled = false;
+                    setDebug('Соединение установлено');
                 });
 
                 conn.on('data', (data) => {
@@ -789,11 +795,13 @@
                     conn = null;
                     sendFilesBtn.disabled = true;
                     sendTextBtn.disabled = true;
+                    setDebug('Соединение закрыто');
                 });
 
                 conn.on('error', (err) => {
                     console.error(err);
                     connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка соединения' : 'Connection error';
+                    setDebug(`Ошибка соединения: ${err.message}`);
                 });
             }
 
