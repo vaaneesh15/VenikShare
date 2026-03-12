@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Веникшер</title>
+    
+    <!-- PWA / Метатеги -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Веникшер">
+    <meta name="theme-color" id="theme-color-meta" content="#4a3aff">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        html, body {
+            overscroll-behavior: none;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            --bg-gradient-start: #e9e9f0;
+            --bg-gradient-end: #dadde8;
+            --container-bg: rgba(240, 240, 245, 0.7);
+            --container-border: rgba(255,255,255,0.5);
+            --text-primary: #1a1a2e;
+            --text-secondary: #2c3e50;
+            --text-muted: #6b6b80;
+            --accent: #4a3aff;
+            --accent-light: #7a6aff;
+            --card-bg: rgba(255, 255, 255, 0.6);
+            --card-border: rgba(255,255,255,0.6);
+            --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+            --icon-bg: white;
+            --panel-bg: rgba(255, 255, 255, 0.7);
+            --input-bg: rgba(255, 255, 255, 0.5);
+            --progress-bg: rgba(0,0,0,0.1);
+            --progress-fill: #4a3aff;
+            --tab-active: var(--accent);
+            transition: background 0.2s, color 0.2s;
+        }
+
+        body.dark {
+            --bg-gradient-start: #1a1a2e;
+            --bg-gradient-end: #16213e;
+            --container-bg: rgba(30, 30, 46, 0.8);
+            --container-border: rgba(255,255,255,0.15);
+            --text-primary: #f0f0ff;
+            --text-secondary: #ecf0f1;
+            --text-muted: #8a8aa0;
+            --accent: #6d5fff;
+            --accent-light: #9a8cff;
+            --card-bg: rgba(40, 40, 55, 0.7);
+            --card-border: rgba(255,255,255,0.1);
+            --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            --icon-bg: #2a2a40;
+            --panel-bg: rgba(30, 30, 46, 0.8);
+            --input-bg: rgba(40, 40, 55, 0.6);
+            --progress-bg: rgba(255,255,255,0.1);
+            --progress-fill: #6d5fff;
+        }
+
+        body {
+            background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 100%;
+            height: 100vh;
+            background: var(--container-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: var(--shadow), inset 0 1px 2px rgba(255,255,255,0.3);
+            padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)) 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-shrink: 0;
+        }
+
+        .lang-toggle {
+            background: var(--icon-bg);
+            width: 44px;
+            height: 44px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            cursor: pointer;
+            border: 1px solid var(--container-border);
+            color: var(--accent);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .lang-toggle:active {
+            transform: scale(0.94);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+            text-align: center;
+            flex: 1;
+        }
+
+        .theme-toggle {
+            background: var(--icon-bg);
+            width: 44px;
+            height: 44px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            cursor: pointer;
+            border: 1px solid var(--container-border);
+            color: var(--accent);
+            font-size: 20px;
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.94);
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 36px;
+            padding: 20px 16px;
+            border: 1px solid var(--container-border);
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+
+        .id-display {
+            background: var(--input-bg);
+            border-radius: 40px;
+            padding: 14px 20px;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            word-break: break-all;
+            border: 1px solid var(--card-border);
+            margin-bottom: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .input-group input {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 40px;
+            padding: 14px 18px;
+            font-size: 16px;
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .input-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .btn {
+            background: var(--icon-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 40px;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .status {
+            text-align: center;
+            color: var(--text-muted);
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .file-list {
+            list-style: none;
+            margin: 12px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .file-item {
+            background: var(--card-bg);
+            border-radius: 30px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--card-border);
+        }
+
+        .file-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-size {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--progress-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--progress-fill);
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        .flex {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 14px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .tab i {
+            font-size: 14px;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        textarea {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 14px;
+            font-size: 16px;
+            color: var(--text-primary);
+            outline: none;
+            resize: none;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="lang-toggle" id="lang-toggle">RU</div>
+            <h1>Веникшер</h1>
+            <div class="theme-toggle" id="theme-toggle">
+                <i class="fas fa-sun"></i>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div id="peer-id-display" class="id-display">—</div>
+            <div class="input-group">
+                <input type="text" id="peer-id-input" placeholder="ID комнаты" data-ru="ID комнаты" data-en="Room ID">
+                <button class="btn" id="connect-btn" data-ru="Подключиться" data-en="Connect">Подключиться</button>
+            </div>
+            <div class="flex">
+                <button class="btn btn-primary" id="create-peer-btn" data-ru="➕ Создать комнату" data-en="➕ Create room">➕ Создать комнату</button>
+            </div>
+            <div id="connection-status" class="status" data-ru="Не подключено" data-en="Not connected">Не подключено</div>
+        </div>
+
+        <div class="panel">
+            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📝 Текст" data-en="📝 Text">📝 Текст</h3>
+            <textarea id="text-message" rows="2" placeholder="Введите сообщение..." data-ru="Введите сообщение..." data-en="Enter message..."></textarea>
+            <div class="flex">
+                <button class="btn" id="send-text-btn" disabled data-ru="Отправить текст" data-en="Send text">Отправить текст</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📎 Файлы для отправки" data-en="📎 Files to send">📎 Файлы для отправки</h3>
+            <input type="file" id="file-input" multiple style="display: none;">
+            <div class="flex">
+                <button class="btn" id="select-files-btn" data-ru="Выбрать файлы" data-en="Select files">Выбрать файлы</button>
+                <button class="btn" id="send-files-btn" disabled data-ru="Отправить" data-en="Send">Отправить</button>
+            </div>
+            <ul id="file-list" class="file-list"></ul>
+            <div id="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div id="progress-text" class="status"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 style="color: var(--text-primary); margin-bottom: 12px;" data-ru="📥 Полученные файлы" data-en="📥 Received files">📥 Полученные файлы</h3>
+            <div class="tabs" id="file-tabs">
+                <div class="tab active" data-category="all"><i class="fas fa-folder"></i> <span data-ru="Все" data-en="All">Все</span></div>
+                <div class="tab" data-category="image"><i class="fas fa-image"></i> <span data-ru="Фото" data-en="Photos">Фото</span></div>
+                <div class="tab" data-category="video"><i class="fas fa-video"></i> <span data-ru="Видео" data-en="Videos">Видео</span></div>
+                <div class="tab" data-category="audio"><i class="fas fa-music"></i> <span data-ru="Аудио" data-en="Audio">Аудио</span></div>
+                <div class="tab" data-category="text"><i class="fas fa-file-alt"></i> <span data-ru="Текст" data-en="Text">Текст</span></div>
+                <div class="tab" data-category="other"><i class="fas fa-file"></i> <span data-ru="Другое" data-en="Other">Другое</span></div>
+            </div>
+            <ul id="received-files" class="file-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // --- Тема ---
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIcon = themeToggle.querySelector('i');
+            let currentTheme = localStorage.getItem('venishareTheme') || 'system';
+
+            function setTheme(theme) {
+                currentTheme = theme;
+                localStorage.setItem('venishareTheme', theme);
+                applyTheme();
+            }
+
+            function applyTheme() {
+                const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                let isDark = false;
+                if (currentTheme === 'dark') isDark = true;
+                else if (currentTheme === 'system') isDark = systemDark;
+
+                document.body.classList.toggle('dark', isDark);
+                themeIcon.className = currentTheme === 'light' ? 'fas fa-sun' : (currentTheme === 'dark' ? 'fas fa-moon' : 'fas fa-circle-half-stroke');
+                
+                const themeColorMeta = document.getElementById('theme-color-meta');
+                if (themeColorMeta) {
+                    themeColorMeta.setAttribute('content', isDark ? '#1a1a2e' : '#4a3aff');
+                }
+            }
+
+            themeToggle.addEventListener('click', () => {
+                if (currentTheme === 'light') setTheme('dark');
+                else if (currentTheme === 'dark') setTheme('system');
+                else setTheme('light');
+            });
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+            applyTheme();
+
+            // --- Язык ---
+            const langToggle = document.getElementById('lang-toggle');
+            let currentLang = localStorage.getItem('venishareLang') || 'ru';
+
+            function setLang(lang) {
+                currentLang = lang;
+                localStorage.setItem('venishareLang', lang);
+                langToggle.textContent = lang.toUpperCase();
+                updateUILanguage();
+            }
+
+            function updateUILanguage() {
+                document.querySelectorAll('[data-ru]').forEach(el => {
+                    const key = el.getAttribute('data-ru');
+                    const en = el.getAttribute('data-en');
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        el.placeholder = currentLang === 'ru' ? key : en;
+                    } else {
+                        el.textContent = currentLang === 'ru' ? key : en;
+                    }
+                });
+                // Обновить вкладки (текст внутри span)
+                document.querySelectorAll('.tab span').forEach(span => {
+                    const ru = span.closest('.tab').querySelector('[data-ru]')?.getAttribute('data-ru');
+                    const en = span.closest('.tab').querySelector('[data-en]')?.getAttribute('data-en');
+                    if (ru && en) span.textContent = currentLang === 'ru' ? ru : en;
+                });
+            }
+
+            langToggle.addEventListener('click', () => {
+                setLang(currentLang === 'ru' ? 'en' : 'ru');
+            });
+            setLang(currentLang); // инициализация
+
+            // --- PeerJS логика (как в предыдущей версии, с дополнениями для текста) ---
+            let peer = null;
+            let conn = null;
+            let peerId = null;
+            const filesToSend = [];
+            const receivedFiles = [];
+
+            // Элементы
+            const peerIdDisplay = document.getElementById('peer-id-display');
+            const peerIdInput = document.getElementById('peer-id-input');
+            const connectBtn = document.getElementById('connect-btn');
+            const createBtn = document.getElementById('create-peer-btn');
+            const connectionStatus = document.getElementById('connection-status');
+            const fileInput = document.getElementById('file-input');
+            const selectFilesBtn = document.getElementById('select-files-btn');
+            const sendFilesBtn = document.getElementById('send-files-btn');
+            const fileListEl = document.getElementById('file-list');
+            const receivedFilesEl = document.getElementById('received-files');
+            const progressContainer = document.getElementById('progress-container');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            const textMessage = document.getElementById('text-message');
+            const sendTextBtn = document.getElementById('send-text-btn');
+            const tabs = document.querySelectorAll('.tab');
+            let currentCategory = 'all';
+
+            // --- Функция определения категории файла по расширению ---
+            function getFileCategory(fileName) {
+                const ext = fileName.split('.').pop().toLowerCase();
+                const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
+                const videoExt = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv'];
+                const audioExt = ['mp3', 'flac', 'wav', 'aac', 'ogg', 'm4a'];
+                const textExt = ['txt', 'pdf', 'doc', 'docx', 'rtf', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts'];
+                if (imageExt.includes(ext)) return 'image';
+                if (videoExt.includes(ext)) return 'video';
+                if (audioExt.includes(ext)) return 'audio';
+                if (textExt.includes(ext)) return 'text';
+                return 'other';
+            }
+
+            // --- Обновление списка полученных файлов с учётом выбранной вкладки ---
+            function updateReceivedFiles() {
+                receivedFilesEl.innerHTML = '';
+                const filtered = currentCategory === 'all' ? receivedFiles : receivedFiles.filter(f => f.category === currentCategory);
+                filtered.forEach((f, i) => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item';
+                    let icon = 'fa-file';
+                    if (f.category === 'image') icon = 'fa-image';
+                    else if (f.category === 'video') icon = 'fa-video';
+                    else if (f.category === 'audio') icon = 'fa-music';
+                    else if (f.category === 'text') icon = 'fa-file-alt';
+                    li.innerHTML = `
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas ${icon}" style="color: var(--accent);"></i>
+                            <span class="file-name">${f.name}</span>
+                        </span>
+                        <span class="file-size">${(f.size / 1024).toFixed(1)} KB</span>
+                    `;
+                    receivedFilesEl.appendChild(li);
+                });
+            }
+
+            // --- Переключение вкладок ---
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentCategory = tab.dataset.category;
+                    updateReceivedFiles();
+                });
+            });
+
+            // --- Обновление списка выбранных файлов ---
+            function updateFileList() {
+                fileListEl.innerHTML = '';
+                filesToSend.forEach((file, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item';
+                    li.innerHTML = `
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas ${getFileIcon(file.name)}" style="color: var(--accent);"></i>
+                            <span class="file-name">${file.name}</span>
+                        </span>
+                        <span class="file-size">${(file.size / 1024).toFixed(1)} KB</span>
+                        <button class="btn" style="padding:4px 8px;" data-index="${index}">✕</button>
+                    `;
+                    li.querySelector('button').addEventListener('click', (e) => {
+                        const idx = e.target.dataset.index;
+                        filesToSend.splice(idx, 1);
+                        updateFileList();
+                        sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
+                    });
+                    fileListEl.appendChild(li);
+                });
+                sendFilesBtn.disabled = filesToSend.length === 0 || !conn;
+            }
+
+            function getFileIcon(fileName) {
+                const cat = getFileCategory(fileName);
+                if (cat === 'image') return 'fa-image';
+                if (cat === 'video') return 'fa-video';
+                if (cat === 'audio') return 'fa-music';
+                if (cat === 'text') return 'fa-file-alt';
+                return 'fa-file';
+            }
+
+            selectFilesBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                Array.from(e.target.files).forEach(f => filesToSend.push(f));
+                updateFileList();
+                fileInput.value = '';
+            });
+
+            // --- Создание комнаты ---
+            createBtn.addEventListener('click', async () => {
+                if (peer) peer.destroy();
+                peer = new Peer();
+                
+                peer.on('open', (id) => {
+                    peerId = id;
+                    peerIdDisplay.textContent = id;
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Ожидание подключения...' : 'Waiting for connection...';
+                });
+
+                peer.on('connection', (connection) => {
+                    conn = connection;
+                    setupConnection(conn);
+                    connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
+                });
+
+                peer.on('error', (err) => {
+                    console.error(err);
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка: ' + err.type : 'Error: ' + err.type;
+                });
+            });
+
+            // --- Подключение к комнате ---
+            connectBtn.addEventListener('click', () => {
+                const remoteId = peerIdInput.value.trim();
+                if (!remoteId) return;
+                
+                if (!peer) {
+                    peer = new Peer();
+                }
+                
+                peer.on('open', () => {
+                    conn = peer.connect(remoteId);
+                    setupConnection(conn);
+                });
+
+                if (peer.open) {
+                    conn = peer.connect(remoteId);
+                    setupConnection(conn);
+                }
+            });
+
+            function setupConnection(connection) {
+                conn = connection;
+                
+                conn.on('open', () => {
+                    connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
+                    sendFilesBtn.disabled = filesToSend.length === 0;
+                    sendTextBtn.disabled = false;
+                });
+
+                conn.on('data', (data) => {
+                    if (data.type === 'file-meta') {
+                        // Приём файла
+                        const fileMeta = data;
+                        const fileBuffer = [];
+                        let receivedSize = 0;
+
+                        const handleChunk = (chunk) => {
+                            if (chunk.type === 'file-chunk') {
+                                fileBuffer.push(chunk.data);
+                                receivedSize += chunk.data.byteLength;
+                                const progress = (receivedSize / fileMeta.size) * 100;
+                                progressContainer.style.display = 'block';
+                                progressFill.style.width = progress + '%';
+                                progressText.textContent = (currentLang === 'ru' ? 'Получение ' : 'Receiving ') + fileMeta.name + ': ' + Math.round(progress) + '%';
+                            } else if (chunk.type === 'file-end') {
+                                const blob = new Blob(fileBuffer, { type: fileMeta.type });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = fileMeta.name;
+                                a.click();
+                                URL.revokeObjectURL(url);
+
+                                receivedFiles.push({ 
+                                    name: fileMeta.name, 
+                                    size: fileMeta.size, 
+                                    blob, 
+                                    category: getFileCategory(fileMeta.name) 
+                                });
+                                updateReceivedFiles();
+
+                                progressContainer.style.display = 'none';
+                                progressFill.style.width = '0%';
+                            }
+                        };
+
+                        const originalDataHandler = conn.on('data');
+                        conn.on('data', (d) => {
+                            if (d.type === 'file-chunk' || d.type === 'file-end') {
+                                handleChunk(d);
+                            } else {
+                                if (originalDataHandler) originalDataHandler(d);
+                            }
+                        });
+
+                    } else if (data.type === 'text') {
+                        // Получен текст
+                        alert(currentLang === 'ru' ? 'Сообщение: ' + data.text : 'Message: ' + data.text);
+                        // Можно также добавить в отдельный список, но для простоты пока алерт
+                    } else {
+                        console.log('Данные от собеседника:', data);
+                    }
+                });
+
+                conn.on('close', () => {
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Соединение закрыто' : 'Connection closed';
+                    conn = null;
+                    sendFilesBtn.disabled = true;
+                    sendTextBtn.disabled = true;
+                });
+
+                conn.on('error', (err) => {
+                    console.error(err);
+                    connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка соединения' : 'Connection error';
+                });
+            }
+
+            // --- Отправка текста ---
+            sendTextBtn.addEventListener('click', () => {
+                if (!conn) return;
+                const text = textMessage.value.trim();
+                if (text) {
+                    conn.send({ type: 'text', text });
+                    textMessage.value = '';
+                }
+            });
+
+            // --- Отправка файлов ---
+            sendFilesBtn.addEventListener('click', async () => {
+                if (!conn || filesToSend.length === 0) return;
+
+                for (const file of filesToSend) {
+                    conn.send({
+                        type: 'file-meta',
+                        name: file.name,
+                        size: file.size,
+                        type: file.type
+                    });
+
+                    const chunkSize = 16384;
+                    let offset = 0;
+
+                    while (offset < file.size) {
+                        const chunk = file.slice(offset, offset + chunkSize);
+                        const buffer = await chunk.arrayBuffer();
+                        conn.send({
+                            type: 'file-chunk',
+                            data: buffer
+                        });
+                        offset += chunkSize;
+                        
+                        const progress = (offset / file.size) * 100;
+                        progressContainer.style.display = 'block';
+                        progressFill.style.width = progress + '%';
+                        progressText.textContent = (currentLang === 'ru' ? 'Отправка ' : 'Sending ') + file.name + ': ' + Math.round(progress) + '%';
+
+                        await new Promise(r => setTimeout(r, 10));
+                    }
+
+                    conn.send({ type: 'file-end' });
+
+                    receivedFiles.push({ 
+                        name: file.name, 
+                        size: file.size, 
+                        outgoing: true, 
+                        category: getFileCategory(file.name) 
+                    });
+                    updateReceivedFiles();
+                }
+
+                filesToSend.length = 0;
+                updateFileList();
+                progressContainer.style.display = 'none';
+            });
+
+            // Очистка при разрыве
+            window.addEventListener('beforeunload', () => {
+                if (peer) peer.destroy();
+            });
+        })();
+    </script>
+</body>
+</html>
