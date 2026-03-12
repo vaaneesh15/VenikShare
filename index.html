@@ -50,10 +50,8 @@
             --icon-bg: white;
             --panel-bg: rgba(255, 255, 255, 0.7);
             --input-bg: rgba(255, 255, 255, 0.5);
-            --progress-bg: rgba(0,0,0,0.1);
-            --progress-fill: #4a3aff;
             --chat-own-bg: var(--accent);
-            --chat-other-bg: #e0e0f0; /* более светлый для читаемости */
+            --chat-other-bg: #e0e0f0;
             --file-message-bg: rgba(74, 58, 255, 0.1);
             --chat-own-text: white;
             --chat-other-text: #1a1a2e;
@@ -78,14 +76,11 @@
             --icon-bg: #2a2a40;
             --panel-bg: rgba(30, 30, 46, 0.8);
             --input-bg: rgba(40, 40, 55, 0.6);
-            --progress-bg: rgba(255,255,255,0.1);
-            --progress-fill: #6d5fff;
-            --chat-other-bg: #3a3a5a; /* тёмно-синий с хорошей контрастностью */
+            --chat-other-bg: #3a3a5a;
             --chat-other-text: #ffffff;
             --file-message-bg: rgba(106, 90, 255, 0.2);
         }
 
-        /* --- Экраны --- */
         .screen {
             width: 100%;
             height: 100%;
@@ -100,7 +95,6 @@
             pointer-events: none;
         }
 
-        /* --- Экран входа --- */
         .login-screen {
             background: var(--container-bg);
             backdrop-filter: blur(20px);
@@ -194,7 +188,6 @@
             white-space: nowrap;
             width: 100%;
             text-align: center;
-            justify-content: center;
         }
 
         .btn-primary {
@@ -225,7 +218,6 @@
             gap: 12px;
         }
 
-        /* --- Экран чата --- */
         .chat-screen {
             background: var(--container-bg);
             backdrop-filter: blur(20px);
@@ -290,7 +282,6 @@
             font-weight: 600;
             color: var(--accent);
             border: 1px solid var(--card-border);
-            margin-left: 8px;
         }
 
         .chat-exit-btn {
@@ -365,7 +356,6 @@
             text-align: right;
         }
 
-        /* Файловое сообщение */
         .file-message {
             background: var(--file-message-bg);
             border: 1px dashed var(--accent);
@@ -460,7 +450,6 @@
             flex-shrink: 0;
         }
 
-        /* Скрытый input для файлов */
         #file-input {
             display: none;
         }
@@ -578,13 +567,15 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // --- Имя пользователя (сохраняем) ---
+            // --- Имя пользователя ---
             const usernameInput = document.getElementById('username-input');
             let myUsername = localStorage.getItem('venikshareUsername') || 'Аноним';
             usernameInput.value = myUsername;
             usernameInput.addEventListener('change', () => {
                 myUsername = usernameInput.value.trim() || 'Аноним';
                 localStorage.setItem('venikshareUsername', myUsername);
+                const mySpan = document.getElementById('my-username');
+                if (mySpan) mySpan.textContent = myUsername;
             });
 
             // --- Элементы экрана входа ---
@@ -608,13 +599,12 @@
             const fileInput = document.getElementById('file-input');
             const chatExitBtn = document.getElementById('chat-exit-btn');
 
-            // --- Состояние приложения ---
+            // --- Состояние ---
             let peer = null;
-            let connections = []; // все активные соединения (для хоста)
-            let activeConn = null; // для клиента (единственное соединение)
+            let connections = [];
+            let activeConn = null;
             let isHost = false;
             let currentRoomId = null;
-            // Для файлов: хранилище частично полученных файлов (ключ - уникальный ID)
             const fileBuffers = new Map();
 
             function setDebug(message) {
@@ -622,7 +612,6 @@
                 console.log('[DEBUG]', message);
             }
 
-            // --- Обновление счётчика участников ---
             function updateParticipantCount() {
                 if (isHost) {
                     participantCount.textContent = connections.length + 1;
@@ -631,14 +620,32 @@
                 }
             }
 
-            // --- Функции для работы с чатом ---
+            function escapeHtml(unsafe) {
+                return unsafe.replace(/[&<>"]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    if (m === '"') return '&quot;';
+                    return m;
+                });
+            }
+
+            function getFileIcon(fileName) {
+                const ext = fileName.split('.').pop().toLowerCase();
+                if (['png','jpg','jpeg','gif','bmp','webp','svg'].includes(ext)) return 'fa-image';
+                if (['mp4','mov','avi','mkv','webm','flv','wmv'].includes(ext)) return 'fa-video';
+                if (['mp3','flac','wav','aac','ogg','m4a'].includes(ext)) return 'fa-music';
+                if (['txt','pdf','doc','docx','rtf','md','csv','json','xml','html','css','js','ts'].includes(ext)) return 'fa-file-alt';
+                return 'fa-file';
+            }
+
             function addChatMessage(sender, text, own = false, isFile = false, fileData = null) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
                 msgDiv.className = `message ${own ? 'message-own' : ''}`;
-                
+
                 if (isFile && fileData) {
-                    // Для своих файлов sender не показываем (имя и так сверху)
+                    // Своё имя не показываем в сообщении, только в шапке
                     const senderHtml = own ? '' : `<div class="message-sender">${escapeHtml(sender)}</div>`;
                     msgDiv.innerHTML = `
                         <div class="message-bubble file-message ${own ? 'message-bubble-own' : ''}" data-file="${fileData.id}">
@@ -665,7 +672,6 @@
                         }
                     });
                 } else {
-                    // Для своих сообщений sender не показываем
                     const senderHtml = own ? '' : `<div class="message-sender">${escapeHtml(sender)}</div>`;
                     msgDiv.innerHTML = `
                         <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
@@ -679,30 +685,6 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
 
-            function escapeHtml(unsafe) {
-                return unsafe.replace(/[&<>"]/g, function(m) {
-                    if (m === '&') return '&amp;';
-                    if (m === '<') return '&lt;';
-                    if (m === '>') return '&gt;';
-                    if (m === '"') return '&quot;';
-                    return m;
-                });
-            }
-
-            function getFileIcon(fileName) {
-                const ext = fileName.split('.').pop().toLowerCase();
-                const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
-                const videoExt = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv'];
-                const audioExt = ['mp3', 'flac', 'wav', 'aac', 'ogg', 'm4a'];
-                const textExt = ['txt', 'pdf', 'doc', 'docx', 'rtf', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts'];
-                if (imageExt.includes(ext)) return 'fa-image';
-                if (videoExt.includes(ext)) return 'fa-video';
-                if (audioExt.includes(ext)) return 'fa-music';
-                if (textExt.includes(ext)) return 'fa-file-alt';
-                return 'fa-file';
-            }
-
-            // --- Переключение на экран чата ---
             function showChatScreen(roomId) {
                 currentRoomId = roomId;
                 chatRoomId.textContent = roomId;
@@ -711,10 +693,8 @@
                 updateParticipantCount();
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
-                // Кнопки отправки всегда активны
             }
 
-            // --- Выход из комнаты ---
             function exitToLogin() {
                 if (peer) {
                     peer.destroy();
@@ -733,7 +713,6 @@
 
             chatExitBtn.addEventListener('click', exitToLogin);
 
-            // --- Копирование ID комнаты ---
             chatRoomId.addEventListener('click', () => {
                 if (currentRoomId) {
                     navigator.clipboard.writeText(currentRoomId).then(() => {
@@ -753,7 +732,7 @@
                     updateParticipantCount();
                 } else {
                     activeConn = conn;
-                    connections.push(conn); // для удобства
+                    connections.push(conn);
                 }
 
                 conn.on('open', () => {
@@ -763,7 +742,7 @@
                 });
 
                 conn.on('data', (data) => {
-                    // 1. Ретрансляция: если мы хост, пересылаем всем, кроме отправителя
+                    // Ретрансляция для хоста
                     if (isHost && connections.length > 0) {
                         connections.forEach(otherConn => {
                             if (otherConn !== conn) {
@@ -772,7 +751,7 @@
                         });
                     }
 
-                    // 2. Обработка данных
+                    // Обработка
                     if (data.type === 'file-meta') {
                         const fileId = data.fileId;
                         fileBuffers.set(fileId, {
@@ -826,7 +805,6 @@
                 });
             }
 
-            // --- Функция отправки сообщения всем (если есть соединения) или просто локально ---
             function sendToAll(data) {
                 if (activeConn) {
                     activeConn.send(data);
@@ -858,9 +836,7 @@
                         body: JSON.stringify({ roomId, password })
                     });
                     const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Ошибка сервера');
-                    }
+                    if (!response.ok) throw new Error(data.error || 'Ошибка сервера');
 
                     setDebug('✅ Комната зарегистрирована, создаём пир...');
                     if (peer) peer.destroy();
@@ -922,13 +898,9 @@
                     });
                     const data = await response.json();
                     if (!response.ok) {
-                        if (response.status === 404) {
-                            throw new Error('Комната не найдена. Возможно, она не создана или истек срок действия.');
-                        } else if (response.status === 401) {
-                            throw new Error('Неверный пароль');
-                        } else {
-                            throw new Error(data.error || 'Ошибка сервера');
-                        }
+                        if (response.status === 404) throw new Error('Комната не найдена. Возможно, она не создана или истек срок действия.');
+                        if (response.status === 401) throw new Error('Неверный пароль');
+                        throw new Error(data.error || 'Ошибка сервера');
                     }
 
                     setDebug('✅ Комната существует, подключаемся к пиру...');
@@ -970,10 +942,7 @@
                 const text = chatInput.value.trim();
                 if (!text) return;
 
-                // Отправляем всем, если есть соединения
                 sendToAll({ type: 'text', sender: myUsername, text });
-
-                // Добавляем в свой чат
                 addChatMessage(myUsername, text, true);
                 chatInput.value = '';
             });
@@ -996,9 +965,11 @@
 
                 for (const file of files) {
                     const fileId = Math.random().toString(36).substring(2) + Date.now();
-                    
-                    // Отправляем всем, если есть соединения
+
+                    // Определяем получателей
                     const targets = activeConn ? [activeConn] : connections;
+
+                    // Отправляем, если есть соединения
                     if (targets.length > 0) {
                         targets.forEach(conn => {
                             conn.send({
@@ -1036,7 +1007,7 @@
                         });
                     }
 
-                    // Добавляем файл в свой чат (всегда)
+                    // Добавляем в свой чат
                     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
                     addChatMessage(myUsername, '', true, true, {
                         name: file.name,
