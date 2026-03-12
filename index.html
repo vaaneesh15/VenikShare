@@ -172,6 +172,12 @@
             word-break: break-all;
             border: 1px solid var(--card-border);
             margin-bottom: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .id-display:active {
+            background: var(--card-bg);
         }
 
         .input-group {
@@ -498,59 +504,50 @@
                 debug: 2
             }];
 
+            // --- Генерация короткого читаемого ID (5 символов) ---
+            function generateShortId() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789';
+                let result = '';
+                for (let i = 0; i < 5; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            }
+
             // --- Элементы для диагностики ---
             const debugInfo = document.getElementById('debug-info');
-
             function setDebug(message) {
                 debugInfo.textContent = message;
                 console.log('[DEBUG]', message);
             }
 
-            // --- Функция создания пира с перебором серверов ---
-            function createPeerWithFallback() {
-                return new Promise((resolve, reject) => {
-                    let currentIndex = 0;
-                    let lastError = null;
-
-                    function tryNext() {
-                        if (currentIndex >= peerServers.length) {
-                            setDebug(`❌ Все серверы недоступны. Последняя ошибка: ${lastError?.message || lastError?.type || 'неизвестная'}`);
-                            reject(new Error('All peer servers failed'));
-                            return;
-                        }
-                        const server = peerServers[currentIndex];
-                        setDebug(`🔄 Попытка подключения к ${server.host} (${currentIndex+1}/${peerServers.length})...`);
-                        const peer = new Peer(server);
-                        
-                        peer.on('open', (id) => {
-                            setDebug(`✅ Успешно подключено к ${server.host}, ID: ${id}`);
-                            resolve(peer);
-                        });
-                        
-                        peer.on('error', (err) => {
-                            lastError = err;
-                            setDebug(`❌ Ошибка на сервере ${server.host}: ${err.type} — ${err.message}`);
-                            currentIndex++;
-                            tryNext();
-                        });
-                    }
-                    tryNext();
-                });
-            }
+            // --- Функция для копирования ID по клику ---
+            const peerIdDisplay = document.getElementById('peer-id-display');
+            peerIdDisplay.addEventListener('click', () => {
+                const text = peerIdDisplay.textContent;
+                if (text && text !== '—') {
+                    navigator.clipboard.writeText(text).then(() => {
+                        setDebug('✅ ID скопирован в буфер обмена');
+                        const originalStatus = connectionStatus.textContent;
+                        connectionStatus.textContent = currentLang === 'ru' ? 'ID скопирован!' : 'ID copied!';
+                        setTimeout(() => {
+                            connectionStatus.textContent = originalStatus;
+                        }, 2000);
+                    }).catch(err => {
+                        setDebug('❌ Не удалось скопировать ID');
+                    });
+                }
+            });
 
             let peer = null;
-            // Для хоста: храним все входящие соединения
             let connections = [];
-            // Для клиента: активное соединение (если только одно)
             let activeConn = null;
-
             let peerId = null;
             const filesToSend = [];
             const receivedFiles = [];
             let nextFileId = 0;
 
             // Элементы
-            const peerIdDisplay = document.getElementById('peer-id-display');
             const peerIdInput = document.getElementById('peer-id-input');
             const connectBtn = document.getElementById('connect-btn');
             const createBtn = document.getElementById('create-peer-btn');
@@ -618,7 +615,6 @@
                         const idx = filesToSend.findIndex(f => f.id === id);
                         if (idx !== -1) filesToSend.splice(idx, 1);
                         updateFileList();
-                        // Кнопка отправки активна, если есть файлы и есть хотя бы одно соединение
                         sendFilesBtn.disabled = filesToSend.length === 0 || (connections.length === 0 && !activeConn);
                     });
                     fileListEl.appendChild(li);
@@ -650,10 +646,8 @@
             // --- Функция отправки данных всем подключённым клиентам (для хоста) ---
             function sendToAll(data) {
                 if (activeConn) {
-                    // Если мы клиент (одно соединение)
                     activeConn.send(data);
                 } else {
-                    // Если мы хост (много соединений)
                     connections.forEach(conn => conn.send(data));
                 }
             }
@@ -661,15 +655,10 @@
             // --- Функция настройки соединения (общая для входящих и исходящих) ---
             function setupConnection(connection) {
                 const conn = connection;
-                // Добавляем в список соединений (для хоста)
                 if (!activeConn) {
-                    // Если это входящее соединение для хоста
                     connections.push(conn);
-                } else {
-                    // Для клиента сохраняем как активное (уже есть activeConn)
-                    // Но здесь мы уже в активном, поэтому ничего не делаем
                 }
-                
+
                 conn.on('open', () => {
                     connectionStatus.textContent = currentLang === 'ru' ? `✅ Подключено к ${conn.peer}` : `✅ Connected to ${conn.peer}`;
                     sendFilesBtn.disabled = filesToSend.length === 0;
@@ -756,7 +745,6 @@
                 });
 
                 conn.on('close', () => {
-                    // Удаляем из списка соединений
                     if (activeConn === conn) {
                         activeConn = null;
                         connectionStatus.textContent = currentLang === 'ru' ? 'Соединение закрыто' : 'Connection closed';
@@ -776,36 +764,57 @@
                 });
             }
 
-            // --- Создание комнаты (хост) ---
+            // --- Создание комнаты (хост) с коротким ID ---
             createBtn.addEventListener('click', async () => {
                 if (peer) peer.destroy();
                 connections = [];
                 activeConn = null;
                 connectionStatus.textContent = currentLang === 'ru' ? 'Подключение к серверу...' : 'Connecting to server...';
                 setDebug('');
-                try {
-                    peer = await createPeerWithFallback();
-                    
-                    // Отображаем ID сразу
-                    peerId = peer.id;
-                    peerIdDisplay.textContent = peerId;
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Ожидание подключений...' : 'Waiting for connections...';
 
-                    // Обработчик входящих соединений
-                    peer.on('connection', (connection) => {
-                        setupConnection(connection);
+                const tryCreatePeer = async (attempt = 1) => {
+                    if (attempt > 10) {
+                        setDebug('❌ Не удалось создать уникальный ID после 10 попыток');
+                        connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка создания комнаты' : 'Room creation failed';
+                        return;
+                    }
+
+                    const shortId = generateShortId();
+                    setDebug(`🔄 Попытка создать комнату с ID: ${shortId} (попытка ${attempt})`);
+
+                    const server = peerServers[0];
+                    const newPeer = new Peer(shortId, server);
+
+                    newPeer.on('open', (id) => {
+                        peer = newPeer;
+                        peerId = id;
+                        peerIdDisplay.textContent = id;
+                        connectionStatus.textContent = currentLang === 'ru' ? 'Ожидание подключений...' : 'Waiting for connections...';
+                        setDebug('✅ Комната создана. ID: ' + id);
+
+                        newPeer.on('connection', (connection) => {
+                            setupConnection(connection);
+                        });
+
+                        newPeer.on('error', (err) => {
+                            console.error(err);
+                            connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка: ' + err.type : 'Error: ' + err.type;
+                            setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
+                        });
                     });
 
-                    peer.on('error', (err) => {
-                        console.error(err);
-                        connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка: ' + err.type : 'Error: ' + err.type;
-                        setDebug(`Ошибка пира: ${err.type} — ${err.message}`);
+                    newPeer.on('error', (err) => {
+                        if (err.type === 'id-taken') {
+                            setDebug(`❌ ID ${shortId} уже занят, пробуем другой...`);
+                            tryCreatePeer(attempt + 1);
+                        } else {
+                            setDebug(`❌ Ошибка при создании пира: ${err.type} — ${err.message}`);
+                            connectionStatus.textContent = currentLang === 'ru' ? 'Ошибка соединения' : 'Connection error';
+                        }
                     });
+                };
 
-                } catch (err) {
-                    console.error(err);
-                    connectionStatus.textContent = currentLang === 'ru' ? 'Не удалось подключиться к серверу' : 'Could not connect to server';
-                }
+                tryCreatePeer();
             });
 
             // --- Подключение к комнате (клиент) ---
@@ -820,12 +829,16 @@
                 setDebug('');
 
                 try {
-                    peer = await createPeerWithFallback();
+                    const server = peerServers[0];
+                    // Создаём пир без указания ID (случайный)
+                    const newPeer = new Peer(server);
+                    peer = newPeer;
 
-                    // Подключаемся к удалённому пиру
-                    const conn = peer.connect(remoteId);
-                    activeConn = conn;
-                    setupConnection(conn); // настраиваем это соединение
+                    peer.on('open', () => {
+                        const conn = peer.connect(remoteId);
+                        activeConn = conn;
+                        setupConnection(conn);
+                    });
 
                     peer.on('error', (err) => {
                         console.error(err);
@@ -848,7 +861,6 @@
                     activeConn.send({ type: 'text', text });
                     textMessage.value = '';
                 } else if (connections.length > 0) {
-                    // Хост отправляет всем
                     connections.forEach(conn => conn.send({ type: 'text', text }));
                     textMessage.value = '';
                 } else {
@@ -868,7 +880,6 @@
                 let totalSent = 0;
                 let totalSize = filesToSend.reduce((acc, f) => acc + f.file.size, 0);
 
-                // Определяем, кому отправляем
                 const targets = activeConn ? [activeConn] : connections;
 
                 for (let i = 0; i < filesToSend.length; i++) {
@@ -880,7 +891,6 @@
                     const progressFill = progressBar?.querySelector('.progress-fill');
                     if (progressBar) progressBar.style.display = 'block';
 
-                    // Отправляем метаданные каждому целевому соединению
                     targets.forEach(conn => {
                         conn.send({
                             type: 'file-meta',
