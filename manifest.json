@@ -1,7 +1,7 @@
 {
   "name": "ChatX",
   "short_name": "ChatX",
-  "description": "Обмен файлами и сообщениями",
+  "description": "Чат с комнатами и паролями",
   "start_url": "/VenikShare/",
   "display": "standalone",
   "background_color": "#1a1a2e",
