@@ -59,23 +59,9 @@
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
             position: relative;
-            min-height: 100vh;
-            height: auto;
         }
 
-        /* Огромный фиксированный фон, перекрывающий всё */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
-            z-index: -2;
-        }
-
-        /* Дополнительный слой для полного покрытия */
+        /* Огромный фон, чтобы покрыть статус-бар и домашнюю полоску */
         body::after {
             content: '';
             position: fixed;
@@ -237,7 +223,7 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px calc(70px + env(safe-area-inset-bottom)) 16px; /* убрал лишние 50px */
+            padding: 8px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -439,7 +425,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px calc(70px + env(safe-area-inset-bottom)) 16px; /* убрал лишние 30px */
+            padding: 8px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
