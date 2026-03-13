@@ -787,7 +787,7 @@
             function updateRoomList(rooms) {
                 if (!roomHistoryList) return;
                 if (!rooms || rooms.length === 0) {
-                    roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center;">Нет истории</li>';
+roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center; color: var(--text-primary); opacity: 0.8;">Нет истории</li>';
                     return;
                 }
                 roomHistoryList.innerHTML = rooms.map(room => `
