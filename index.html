@@ -748,17 +748,14 @@
             });
 
             socket.on('newMessage', (data) => {
-                addChatMessage(data, false);
+                // Сообщение получено (от кого угодно, включая себя)
+                addChatMessage(data, data.sender === myUsername);
                 if (data.roomId !== currentRoomId || document.hidden) {
                     unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
                     saveUnread();
                     if (!currentRoomId) loadRooms();
                     showNotification(data.sender, data.text, data.roomId);
                 }
-            });
-
-            socket.on('messageSent', (data) => {
-                addChatMessage(data, true);
             });
 
             socket.on('userCount', (data) => {
