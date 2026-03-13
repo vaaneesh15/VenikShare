@@ -786,10 +786,34 @@
 
             function updateRoomList(rooms) {
                 if (!roomHistoryList) return;
-                if (!rooms || rooms.length === 0) {
-roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center; color: var(--text-primary); opacity: 0.8;">Нет истории</li>';
-                    return;
-                }
+                function updateRoomList(rooms) {
+    if (!roomHistoryList) return;
+    if (!rooms || rooms.length === 0) {
+        roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center; color: var(--text-primary); opacity: 0.7;">Нет истории</li>';
+        return;
+    }
+    roomHistoryList.innerHTML = rooms.map(room => `
+        <li class="room-item" data-roomid="${room.roomId}">
+            <span class="room-name">${room.roomId}</span>
+            <div class="room-meta">
+                <span class="room-date">${new Date(room.lastActive).toLocaleDateString()}</span>
+                <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </li>
+    `).join('');
+
+    document.querySelectorAll('.room-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const rid = el.dataset.roomid;
+            if (rid) {
+                roomIdInput.value = rid;
+                connectBtn.click();
+            }
+        });
+    });
+}
                 roomHistoryList.innerHTML = rooms.map(room => `
                     <li class="room-item" data-roomid="${room.roomId}">
                         <span class="room-name">${room.roomId}</span>
