@@ -223,7 +223,8 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px calc(12px - env(safe-area-inset-bottom) + 50px) 16px;
+            padding: 8px 16px calc(12px + env(safe-area-inset-bottom) + 40px) 16px;
+            margin-bottom: -40px; /* вытягиваем панель вниз за пределы родителя */
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
