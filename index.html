@@ -223,7 +223,7 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px calc(200px) 16px;
+            padding: 8px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -425,7 +425,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px calc(200px) 16px; 
+            padding: 8px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -589,7 +589,7 @@
                         <div class="participant-count" id="private-room-count">0</div>
                     </div>
                     <div class="page-content">
-                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">Войти / Создать</button>
+                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">➕ Войти / Создать</button>
                         <div id="private-room-list" class="room-list"></div>
                     </div>
                 </div>
