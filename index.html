@@ -30,12 +30,11 @@
             height: 100%;
             touch-action: pan-y; /* разрешаем вертикальную прокрутку, но не горизонтальную */
         }
-        /* В контейнере чата разрешаем прокрутку, но выделение всё равно запрещено */
+        /* В контейнере чата разрешаем вертикальную прокрутку */
         .chat-messages {
-            touch-action: pan-y; /* разрешаем вертикальную прокрутку внутри */
+            touch-action: pan-y;
             overflow-y: auto;
         }
-        /* Запрет масштабирования через CSS (уже есть в meta viewport) */
 
         body {
             --bg-gradient-start: #e9e9f0;
@@ -90,14 +89,332 @@
             --reply-highlight: #5d4a1f;
         }
 
-        /* ... остальные стили без изменений (они уже есть в предыдущей версии, 
-           но для полноты я включу их сюда, иначе ответ будет слишком длинным. 
-           В реальности можно оставить как было, добавив только новые классы. 
-           Я приведу только новые и изменённые стили, а остальные подразумеваются как в прошлом ответе.
-           Чтобы не раздувать ответ, предполагаем, что все предыдущие стили сохранены,
-           и добавляем новые классы ниже. */
+        /* Стили для экранов */
+        .screen {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.3s;
+        }
+        .screen-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
 
-        /* Новые стили для ответов */
+        /* Экран входа */
+        .login-screen {
+            background: var(--container-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)) 16px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .login-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .login-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+            text-align: center;
+        }
+        .theme-toggle {
+            background: var(--icon-bg);
+            width: 44px;
+            height: 44px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            cursor: pointer;
+            border: 1px solid var(--container-border);
+            color: var(--accent);
+            font-size: 20px;
+            position: absolute;
+            right: 0;
+            top: 0;
+        }
+        .theme-toggle:active {
+            transform: scale(0.94);
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 36px;
+            padding: 20px 16px;
+            border: 1px solid var(--container-border);
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .input-group input {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 40px;
+            padding: 14px 18px;
+            font-size: 16px;
+            color: var(--text-primary);
+            outline: none;
+        }
+        .input-group input::placeholder {
+            color: var(--text-muted);
+        }
+        .btn {
+            background: var(--icon-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 40px;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+        .btn:active {
+            transform: scale(0.96);
+        }
+        .btn:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .status {
+            text-align: center;
+            color: var(--text-muted);
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .history-section {
+            margin-bottom: 16px;
+        }
+        .history-section h4 {
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .room-list {
+            list-style: none;
+            max-height: 150px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .room-item {
+            background: var(--card-bg);
+            border-radius: 30px;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border: 1px solid var(--card-border);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+        .room-item:active {
+            background: var(--card-border);
+        }
+        .room-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 14px;
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .room-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .room-date {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .room-unread-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--unread-dot);
+            border: 2px solid var(--unread-dot-border);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+        }
+        .delete-room-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 4px;
+        }
+        .delete-room-btn:active {
+            color: var(--accent);
+        }
+
+        /* Экран чата */
+        .chat-screen {
+            background: var(--container-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .chat-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--container-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: max(24px, env(safe-area-inset-top)) 16px 12px 16px;
+            border-bottom: 1px solid var(--container-border);
+            flex-shrink: 0;
+        }
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .chat-header-left .theme-toggle {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            position: static;
+        }
+        .chat-room-id {
+            background: var(--input-bg);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+            cursor: pointer;
+        }
+        .chat-room-id:active {
+            background: var(--card-bg);
+        }
+        .my-username {
+            background: var(--icon-bg);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            border: 1px solid var(--card-border);
+        }
+        .participant-count {
+            background: var(--icon-bg);
+            border-radius: 30px;
+            padding: 4px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+            border: 1px solid var(--card-border);
+        }
+        .chat-exit-btn {
+            background: var(--icon-bg);
+            width: 44px;
+            height: 44px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            cursor: pointer;
+            border: 1px solid var(--container-border);
+            color: var(--accent);
+            font-size: 22px;
+        }
+        .chat-exit-btn:active {
+            transform: scale(0.94);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 4px;
+        }
+        .message-own {
+            justify-content: flex-end;
+        }
+        .message-bubble {
+            max-width: 80%;
+            background: var(--chat-other-bg);
+            border-radius: 24px;
+            padding: 10px 16px;
+            border: 1px solid var(--card-border);
+            word-break: break-word;
+            color: var(--chat-other-text);
+        }
+        .message-bubble-own {
+            background: var(--chat-own-bg);
+            color: var(--chat-own-text);
+            border-color: var(--accent-light);
+        }
+        .message-sender {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+        .message-text {
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        /* Стили для ответов */
         .reply-indicator {
             background: var(--reply-bg);
             border-radius: 12px;
@@ -166,19 +483,46 @@
             color: var(--accent);
         }
 
-        /* Остальные стили из предыдущего ответа – должны быть здесь, 
-           но для краткости я их опускаю, предполагая, что вы их сохраните.
-           В реальном коде нужно скопировать все стили из предыдущей версии и добавить эти.
-        */
+        .chat-input-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--container-border);
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            flex-shrink: 0;
+            /* Расширяем до самого низа с учётом безопасной зоны */
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        }
+        .chat-input-area textarea {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 30px;
+            padding: 14px 18px;
+            font-size: 16px;
+            color: var(--text-primary);
+            outline: none;
+            resize: none;
+            min-height: 48px;
+            max-height: 120px;
+        }
+        .chat-input-area button {
+            width: 48px;
+            height: 48px;
+            border-radius: 30px;
+            padding: 0;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
     </style>
-    <!-- Здесь должны быть все старые стили (из предыдущего ответа) плюс новые, 
-         но чтобы не дублировать тысячу строк, я предполагаю, что вы их оставите.
-         В любом случае, при замене файла нужно будет полностью скопировать предыдущий CSS
-         и добавить в него новые классы. 
-         В целях экономии места я не буду переписывать весь CSS, а укажу изменения. -->
 </head>
 <body>
-    <!-- Экран входа (без изменений) -->
+    <!-- Экран входа -->
     <div class="screen login-screen" id="login-screen">
         <div class="login-header">
             <h1>ChatX</h1>
@@ -246,7 +590,7 @@
 
     <script>
         (function() {
-            // --- Тема (без изменений) ---
+            // --- Тема ---
             const themeToggles = [
                 document.getElementById('login-theme-toggle'),
                 document.getElementById('chat-theme-toggle')
@@ -454,9 +798,8 @@
                     </div>
                 `;
 
-                // Обработчик клика для копирования
+                // Обработчик клика для копирования (игнорируем клик по reply-indicator)
                 msgDiv.addEventListener('click', (e) => {
-                    // Игнорируем клик по reply-indicator, чтобы не копировать при нажатии на цитату
                     if (e.target.closest('.reply-indicator')) return;
                     copyToClipboard(msg.text);
                 });
@@ -623,7 +966,7 @@
                 };
             }
 
-            // --- Список комнат (без изменений) ---
+            // --- Список комнат ---
             function loadRooms() {
                 emitWhenConnected('getRooms', {});
             }
