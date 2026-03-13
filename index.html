@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Все стили без изменений (как в предыдущем ответе) */
         * {
             margin: 0;
             padding: 0;
@@ -747,6 +748,7 @@
                     }
                 });
 
+                // Управление видимостью нижней навигации
                 if (screenId === 'public-screen' || screenId === 'private-chat-screen') {
                     bottomNav.classList.add('hidden');
                     publicInputArea.classList.add('no-nav');
@@ -776,7 +778,11 @@
             // Авторизация
             async function login(username, password) {
                 try {
-                    const res = await fetch(API_BASE + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+                    const res = await fetch(API_BASE + '/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Ошибка');
                     currentUser = { username };
@@ -794,11 +800,16 @@
 
             async function register(username, password) {
                 try {
-                    const res = await fetch(API_BASE + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+                    const res = await fetch(API_BASE + '/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Ошибка');
-                    authStatus.textContent = 'Регистрация успешна, теперь войдите.';
-                    authPassword.value = '';
+                    authStatus.textContent = 'Регистрация успешна, выполняем вход...';
+                    // Автоматически входим после регистрации
+                    await login(username, password);
                 } catch (err) {
                     authStatus.textContent = err.message;
                 }
@@ -818,6 +829,7 @@
                 else authStatus.textContent = 'Введите имя и пароль';
             });
 
+            // Проверка сохранённой сессии
             const savedUser = localStorage.getItem('chatxUser');
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
@@ -841,7 +853,10 @@
                 modalConfirm.onclick = async () => {
                     const pwd = modalPassword.value.trim();
                     const newUsername = prompt('Введите новое имя пользователя:');
-                    if (!newUsername) return;
+                    if (!newUsername) {
+                        modal.style.display = 'none';
+                        return;
+                    }
                     try {
                         const res = await fetch(API_BASE + '/api/change-username', {
                             method: 'POST',
