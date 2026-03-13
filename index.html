@@ -12,8 +12,9 @@
     <meta name="theme-color" id="theme-color-meta" content="#4a3aff">
     <link rel="manifest" href="manifest.json">
     
-    <!-- PeerJS и Font Awesome -->
+    <!-- PeerJS, idb, Font Awesome -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/idb@7.1.1/build/umd.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
@@ -106,7 +107,7 @@
         .login-header {
             display: flex;
             align-items: center;
-            justify-content: center; /* центрируем по горизонтали */
+            justify-content: center;
             margin-bottom: 24px;
             flex-shrink: 0;
             position: relative;
@@ -219,6 +220,82 @@
             gap: 12px;
         }
 
+        .history-section {
+            margin-bottom: 16px;
+        }
+
+        .history-section h4 {
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .room-list {
+            list-style: none;
+            max-height: 150px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .room-item {
+            background: var(--card-bg);
+            border-radius: 30px;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border: 1px solid var(--card-border);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .room-item:active {
+            background: var(--card-border);
+        }
+
+        .room-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 14px;
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .room-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .room-date {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .room-unread {
+            background: var(--accent);
+            color: white;
+            border-radius: 30px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .delete-room-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 4px;
+        }
+
+        .delete-room-btn:active {
+            color: var(--accent);
+        }
+
         .chat-screen {
             background: var(--container-bg);
             backdrop-filter: blur(20px);
@@ -248,7 +325,7 @@
             width: 40px;
             height: 40px;
             font-size: 18px;
-            position: static; /* убираем абсолютное позиционирование */
+            position: static;
         }
 
         .chat-room-id {
@@ -420,6 +497,12 @@
             <div id="connection-status" class="status">Не подключено</div>
             <div id="debug-info" class="status" style="color: var(--accent); font-size: 12px;"></div>
         </div>
+
+        <!-- История комнат -->
+        <div class="panel history-section">
+            <h4>Недавние комнаты</h4>
+            <ul id="room-history-list" class="room-list"></ul>
+        </div>
     </div>
 
     <!-- Экран чата -->
@@ -490,6 +573,49 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
+            // --- IndexedDB (версия 2 с полем unreadCount) ---
+            let dbPromise;
+            const DB_NAME = 'ChatXDatabase';
+            const DB_VERSION = 2;
+
+            async function initDB() {
+                dbPromise = await idb.openDB(DB_NAME, DB_VERSION, {
+                    upgrade(db, oldVersion, newVersion, transaction) {
+                        console.log(`Обновление БД с версии ${oldVersion} до ${newVersion}`);
+                        
+                        if (!db.objectStoreNames.contains('rooms')) {
+                            const roomStore = db.createObjectStore('rooms', { keyPath: 'roomId' });
+                            roomStore.createIndex('by-lastVisit', 'lastVisit');
+                            // unreadCount будет добавлено при put
+                        }
+                        
+                        if (!db.objectStoreNames.contains('messages')) {
+                            const messageStore = db.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
+                            messageStore.createIndex('by-room', 'roomId');
+                            messageStore.createIndex('by-timestamp', 'timestamp');
+                        }
+                    },
+                });
+                console.log('База данных инициализирована (версия 2)');
+            }
+            initDB().catch(console.error);
+
+            // --- Запрос разрешения на уведомления ---
+            function requestNotificationPermission() {
+                if (!("Notification" in window)) {
+                    console.log("Этот браузер не поддерживает уведомления");
+                    return;
+                }
+                if (Notification.permission === "granted") {
+                    console.log("Уведомления уже разрешены");
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(permission => {
+                        console.log("Разрешение на уведомления:", permission);
+                    });
+                }
+            }
+            requestNotificationPermission();
+
             // --- Имя пользователя ---
             const usernameInput = document.getElementById('username-input');
             let myUsername = localStorage.getItem('chatxUsername') || 'Аноним';
@@ -516,11 +642,12 @@
             const chatInput = document.getElementById('chat-input');
             const sendChatBtn = document.getElementById('send-chat-btn');
             const chatExitBtn = document.getElementById('chat-exit-btn');
+            const roomHistoryList = document.getElementById('room-history-list');
 
             // --- Состояние ---
             let peer = null;
-            let connections = []; // все соединения (для хоста)
-            let activeConn = null; // для клиента (единственное соединение)
+            let connections = [];
+            let activeConn = null;
             let isHost = false;
             let currentRoomId = null;
 
@@ -540,6 +667,117 @@
                 });
             }
 
+            // --- Функции для работы с базой данных ---
+            async function saveMessage(roomId, sender, text, own) {
+                const db = await dbPromise;
+                await db.add('messages', {
+                    roomId: roomId,
+                    sender: sender,
+                    text: text,
+                    timestamp: new Date().toISOString(),
+                    own: own,
+                });
+            }
+
+            async function loadRoomHistory() {
+                const db = await dbPromise;
+                const rooms = await db.getAllFromIndex('rooms', 'by-lastVisit');
+                if (!roomHistoryList) return;
+                
+                if (rooms.length === 0) {
+                    roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center;">Нет истории</li>';
+                    return;
+                }
+                
+                // Сортируем по lastVisit (сначала новые)
+                rooms.sort((a, b) => new Date(b.lastVisit) - new Date(a.lastVisit));
+                
+                roomHistoryList.innerHTML = rooms.map(room => `
+                    <li class="room-item" data-roomid="${room.roomId}">
+                        <span class="room-name">${room.roomId}</span>
+                        <div class="room-meta">
+                            <span class="room-date">${new Date(room.lastVisit).toLocaleDateString()}</span>
+                            ${room.unreadCount ? `<span class="room-unread">${room.unreadCount}</span>` : ''}
+                            <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </li>
+                `).join('');
+
+                // Добавляем обработчики клика на элементы
+                document.querySelectorAll('.room-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const rid = el.dataset.roomid;
+                        if (rid) {
+                            roomIdInput.value = rid;
+                            connectBtn.click();
+                        }
+                    });
+                });
+            }
+
+            // Глобальная функция удаления комнаты
+            window.deleteRoom = async (roomId) => {
+                const db = await dbPromise;
+                // Удаляем комнату
+                await db.delete('rooms', roomId);
+                // Удаляем все сообщения этой комнаты
+                const tx = db.transaction('messages', 'readwrite');
+                const index = tx.store.index('by-room');
+                let cursor = await index.openCursor(IDBKeyRange.only(roomId));
+                while (cursor) {
+                    cursor.delete();
+                    cursor = await cursor.continue();
+                }
+                await tx.done;
+                loadRoomHistory();
+            };
+
+            // --- Уведомление ---
+            function showNotification(title, body, roomId) {
+                if (!("Notification" in window) || Notification.permission !== "granted") {
+                    return;
+                }
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: '/icon.svg',
+                    tag: roomId,
+                    renotify: true,
+                });
+                notification.onclick = () => {
+                    window.focus();
+                    roomIdInput.value = roomId;
+                    connectBtn.click();
+                };
+            }
+
+            // --- Сохранение комнаты (с обновлением unreadCount) ---
+            async function saveRoomVisit(roomId) {
+                const db = await dbPromise;
+                let room = await db.get('rooms', roomId);
+                if (!room) {
+                    room = { roomId: roomId, lastVisit: new Date().toISOString(), unreadCount: 0 };
+                } else {
+                    room.lastVisit = new Date().toISOString();
+                    // При входе сбрасываем счётчик
+                    room.unreadCount = 0;
+                }
+                await db.put('rooms', room);
+                loadRoomHistory();
+            }
+
+            async function incrementUnreadCount(roomId) {
+                const db = await dbPromise;
+                let room = await db.get('rooms', roomId);
+                if (room) {
+                    room.unreadCount = (room.unreadCount || 0) + 1;
+                    await db.put('rooms', room);
+                    loadRoomHistory();
+                }
+            }
+
+            // --- Добавление сообщения в чат (и сохранение) ---
             function addChatMessage(sender, text, own = false) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
@@ -573,6 +811,20 @@
                 updateParticipantCount();
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
+                
+                // Загружаем историю сообщений из БД
+                (async () => {
+                    const db = await dbPromise;
+                    const index = db.transaction('messages').store.index('by-room');
+                    const messages = await index.getAll(roomId);
+                    messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    messages.forEach(msg => {
+                        addChatMessage(msg.sender, msg.text, msg.own);
+                    });
+                })();
+
+                // Сохраняем визит и сбрасываем счётчик
+                saveRoomVisit(roomId);
             }
 
             function exitToLogin() {
@@ -588,6 +840,7 @@
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = 'Не подключено';
                 setDebug('');
+                loadRoomHistory(); // обновляем список комнат
             }
 
             chatExitBtn.addEventListener('click', exitToLogin);
@@ -603,13 +856,13 @@
                 }
             });
 
-            // --- Настройка соединения (общая для входящих и исходящих) ---
+            // --- Настройка соединения ---
             function setupConnection(conn) {
                 if (isHost) {
                     connections.push(conn);
                 } else {
                     activeConn = conn;
-                    connections.push(conn); // для удобства
+                    connections.push(conn);
                 }
 
                 conn.on('open', () => {
@@ -628,9 +881,20 @@
                         });
                     }
 
-                    // Принимаем сообщение
                     if (data.type === 'text') {
+                        // Получено сообщение
                         addChatMessage(data.sender, data.text, false);
+                        
+                        // Сохраняем в БД
+                        if (currentRoomId) {
+                            saveMessage(currentRoomId, data.sender, data.text, false);
+                        }
+
+                        // Если текущий чат не соответствует комнате отправителя или приложение не активно, увеличиваем счётчик и уведомляем
+                        if (currentRoomId !== conn.peer || document.hidden) {
+                            incrementUnreadCount(conn.peer);
+                            showNotification(data.sender, data.text, conn.peer);
+                        }
                     }
                 });
 
@@ -743,6 +1007,9 @@
 
                 sendToAll({ type: 'text', sender: myUsername, text });
                 addChatMessage(myUsername, text, true);
+                if (currentRoomId) {
+                    saveMessage(currentRoomId, myUsername, text, true);
+                }
                 chatInput.value = '';
             });
 
@@ -752,6 +1019,12 @@
                     sendChatBtn.click();
                 }
             });
+
+            // --- Загрузка истории при старте ---
+            (async () => {
+                await initDB();
+                loadRoomHistory();
+            })();
 
             window.addEventListener('beforeunload', () => {
                 if (peer) peer.destroy();
