@@ -55,11 +55,22 @@
             --chat-other-bg: #e0e0f0;
             --chat-own-text: white;
             --chat-other-text: #1a1a2e;
-            --unread-dot: #ff4444;
-            --unread-dot-border: #ffffff;
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            min-height: 150vh;
+            position: relative;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: -50vh;
+            left: -50vw;
+            width: 200vw;
+            height: 200vh;
+            background: inherit;
+            z-index: -1;
         }
 
         body.dark {
@@ -80,23 +91,17 @@
             --input-bg: rgba(40, 40, 55, 0.6);
             --chat-other-bg: #3a3a5a;
             --chat-other-text: #ffffff;
-            --unread-dot: #ff6b6b;
-            --unread-dot-border: #1a1a2e;
         }
 
-        /* Основной контейнер приложения */
         .app {
             width: 100%;
             height: 100%;
             position: relative;
-            background: var(--container-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: transparent;
             display: flex;
             flex-direction: column;
         }
 
-        /* Экраны авторизации и главный экран */
         .screen {
             width: 100%;
             height: 100%;
@@ -113,22 +118,19 @@
             pointer-events: none;
         }
 
-        /* Главный экран (после авторизации) использует flex-колонку, навигация внизу */
         #main-screen {
             display: flex;
             flex-direction: column;
             height: 100%;
             position: relative;
-            opacity: 1;
-            pointer-events: auto;
         }
-        /* Контейнер для активного экрана (заполняет пространство над навигацией) */
+
         .screen-container {
             flex: 1;
             position: relative;
             overflow: hidden;
         }
-        /* Все внутренние экраны внутри screen-container позиционируются абсолютно, чтобы перекрываться */
+
         .inner-screen {
             position: absolute;
             top: 0;
@@ -145,7 +147,6 @@
             pointer-events: none;
         }
 
-        /* Унифицированная верхняя панель для всех страниц */
         .page-header, .chat-header {
             display: flex;
             align-items: center;
@@ -207,14 +208,17 @@
         .participant-count {
             background: var(--icon-bg);
             border-radius: 30px;
-            padding: 4px 12px;
-            font-size: 14px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
             font-weight: 600;
             color: var(--accent);
             border: 1px solid var(--card-border);
         }
 
-        /* Нижняя навигация (внизу главного экрана) - по умолчанию видна */
         .bottom-nav {
             display: flex;
             align-items: center;
@@ -255,7 +259,6 @@
             color: var(--accent);
         }
 
-        /* Контент страницы (для профиля и списка комнат) */
         .page-content {
             flex: 1;
             overflow-y: auto;
@@ -264,7 +267,6 @@
             flex-direction: column;
         }
 
-        /* Панели и карточки */
         .panel {
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -331,7 +333,6 @@
             gap: 12px;
         }
 
-        /* Список комнат */
         .room-list {
             list-style: none;
         }
@@ -369,17 +370,7 @@
         .room-delete:active {
             color: var(--accent);
         }
-        .unread-badge {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--unread-dot);
-            border: 2px solid var(--unread-dot-border);
-            margin-right: 8px;
-            flex-shrink: 0;
-        }
 
-        /* Экран чата (общий для публичного и личных) */
         .chat-screen {
             display: flex;
             flex-direction: column;
@@ -444,6 +435,10 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
+            transition: padding-bottom 0.3s;
+        }
+        .chat-input-area.no-nav {
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
         }
         .chat-input-area textarea {
             flex: 1;
@@ -470,7 +465,6 @@
             flex-shrink: 0;
         }
 
-        /* Модальные окна */
         .modal {
             position: fixed;
             top: 0;
@@ -499,30 +493,6 @@
             margin-top: 20px;
         }
 
-        /* Всплывающее уведомление (тост) */
-        .toast {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            color: var(--text-primary);
-            padding: 12px 24px;
-            border-radius: 40px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--container-border);
-            z-index: 2000;
-            transition: opacity 0.3s;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .toast.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        /* Для экрана входа */
         .auth-container {
             flex: 1;
             display: flex;
@@ -530,11 +500,28 @@
             justify-content: center;
             padding: 16px;
         }
+
+        .username-edit {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .edit-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px;
+        }
+        .edit-btn:active {
+            transform: scale(0.9);
+        }
     </style>
 </head>
 <body>
     <div class="app" id="app">
-        <!-- Экран входа (авторизация) -->
+        <!-- Экран входа -->
         <div class="screen" id="auth-screen">
             <div class="page-header">
                 <h2>ChatX</h2>
@@ -557,11 +544,10 @@
             </div>
         </div>
 
-        <!-- Главное приложение (после авторизации) -->
+        <!-- Главное приложение -->
         <div class="screen screen-hidden" id="main-screen">
-            <!-- Контейнер для активного экрана -->
-            <div class="screen-container" id="screen-container">
-                <!-- Экран профиля -->
+            <div class="screen-container">
+                <!-- Профиль -->
                 <div class="inner-screen" id="profile-screen">
                     <div class="page-header">
                         <h2>Профиль</h2>
@@ -573,16 +559,18 @@
                         <div class="panel">
                             <div style="margin-bottom: 20px;">
                                 <div style="color: var(--text-primary); font-size: 18px; margin-bottom: 8px;">Имя пользователя</div>
-                                <div style="color: var(--accent); font-size: 24px; font-weight: 600;" id="profile-username"></div>
+                                <div class="username-edit">
+                                    <span style="color: var(--accent); font-size: 24px; font-weight: 600;" id="profile-username"></span>
+                                    <button class="edit-btn" id="edit-username-btn"><i class="fas fa-pencil-alt"></i></button>
+                                </div>
                             </div>
                         </div>
-                        <!-- Кнопка удаления аккаунта размещена внизу -->
                         <div style="flex:1;"></div>
                         <button class="btn" id="delete-account-btn" style="background: #ff6b6b; color: white; margin-top: auto;">Удалить аккаунт</button>
                     </div>
                 </div>
 
-                <!-- Экран публичного чата -->
+                <!-- Публичный чат -->
                 <div class="inner-screen inner-screen-hidden" id="public-screen">
                     <div class="chat-header">
                         <div class="chat-header-left">
@@ -594,7 +582,7 @@
                         <div class="participant-count" id="public-participant-count">0</div>
                     </div>
                     <div class="chat-messages" id="public-messages"></div>
-                    <div class="chat-input-area">
+                    <div class="chat-input-area" id="public-input-area">
                         <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
                         <button class="btn btn-primary" id="public-send">
                             <i class="fas fa-paper-plane"></i>
@@ -602,7 +590,7 @@
                     </div>
                 </div>
 
-                <!-- Экран личных комнат (список) -->
+                <!-- Личные комнаты -->
                 <div class="inner-screen inner-screen-hidden" id="private-screen">
                     <div class="page-header">
                         <h2>Личные комнаты</h2>
@@ -614,7 +602,7 @@
                     </div>
                 </div>
 
-                <!-- Экран личного чата -->
+                <!-- Личный чат -->
                 <div class="inner-screen inner-screen-hidden" id="private-chat-screen">
                     <div class="chat-header">
                         <div class="chat-header-left">
@@ -626,7 +614,7 @@
                         <div class="participant-count" id="private-chat-participant-count">0</div>
                     </div>
                     <div class="chat-messages" id="private-chat-messages"></div>
-                    <div class="chat-input-area">
+                    <div class="chat-input-area" id="private-chat-input-area">
                         <textarea id="private-chat-input" rows="1" placeholder="Написать..."></textarea>
                         <button class="btn btn-primary" id="private-chat-send">
                             <i class="fas fa-paper-plane"></i>
@@ -635,7 +623,7 @@
                 </div>
             </div>
 
-            <!-- Нижняя навигация (внизу) - скрывается в чатах -->
+            <!-- Нижняя навигация -->
             <div class="bottom-nav" id="bottom-nav">
                 <div class="nav-item" data-screen="profile">
                     <i class="fas fa-user"></i>
@@ -652,7 +640,7 @@
             </div>
         </div>
 
-        <!-- Модальное окно подтверждения пароля -->
+        <!-- Модальное окно -->
         <div id="password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
@@ -664,22 +652,15 @@
                 </div>
             </div>
         </div>
-
-        <!-- Всплывающее уведомление -->
-        <div id="toast" class="toast"></div>
     </div>
 
     <script>
         (function() {
-            // --- Глобальные переменные ---
             const API_BASE = 'https://chatx-server-pyyi.onrender.com';
             let currentUser = null;
             let currentRoom = null;
             let socket = null;
             let currentPrivateRoom = null;
-            // Непрочитанные сообщения для личных комнат
-            let unreadCounts = {};
-            let unreadTimeout = null;
 
             // Тема
             let currentTheme = localStorage.getItem('chatxTheme') || 'system';
@@ -701,7 +682,7 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // --- Элементы ---
+            // Элементы
             const authScreen = document.getElementById('auth-screen');
             const mainScreen = document.getElementById('main-screen');
             const profileScreen = document.getElementById('profile-screen');
@@ -716,37 +697,30 @@
             const authStatus = document.getElementById('auth-status');
             const authLogin = document.getElementById('auth-login');
             const authRegister = document.getElementById('auth-register');
-            const toast = document.getElementById('toast');
-
-            // Публичный чат
+            const editUsernameBtn = document.getElementById('edit-username-btn');
+            const publicInputArea = document.getElementById('public-input-area');
+            const privateChatInputArea = document.getElementById('private-chat-input-area');
             const publicMessages = document.getElementById('public-messages');
             const publicInput = document.getElementById('public-input');
             const publicSend = document.getElementById('public-send');
             const publicParticipantCount = document.getElementById('public-participant-count');
             const publicBack = document.getElementById('public-back');
-
-            // Личные комнаты (список)
             const privateRoomList = document.getElementById('private-room-list');
             const createRoomBtn = document.getElementById('create-room-btn');
-
-            // Личный чат
             const privateChatMessages = document.getElementById('private-chat-messages');
             const privateChatInput = document.getElementById('private-chat-input');
             const privateChatSend = document.getElementById('private-chat-send');
             const privateChatParticipantCount = document.getElementById('private-chat-participant-count');
             const privateChatBack = document.getElementById('private-chat-back');
             const privateChatTitle = document.getElementById('private-chat-title');
-
-            // Модалка
             const modal = document.getElementById('password-modal');
             const modalTitle = document.getElementById('modal-title');
             const modalPassword = document.getElementById('modal-password');
             const modalError = document.getElementById('modal-error');
             const modalCancel = document.getElementById('modal-cancel');
             const modalConfirm = document.getElementById('modal-confirm');
-
-            // Тема (только в профиле)
             const profileThemeToggle = document.getElementById('profile-theme-toggle');
+
             profileThemeToggle.addEventListener('click', () => {
                 if (currentTheme === 'light') currentTheme = 'dark';
                 else if (currentTheme === 'dark') currentTheme = 'system';
@@ -755,17 +729,14 @@
                 applyTheme();
             });
 
-            // --- Навигация между внутренними экранами ---
+            // Навигация
             function showInnerScreen(screenId) {
-                // Скрываем все внутренние экраны
                 profileScreen.classList.add('inner-screen-hidden');
                 publicScreen.classList.add('inner-screen-hidden');
                 privateScreen.classList.add('inner-screen-hidden');
                 privateChatScreen.classList.add('inner-screen-hidden');
-                // Показываем нужный
                 document.getElementById(screenId).classList.remove('inner-screen-hidden');
 
-                // Обновляем активный класс в навигации
                 const targetNav = screenId.replace('-screen', '');
                 navItems.forEach(item => {
                     const screen = item.dataset.screen;
@@ -776,11 +747,14 @@
                     }
                 });
 
-                // Скрываем нижнюю навигацию в чатах (публичный и личный чат)
                 if (screenId === 'public-screen' || screenId === 'private-chat-screen') {
                     bottomNav.classList.add('hidden');
+                    publicInputArea.classList.add('no-nav');
+                    privateChatInputArea.classList.add('no-nav');
                 } else {
                     bottomNav.classList.remove('hidden');
+                    publicInputArea.classList.remove('no-nav');
+                    privateChatInputArea.classList.remove('no-nav');
                 }
             }
 
@@ -799,20 +773,14 @@
                 });
             });
 
-            // --- Авторизация ---
+            // Авторизация
             async function login(username, password) {
                 try {
-                    const res = await fetch(API_BASE + '/api/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
+                    const res = await fetch(API_BASE + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Ошибка');
                     currentUser = { username };
                     localStorage.setItem('chatxUser', JSON.stringify(currentUser));
-                    // Загружаем непрочитанные
-                    loadUnreadFromStorage();
                     authScreen.classList.add('screen-hidden');
                     mainScreen.classList.remove('screen-hidden');
                     profileUsername.textContent = username;
@@ -826,15 +794,11 @@
 
             async function register(username, password) {
                 try {
-                    const res = await fetch(API_BASE + '/api/register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
+                    const res = await fetch(API_BASE + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Ошибка');
                     authStatus.textContent = 'Регистрация успешна, теперь войдите.';
-                    authPassword.value = ''; // очищаем поле пароля
+                    authPassword.value = '';
                 } catch (err) {
                     authStatus.textContent = err.message;
                 }
@@ -854,70 +818,61 @@
                 else authStatus.textContent = 'Введите имя и пароль';
             });
 
-            // Проверка сохранённой сессии
             const savedUser = localStorage.getItem('chatxUser');
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                loadUnreadFromStorage();
                 authScreen.classList.add('screen-hidden');
                 mainScreen.classList.remove('screen-hidden');
                 profileUsername.textContent = currentUser.username;
                 connectSocket();
                 loadPrivateRooms();
                 showInnerScreen('profile-screen');
+            } else {
+                authScreen.classList.remove('screen-hidden');
+                mainScreen.classList.add('screen-hidden');
             }
 
-            // --- Непрочитанные сообщения ---
-            function loadUnreadFromStorage() {
-                try {
-                    const saved = localStorage.getItem('chatxUnread');
-                    if (saved) unreadCounts = JSON.parse(saved);
-                } catch (e) {}
-            }
-            function saveUnread() {
-                localStorage.setItem('chatxUnread', JSON.stringify(unreadCounts));
-            }
+            // Смена имени
+            editUsernameBtn.addEventListener('click', () => {
+                modalTitle.textContent = 'Смена имени. Введите пароль и новое имя';
+                modalPassword.value = '';
+                modalError.textContent = '';
+                modal.style.display = 'flex';
+                modalConfirm.onclick = async () => {
+                    const pwd = modalPassword.value.trim();
+                    const newUsername = prompt('Введите новое имя пользователя:');
+                    if (!newUsername) return;
+                    try {
+                        const res = await fetch(API_BASE + '/api/change-username', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ oldUsername: currentUser.username, newUsername, password: pwd })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Ошибка');
+                        currentUser.username = newUsername;
+                        localStorage.setItem('chatxUser', JSON.stringify(currentUser));
+                        profileUsername.textContent = newUsername;
+                        if (currentRoom) {
+                            leaveRoom(currentRoom);
+                            joinRoom(currentRoom, currentPrivateRoom?.name);
+                        }
+                        modal.style.display = 'none';
+                    } catch (err) {
+                        modalError.textContent = err.message;
+                    }
+                };
+                modalCancel.onclick = () => {
+                    modal.style.display = 'none';
+                };
+            });
 
-            function incrementUnread(roomId, roomName) {
-                if (!unreadCounts[roomId]) unreadCounts[roomId] = 0;
-                unreadCounts[roomId]++;
-                saveUnread();
-                showToast(`Новое сообщение в комнате "${roomName}"`);
-                if (Notification.permission === 'granted') {
-                    new Notification('ChatX', {
-                        body: `Новое сообщение в комнате "${roomName}"`,
-                        icon: '/icon.svg'
-                    });
-                }
-            }
-
-            function resetUnread(roomId) {
-                if (unreadCounts[roomId]) {
-                    delete unreadCounts[roomId];
-                    saveUnread();
-                }
-            }
-
-            // --- Toast уведомление ---
-            function showToast(message) {
-                toast.textContent = message;
-                toast.classList.add('show');
-                if (unreadTimeout) clearTimeout(unreadTimeout);
-                unreadTimeout = setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
-            }
-
-            // --- Socket.IO ---
+            // Socket
             function connectSocket() {
                 if (socket) socket.close();
                 socket = io(API_BASE, { reconnectionAttempts: 5, timeout: 10000 });
-                socket.on('connect', () => {
-                    console.log('✅ Socket connected');
-                });
-                socket.on('roomError', (data) => {
-                    alert(data.message);
-                });
+                socket.on('connect', () => console.log('✅ Socket connected'));
+                socket.on('roomError', (data) => alert(data.message));
                 socket.on('roomJoined', (data) => {
                     console.log('✅ roomJoined', data.roomId, data.messages.length);
                     if (data.roomId === currentRoom) {
@@ -926,7 +881,6 @@
                             publicParticipantCount.textContent = data.userCount;
                         } else if (data.roomId === currentPrivateRoom?.id) {
                             privateChatParticipantCount.textContent = data.userCount;
-                            resetUnread(data.roomId);
                         }
                     }
                 });
@@ -934,114 +888,83 @@
                     console.log('📩 newMessage', data);
                     if (data.roomId === currentRoom) {
                         addMessageToChat(data);
-                    } else {
-                        if (data.roomId !== 'public') {
-                            const roomName = data.roomId;
-                            incrementUnread(data.roomId, roomName);
-                            if (!currentRoom || currentRoom === 'public') {
-                                loadPrivateRooms();
-                            }
-                        }
                     }
                 });
                 socket.on('userCount', (data) => {
-                    if (currentRoom === 'public') {
-                        publicParticipantCount.textContent = data.count;
-                    } else if (currentRoom === currentPrivateRoom?.id) {
-                        privateChatParticipantCount.textContent = data.count;
-                    }
+                    if (currentRoom === 'public') publicParticipantCount.textContent = data.count;
+                    else if (currentRoom === currentPrivateRoom?.id) privateChatParticipantCount.textContent = data.count;
                 });
             }
 
             function joinRoom(roomId, roomName = null) {
                 if (!socket || !currentUser) return;
-                console.log('🔗 joining room', roomId);
                 socket.emit('joinRoom', { roomId, username: currentUser.username });
                 currentRoom = roomId;
-                if (roomId === 'public') {
-                    // ничего дополнительно
-                } else {
-                    currentPrivateRoom = { id: roomId, name: roomName || roomId };
-                    privateChatTitle.textContent = roomName || roomId;
-                }
+                if (roomId === 'public') return;
+                currentPrivateRoom = { id: roomId, name: roomName || roomId };
+                privateChatTitle.textContent = roomName || roomId;
             }
 
             function leaveRoom(roomId) {
-                if (socket && roomId) {
-                    socket.emit('leaveRoom', { roomId });
-                }
+                if (socket && roomId) socket.emit('leaveRoom', { roomId });
                 if (currentRoom === roomId) {
                     currentRoom = null;
-                    if (roomId !== 'public') {
-                        currentPrivateRoom = null;
-                    }
+                    if (roomId !== 'public') currentPrivateRoom = null;
                 }
             }
 
             function sendMessage(roomId, text) {
-                if (socket && currentUser) {
-                    socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
-                    const ownMsg = {
-                        id: Date.now(),
-                        roomId,
-                        sender: currentUser.username,
-                        text,
-                        timestamp: new Date().toISOString()
-                    };
-                    addMessageToChat(ownMsg);
-                }
+                if (!socket || !currentUser) return;
+                socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
+                addMessageToChat({ id: Date.now(), roomId, sender: currentUser.username, text, timestamp: new Date().toISOString() });
             }
 
             function addMessageToChat(msg) {
-                const container = msg.roomId === 'public' ? publicMessages : 
-                                 (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
+                const container = msg.roomId === 'public' ? publicMessages : (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
                 if (!container) return;
-                const existing = container.querySelector(`[data-msg-id="${msg.id}"]`);
-                if (existing) return;
-
+                if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
                 const own = msg.sender === currentUser.username;
                 const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const msgDiv = document.createElement('div');
-                msgDiv.className = `message ${own ? 'message-own' : ''}`;
-                msgDiv.setAttribute('data-msg-id', msg.id);
-                msgDiv.innerHTML = `
+                const div = document.createElement('div');
+                div.className = `message ${own ? 'message-own' : ''}`;
+                div.setAttribute('data-msg-id', msg.id);
+                div.innerHTML = `
                     <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
                         ${own ? '' : `<div class="message-sender">${escapeHtml(msg.sender)}</div>`}
                         <div class="message-text">${escapeHtml(msg.text)}</div>
                         <div class="message-time">${time}</div>
                     </div>
                 `;
-                msgDiv.addEventListener('click', () => copyToClipboard(msg.text));
-                container.appendChild(msgDiv);
+                div.addEventListener('click', () => copyToClipboard(msg.text));
+                container.appendChild(div);
                 container.scrollTop = container.scrollHeight;
             }
 
             function displayMessages(roomId, messages) {
-                const container = roomId === 'public' ? publicMessages : 
-                                 (roomId === currentPrivateRoom?.id ? privateChatMessages : null);
+                const container = roomId === 'public' ? publicMessages : (roomId === currentPrivateRoom?.id ? privateChatMessages : null);
                 if (!container) return;
                 container.innerHTML = '';
                 messages.forEach(msg => {
                     const own = msg.sender === currentUser.username;
                     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = `message ${own ? 'message-own' : ''}`;
-                    msgDiv.setAttribute('data-msg-id', msg.id);
-                    msgDiv.innerHTML = `
+                    const div = document.createElement('div');
+                    div.className = `message ${own ? 'message-own' : ''}`;
+                    div.setAttribute('data-msg-id', msg.id);
+                    div.innerHTML = `
                         <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
                             ${own ? '' : `<div class="message-sender">${escapeHtml(msg.sender)}</div>`}
                             <div class="message-text">${escapeHtml(msg.text)}</div>
                             <div class="message-time">${time}</div>
                         </div>
                     `;
-                    msgDiv.addEventListener('click', () => copyToClipboard(msg.text));
-                    container.appendChild(msgDiv);
+                    div.addEventListener('click', () => copyToClipboard(msg.text));
+                    container.appendChild(div);
                 });
                 container.scrollTop = container.scrollHeight;
             }
 
             function escapeHtml(unsafe) {
-                return unsafe.replace(/[&<>"]/g, function(m) {
+                return unsafe.replace(/[&<>"]/g, m => {
                     if (m === '&') return '&amp;';
                     if (m === '<') return '&lt;';
                     if (m === '>') return '&gt;';
@@ -1051,12 +974,10 @@
             }
 
             function copyToClipboard(text) {
-                navigator.clipboard.writeText(text).then(() => {
-                    console.log('Copied');
-                }).catch(() => {});
+                navigator.clipboard.writeText(text).then(() => console.log('Copied')).catch(() => {});
             }
 
-            // --- Публичный чат ---
+            // Публичный чат
             publicBack.addEventListener('click', () => {
                 leaveRoom('public');
                 showInnerScreen('profile-screen');
@@ -1077,23 +998,18 @@
                 }
             });
 
-            // --- Личные комнаты ---
+            // Личные комнаты
             async function loadPrivateRooms() {
                 if (!currentUser) return;
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/list/' + currentUser.username);
                     const rooms = await res.json();
-                    privateRoomList.innerHTML = rooms.map(r => {
-                        const hasUnread = unreadCounts[r.id] > 0;
-                        return `
+                    privateRoomList.innerHTML = rooms.map(r => `
                         <div class="room-item" data-roomid="${r.id}" data-roomname="${r.name}">
                             <span class="room-name">${escapeHtml(r.name)}</span>
-                            <div style="display: flex; align-items: center;">
-                                ${hasUnread ? '<span class="unread-badge"></span>' : ''}
-                                <button class="room-delete" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
-                            </div>
+                            <button class="room-delete" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
                         </div>
-                    `}).join('');
+                    `).join('');
                     document.querySelectorAll('.room-item').forEach(el => {
                         el.addEventListener('click', (e) => {
                             if (e.target.closest('.room-delete')) return;
@@ -1105,8 +1021,7 @@
                     document.querySelectorAll('.room-delete').forEach(btn => {
                         btn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            const rid = btn.dataset.roomid;
-                            promptPasswordForRoom(rid, null, false, true);
+                            promptPasswordForRoom(btn.dataset.roomid, null, false, true);
                         });
                     });
                 } catch (err) {
@@ -1124,35 +1039,19 @@
                     if (!pwd) return;
                     try {
                         if (isDelete) {
-                            const check = await fetch(API_BASE + '/api/rooms/check-password', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ roomId, password: pwd })
-                            });
+                            const check = await fetch(API_BASE + '/api/rooms/check-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, password: pwd }) });
                             if (!check.ok) {
                                 const err = await check.json();
                                 modalError.textContent = err.error || 'Неверный пароль';
                                 return;
                             }
-                            await fetch(API_BASE + '/api/rooms/delete', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ roomId, username: currentUser.username })
-                            });
+                            await fetch(API_BASE + '/api/rooms/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, username: currentUser.username }) });
                             loadPrivateRooms();
                             modal.style.display = 'none';
                         } else {
-                            const check = await fetch(API_BASE + '/api/rooms/check-password', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ roomId, password: pwd })
-                            });
+                            const check = await fetch(API_BASE + '/api/rooms/check-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, password: pwd }) });
                             if (check.ok) {
-                                await fetch(API_BASE + '/api/rooms/join', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ roomId, username: currentUser.username })
-                                });
+                                await fetch(API_BASE + '/api/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, username: currentUser.username }) });
                                 modal.style.display = 'none';
                                 if (shouldJoin) {
                                     if (currentRoom) leaveRoom(currentRoom);
@@ -1160,11 +1059,7 @@
                                     showInnerScreen('private-chat-screen');
                                 }
                             } else if (check.status === 404) {
-                                const createRes = await fetch(API_BASE + '/api/rooms/create', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ roomId, roomName, password: pwd, creator: currentUser.username })
-                                });
+                                const createRes = await fetch(API_BASE + '/api/rooms/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, roomName, password: pwd, creator: currentUser.username }) });
                                 if (!createRes.ok) {
                                     const err = await createRes.json();
                                     modalError.textContent = err.error || 'Ошибка создания';
@@ -1186,9 +1081,7 @@
                     }
                 };
                 modalConfirm.onclick = onConfirm;
-                modalCancel.onclick = () => {
-                    modal.style.display = 'none';
-                };
+                modalCancel.onclick = () => modal.style.display = 'none';
             }
 
             createRoomBtn.addEventListener('click', async () => {
@@ -1199,26 +1092,14 @@
                 const password = prompt('Введите пароль для комнаты');
                 if (!password) return;
                 try {
-                    const check = await fetch(API_BASE + '/api/rooms/check-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ roomId, password })
-                    });
+                    const check = await fetch(API_BASE + '/api/rooms/check-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, password }) });
                     if (check.ok) {
-                        await fetch(API_BASE + '/api/rooms/join', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ roomId, username: currentUser.username })
-                        });
+                        await fetch(API_BASE + '/api/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, username: currentUser.username }) });
                         if (currentRoom) leaveRoom(currentRoom);
                         joinRoom(roomId, roomName);
                         showInnerScreen('private-chat-screen');
                     } else if (check.status === 404) {
-                        const res = await fetch(API_BASE + '/api/rooms/create', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ roomId, roomName, password, creator: currentUser.username })
-                        });
+                        const res = await fetch(API_BASE + '/api/rooms/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, roomName, password, creator: currentUser.username }) });
                         const data = await res.json();
                         if (!res.ok) throw new Error(data.error);
                         if (currentRoom) leaveRoom(currentRoom);
@@ -1233,11 +1114,9 @@
                 }
             });
 
-            // --- Личный чат ---
+            // Личный чат
             privateChatBack.addEventListener('click', () => {
-                if (currentPrivateRoom) {
-                    leaveRoom(currentPrivateRoom.id);
-                }
+                if (currentPrivateRoom) leaveRoom(currentPrivateRoom.id);
                 showInnerScreen('private-screen');
             });
 
@@ -1256,7 +1135,7 @@
                 }
             });
 
-            // --- Удаление аккаунта ---
+            // Удаление аккаунта
             document.getElementById('delete-account-btn').addEventListener('click', () => {
                 modalTitle.textContent = 'Удалить аккаунт? Введите пароль';
                 modalPassword.value = '';
@@ -1266,18 +1145,13 @@
                     const pwd = modalPassword.value.trim();
                     if (!pwd) return;
                     try {
-                        const res = await fetch(API_BASE + '/api/delete-account', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: currentUser.username, password: pwd })
-                        });
+                        const res = await fetch(API_BASE + '/api/delete-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser.username, password: pwd }) });
                         if (!res.ok) {
                             const err = await res.json();
                             modalError.textContent = err.error || 'Неверный пароль';
                             return;
                         }
                         localStorage.removeItem('chatxUser');
-                        localStorage.removeItem('chatxUnread');
                         currentUser = null;
                         if (socket) socket.close();
                         modal.style.display = 'none';
@@ -1287,9 +1161,7 @@
                         modalError.textContent = 'Ошибка сервера';
                     }
                 };
-                modalCancel.onclick = () => {
-                    modal.style.display = 'none';
-                };
+                modalCancel.onclick = () => modal.style.display = 'none';
             });
 
             if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
