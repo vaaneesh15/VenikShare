@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Все стили полностью совпадают с предыдущим ответом */
         * {
             margin: 0;
             padding: 0;
@@ -59,10 +58,10 @@
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
-            min-height: 150vh;
             position: relative;
         }
 
+        /* Огромный фон, чтобы покрыть статус-бар и домашнюю полоску */
         body::after {
             content: '';
             position: fixed;
@@ -567,7 +566,8 @@
                             </div>
                         </div>
                         <div style="flex:1;"></div>
-                        <button class="btn" id="delete-account-btn" style="background: #ff6b6b; color: white; margin-top: auto;">Удалить аккаунт</button>
+                        <button class="btn" id="logout-btn" style="margin-bottom: 8px;">Выйти</button>
+                        <button class="btn" id="delete-account-btn" style="background: #ff6b6b; color: white;">Удалить аккаунт</button>
                     </div>
                 </div>
 
@@ -641,7 +641,7 @@
             </div>
         </div>
 
-        <!-- Модальное окно -->
+        <!-- Модальное окно подтверждения (универсальное) -->
         <div id="password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
@@ -650,6 +650,17 @@
                 <div class="modal-buttons">
                     <button class="btn" id="modal-cancel">Отмена</button>
                     <button class="btn btn-primary" id="modal-confirm">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно подтверждения выхода (без пароля) -->
+        <div id="confirm-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="confirm-title">Вы уверены?</h3>
+                <div class="modal-buttons">
+                    <button class="btn" id="confirm-no">Нет</button>
+                    <button class="btn btn-primary" id="confirm-yes">Да</button>
                 </div>
             </div>
         </div>
@@ -714,12 +725,18 @@
             const privateChatParticipantCount = document.getElementById('private-chat-participant-count');
             const privateChatBack = document.getElementById('private-chat-back');
             const privateChatTitle = document.getElementById('private-chat-title');
-            const modal = document.getElementById('password-modal');
+            
+            // Модалки
+            const passwordModal = document.getElementById('password-modal');
+            const confirmModal = document.getElementById('confirm-modal');
             const modalTitle = document.getElementById('modal-title');
             const modalPassword = document.getElementById('modal-password');
             const modalError = document.getElementById('modal-error');
             const modalCancel = document.getElementById('modal-cancel');
             const modalConfirm = document.getElementById('modal-confirm');
+            const confirmNo = document.getElementById('confirm-no');
+            const confirmYes = document.getElementById('confirm-yes');
+
             const profileThemeToggle = document.getElementById('profile-theme-toggle');
 
             profileThemeToggle.addEventListener('click', () => {
@@ -748,7 +765,6 @@
                     }
                 });
 
-                // Управление видимостью нижней навигации
                 if (screenId === 'public-screen' || screenId === 'private-chat-screen') {
                     bottomNav.classList.add('hidden');
                     publicInputArea.classList.add('no-nav');
@@ -847,12 +863,12 @@
                 modalTitle.textContent = 'Смена имени. Введите пароль и новое имя';
                 modalPassword.value = '';
                 modalError.textContent = '';
-                modal.style.display = 'flex';
+                passwordModal.style.display = 'flex';
                 modalConfirm.onclick = async () => {
                     const pwd = modalPassword.value.trim();
                     const newUsername = prompt('Введите новое имя пользователя:');
                     if (!newUsername) {
-                        modal.style.display = 'none';
+                        passwordModal.style.display = 'none';
                         return;
                     }
                     try {
@@ -870,13 +886,13 @@
                             leaveRoom(currentRoom);
                             joinRoom(currentRoom, currentPrivateRoom?.name);
                         }
-                        modal.style.display = 'none';
+                        passwordModal.style.display = 'none';
                     } catch (err) {
                         modalError.textContent = err.message;
                     }
                 };
                 modalCancel.onclick = () => {
-                    modal.style.display = 'none';
+                    passwordModal.style.display = 'none';
                 };
             });
 
@@ -1046,7 +1062,7 @@
                 modalTitle.textContent = isDelete ? 'Удалить комнату? Введите пароль' : 'Введите пароль комнаты';
                 modalPassword.value = '';
                 modalError.textContent = '';
-                modal.style.display = 'flex';
+                passwordModal.style.display = 'flex';
                 const onConfirm = async () => {
                     const pwd = modalPassword.value.trim();
                     if (!pwd) return;
@@ -1060,12 +1076,12 @@
                             }
                             await fetch(API_BASE + '/api/rooms/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, username: currentUser.username }) });
                             loadPrivateRooms();
-                            modal.style.display = 'none';
+                            passwordModal.style.display = 'none';
                         } else {
                             const check = await fetch(API_BASE + '/api/rooms/check-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, password: pwd }) });
                             if (check.ok) {
                                 await fetch(API_BASE + '/api/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, username: currentUser.username }) });
-                                modal.style.display = 'none';
+                                passwordModal.style.display = 'none';
                                 if (shouldJoin) {
                                     if (currentRoom) leaveRoom(currentRoom);
                                     joinRoom(roomId, roomName);
@@ -1078,7 +1094,7 @@
                                     modalError.textContent = err.error || 'Ошибка создания';
                                     return;
                                 }
-                                modal.style.display = 'none';
+                                passwordModal.style.display = 'none';
                                 if (shouldJoin) {
                                     if (currentRoom) leaveRoom(currentRoom);
                                     joinRoom(roomId, roomName);
@@ -1094,7 +1110,9 @@
                     }
                 };
                 modalConfirm.onclick = onConfirm;
-                modalCancel.onclick = () => modal.style.display = 'none';
+                modalCancel.onclick = () => {
+                    passwordModal.style.display = 'none';
+                };
             }
 
             createRoomBtn.addEventListener('click', async () => {
@@ -1153,7 +1171,7 @@
                 modalTitle.textContent = 'Удалить аккаунт? Введите пароль';
                 modalPassword.value = '';
                 modalError.textContent = '';
-                modal.style.display = 'flex';
+                passwordModal.style.display = 'flex';
                 modalConfirm.onclick = async () => {
                     const pwd = modalPassword.value.trim();
                     if (!pwd) return;
@@ -1167,14 +1185,32 @@
                         localStorage.removeItem('chatxUser');
                         currentUser = null;
                         if (socket) socket.close();
-                        modal.style.display = 'none';
+                        passwordModal.style.display = 'none';
                         mainScreen.classList.add('screen-hidden');
                         authScreen.classList.remove('screen-hidden');
                     } catch (err) {
                         modalError.textContent = 'Ошибка сервера';
                     }
                 };
-                modalCancel.onclick = () => modal.style.display = 'none';
+                modalCancel.onclick = () => {
+                    passwordModal.style.display = 'none';
+                };
+            });
+
+            // Выход из аккаунта
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                confirmModal.style.display = 'flex';
+                confirmYes.onclick = () => {
+                    localStorage.removeItem('chatxUser');
+                    currentUser = null;
+                    if (socket) socket.close();
+                    confirmModal.style.display = 'none';
+                    mainScreen.classList.add('screen-hidden');
+                    authScreen.classList.remove('screen-hidden');
+                };
+                confirmNo.onclick = () => {
+                    confirmModal.style.display = 'none';
+                };
             });
 
             if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
