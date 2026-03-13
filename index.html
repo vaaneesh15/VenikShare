@@ -223,7 +223,7 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
+            padding: 8px 16px calc(24px + env(safe-area-inset-bottom)) 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -586,7 +586,7 @@
                 <div class="inner-screen inner-screen-hidden" id="private-screen">
                     <div class="page-header">
                         <h2>Личные комнаты</h2>
-                        <div></div>
+                        <div class="participant-count" id="private-room-count">0</div>
                     </div>
                     <div class="page-content">
                         <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">➕ Войти / Создать</button>
@@ -707,6 +707,7 @@
             const publicParticipantCount = document.getElementById('public-participant-count');
             const publicBack = document.getElementById('public-back');
             const privateRoomList = document.getElementById('private-room-list');
+            const privateRoomCount = document.getElementById('private-room-count');
             const createRoomBtn = document.getElementById('create-room-btn');
             const privateChatMessages = document.getElementById('private-chat-messages');
             const privateChatInput = document.getElementById('private-chat-input');
@@ -759,6 +760,11 @@
                     bottomNav.style.display = 'none';
                 } else {
                     bottomNav.style.display = 'flex';
+                }
+
+                // Загружаем список личных комнат при переходе на экран личных комнат
+                if (screenId === 'private-screen') {
+                    loadPrivateRooms();
                 }
             }
 
@@ -933,8 +939,7 @@
             function sendMessage(roomId, text) {
                 if (!socket || !currentUser) return;
                 socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
-                // Больше не добавляем локально, так как сервер пришлёт сообщение обратно (broadcast)
-                // addMessageToChat({ id: Date.now(), roomId, sender: currentUser.username, text, timestamp: new Date().toISOString() });
+                // Не добавляем локально, сервер пришлёт обратно
             }
 
             function addMessageToChat(msg) {
@@ -1029,6 +1034,7 @@
                             <button class="room-delete" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
                         </div>
                     `).join('');
+                    privateRoomCount.textContent = rooms.length;
                     document.querySelectorAll('.room-item').forEach(el => {
                         el.addEventListener('click', (e) => {
                             if (e.target.closest('.room-delete')) return;
