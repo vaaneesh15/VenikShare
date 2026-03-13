@@ -687,7 +687,6 @@
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
                 
-                // Подключаемся к комнате на сервере
                 emitWhenConnected('joinRoom', { roomId, username: myUsername });
             }
 
@@ -724,7 +723,6 @@
 
             socket.on('roomJoined', (data) => {
                 setDebug(`✅ Подключено к комнате ${data.roomId}`);
-                // Загружаем историю сообщений
                 if (data.messages) {
                     data.messages.forEach(msg => {
                         addChatMessage(msg.sender, msg.text, msg.sender === myUsername);
@@ -739,9 +737,7 @@
             });
 
             socket.on('newMessage', (data) => {
-                // Получено новое сообщение
                 addChatMessage(data.sender, data.text, false);
-                // Если комната не активна, показать уведомление
                 if (data.roomId !== currentRoomId || document.hidden) {
                     showNotification(data.sender, data.text, data.roomId);
                 }
