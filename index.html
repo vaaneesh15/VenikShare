@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Стили без изменений, такие же, как в предыдущей версии */
         * {
             margin: 0;
             padding: 0;
@@ -55,6 +54,8 @@
             --chat-other-bg: #e0e0f0;
             --chat-own-text: white;
             --chat-other-text: #1a1a2e;
+            --unread-dot: #ff9800; /* оранжевая точка */
+            --unread-dot-border: #ffffff;
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
@@ -78,6 +79,8 @@
             --input-bg: rgba(40, 40, 55, 0.6);
             --chat-other-bg: #3a3a5a;
             --chat-other-text: #ffffff;
+            --unread-dot: #ffb74d; /* светлее в тёмной теме */
+            --unread-dot-border: #1a1a2e;
         }
 
         .screen {
@@ -247,6 +250,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
         }
 
         .room-item:active {
@@ -274,13 +278,13 @@
             font-size: 12px;
         }
 
-        .room-unread {
-            background: var(--accent);
-            color: white;
-            border-radius: 30px;
-            padding: 2px 8px;
-            font-size: 12px;
-            font-weight: 600;
+        .room-unread-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--unread-dot);
+            border: 2px solid var(--unread-dot-border);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
         }
 
         .delete-room-btn {
@@ -303,9 +307,16 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            /* верхняя панель будет прикреплена */
         }
 
         .chat-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--container-bg); /* чтобы не просвечивало */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -444,6 +455,8 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
+            /* расширяем до самого низа с учётом safe area */
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
         }
 
         .chat-input-area textarea {
@@ -604,6 +617,18 @@
             // --- Состояние ---
             let currentRoomId = null;
             let isConnected = false;
+            // Храним непрочитанные для каждой комнаты (roomId -> count)
+            let unreadCounts = {};
+
+            // Загружаем сохранённые непрочитанные из localStorage
+            try {
+                const saved = localStorage.getItem('chatxUnread');
+                if (saved) unreadCounts = JSON.parse(saved);
+            } catch (e) {}
+
+            function saveUnread() {
+                localStorage.setItem('chatxUnread', JSON.stringify(unreadCounts));
+            }
 
             // --- Подключение к серверу ---
             const SERVER_URL = 'https://chatx-server-pyyi.onrender.com';
@@ -680,7 +705,6 @@
                 participantCount.textContent = count;
             }
 
-            // Функция переключения на экран чата (без отправки joinRoom)
             function enterChatScreen(roomId) {
                 currentRoomId = roomId;
                 chatRoomId.textContent = roomId;
@@ -688,6 +712,13 @@
                 chatMessages.innerHTML = '';
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
+                
+                // Сбрасываем непрочитанные для этой комнаты
+                if (unreadCounts[roomId]) {
+                    delete unreadCounts[roomId];
+                    saveUnread();
+                    // Обновим список комнат, когда вернёмся на экран входа
+                }
             }
 
             function exitToLogin() {
@@ -699,7 +730,7 @@
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = 'Не подключено';
                 setDebug('');
-                loadRooms();
+                loadRooms(); // обновим список, чтобы отразить непрочитанные
             }
 
             chatExitBtn.addEventListener('click', exitToLogin);
@@ -723,9 +754,7 @@
 
             socket.on('roomJoined', (data) => {
                 setDebug(`✅ Подключено к комнате ${data.roomId}`);
-                // Переключаем экран чата
                 enterChatScreen(data.roomId);
-                // Загружаем историю сообщений
                 if (data.messages) {
                     data.messages.forEach(msg => {
                         addChatMessage(msg.sender, msg.text, msg.sender === myUsername);
@@ -740,7 +769,19 @@
             });
 
             socket.on('newMessage', (data) => {
-                addChatMessage(data.sender, data.text, false);
+                // Получено сообщение от другого участника
+                if (data.roomId === currentRoomId) {
+                    // Если мы в этой комнате, показываем сразу
+                    addChatMessage(data.sender, data.text, false);
+                } else {
+                    // Иначе увеличиваем счётчик непрочитанных
+                    unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
+                    saveUnread();
+                    // Обновляем список комнат, если он виден
+                    if (!currentRoomId) loadRooms();
+                }
+
+                // Уведомление, если комната не активна или страница скрыта
                 if (data.roomId !== currentRoomId || document.hidden) {
                     showNotification(data.sender, data.text, data.roomId);
                 }
@@ -790,21 +831,23 @@
             function updateRoomList(rooms) {
                 if (!roomHistoryList) return;
                 if (!rooms || rooms.length === 0) {
-                    // Улучшенная контрастность для текста "Нет истории"
                     roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center; color: var(--text-primary); opacity: 0.8;">Нет истории</li>';
                     return;
                 }
-                roomHistoryList.innerHTML = rooms.map(room => `
+                roomHistoryList.innerHTML = rooms.map(room => {
+                    const hasUnread = unreadCounts[room.roomId] > 0;
+                    return `
                     <li class="room-item" data-roomid="${room.roomId}">
                         <span class="room-name">${room.roomId}</span>
                         <div class="room-meta">
                             <span class="room-date">${new Date(room.lastActive).toLocaleDateString()}</span>
+                            ${hasUnread ? '<span class="room-unread-dot" title="Новые сообщения"></span>' : ''}
                             <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
                     </li>
-                `).join('');
+                `}).join('');
 
                 document.querySelectorAll('.room-item').forEach(el => {
                     el.addEventListener('click', () => {
