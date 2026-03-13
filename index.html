@@ -55,7 +55,7 @@
             --chat-other-bg: #e0e0f0;
             --chat-own-text: white;
             --chat-other-text: #1a1a2e;
-            --unread-dot: #ff9800;
+            --unread-dot: #ff4444;
             --unread-dot-border: #ffffff;
             transition: background 0.2s, color 0.2s;
             
@@ -80,7 +80,7 @@
             --input-bg: rgba(40, 40, 55, 0.6);
             --chat-other-bg: #3a3a5a;
             --chat-other-text: #ffffff;
-            --unread-dot: #ffb74d;
+            --unread-dot: #ff6b6b;
             --unread-dot-border: #1a1a2e;
         }
 
@@ -156,7 +156,7 @@
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             flex-shrink: 0;
-            min-height: 68px; /* фиксированная высота для единообразия */
+            min-height: 68px;
         }
         .page-header h2, .chat-header-left h2 {
             font-size: 24px;
@@ -214,7 +214,7 @@
             border: 1px solid var(--card-border);
         }
 
-        /* Нижняя навигация (внизу главного экрана) */
+        /* Нижняя навигация (внизу главного экрана) - по умолчанию видна */
         .bottom-nav {
             display: flex;
             align-items: center;
@@ -226,6 +226,11 @@
             flex-shrink: 0;
             width: 100%;
             z-index: 10;
+            transition: transform 0.3s;
+        }
+        .bottom-nav.hidden {
+            transform: translateY(100%);
+            pointer-events: none;
         }
         .nav-item {
             flex: 1;
@@ -362,6 +367,15 @@
         .room-delete:active {
             color: var(--accent);
         }
+        .unread-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--unread-dot);
+            border: 2px solid var(--unread-dot-border);
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
 
         /* Экран чата (общий для публичного и личных) */
         .chat-screen {
@@ -482,6 +496,29 @@
             gap: 12px;
             margin-top: 20px;
         }
+
+        /* Всплывающее уведомление (тост) */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 40px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--container-border);
+            z-index: 2000;
+            transition: opacity 0.3s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body>
@@ -559,7 +596,7 @@
                         <div></div>
                     </div>
                     <div class="page-content">
-                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">➕ Создать комнату</button>
+                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">➕ Войти / Создать</button>
                         <div id="private-room-list" class="room-list"></div>
                     </div>
                 </div>
@@ -585,8 +622,8 @@
                 </div>
             </div>
 
-            <!-- Нижняя навигация (внизу) -->
-            <div class="bottom-nav">
+            <!-- Нижняя навигация (внизу) - скрывается в чатах -->
+            <div class="bottom-nav" id="bottom-nav">
                 <div class="nav-item" data-screen="profile">
                     <i class="fas fa-user"></i>
                     <span>Профиль</span>
@@ -614,6 +651,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- Всплывающее уведомление -->
+        <div id="toast" class="toast"></div>
     </div>
 
     <script>
@@ -624,6 +664,9 @@
             let currentRoom = null;
             let socket = null;
             let currentPrivateRoom = null;
+            // Непрочитанные сообщения для личных комнат
+            let unreadCounts = {};
+            let unreadTimeout = null;
 
             // Тема
             let currentTheme = localStorage.getItem('chatxTheme') || 'system';
@@ -653,12 +696,14 @@
             const privateScreen = document.getElementById('private-screen');
             const privateChatScreen = document.getElementById('private-chat-screen');
             const navItems = document.querySelectorAll('.nav-item');
+            const bottomNav = document.getElementById('bottom-nav');
             const profileUsername = document.getElementById('profile-username');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
             const authStatus = document.getElementById('auth-status');
             const authLogin = document.getElementById('auth-login');
             const authRegister = document.getElementById('auth-register');
+            const toast = document.getElementById('toast');
 
             // Публичный чат
             const publicMessages = document.getElementById('public-messages');
@@ -717,6 +762,13 @@
                         item.classList.remove('active');
                     }
                 });
+
+                // Скрываем нижнюю навигацию в чатах (публичный и личный чат)
+                if (screenId === 'public-screen' || screenId === 'private-chat-screen') {
+                    bottomNav.classList.add('hidden');
+                } else {
+                    bottomNav.classList.remove('hidden');
+                }
             }
 
             navItems.forEach(item => {
@@ -746,6 +798,8 @@
                     if (!res.ok) throw new Error(data.error || 'Ошибка');
                     currentUser = { username };
                     localStorage.setItem('chatxUser', JSON.stringify(currentUser));
+                    // Загружаем непрочитанные
+                    loadUnreadFromStorage();
                     authScreen.classList.add('screen-hidden');
                     mainScreen.classList.remove('screen-hidden');
                     profileUsername.textContent = username;
@@ -790,12 +844,56 @@
             const savedUser = localStorage.getItem('chatxUser');
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
+                loadUnreadFromStorage();
                 authScreen.classList.add('screen-hidden');
                 mainScreen.classList.remove('screen-hidden');
                 profileUsername.textContent = currentUser.username;
                 connectSocket();
                 loadPrivateRooms();
                 showInnerScreen('profile-screen');
+            }
+
+            // --- Непрочитанные сообщения ---
+            function loadUnreadFromStorage() {
+                try {
+                    const saved = localStorage.getItem('chatxUnread');
+                    if (saved) unreadCounts = JSON.parse(saved);
+                } catch (e) {}
+            }
+            function saveUnread() {
+                localStorage.setItem('chatxUnread', JSON.stringify(unreadCounts));
+            }
+
+            function incrementUnread(roomId, roomName) {
+                if (!unreadCounts[roomId]) unreadCounts[roomId] = 0;
+                unreadCounts[roomId]++;
+                saveUnread();
+                // Показываем уведомление
+                showToast(`Новое сообщение в комнате "${roomName}"`);
+                // Также можно показать браузерное уведомление
+                if (Notification.permission === 'granted') {
+                    new Notification('ChatX', {
+                        body: `Новое сообщение в комнате "${roomName}"`,
+                        icon: '/icon.svg'
+                    });
+                }
+            }
+
+            function resetUnread(roomId) {
+                if (unreadCounts[roomId]) {
+                    delete unreadCounts[roomId];
+                    saveUnread();
+                }
+            }
+
+            // --- Toast уведомление ---
+            function showToast(message) {
+                toast.textContent = message;
+                toast.classList.add('show');
+                if (unreadTimeout) clearTimeout(unreadTimeout);
+                unreadTimeout = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
             }
 
             // --- Socket.IO ---
@@ -812,11 +910,12 @@
                     console.log('✅ roomJoined', data.roomId, data.messages.length);
                     if (data.roomId === currentRoom) {
                         displayMessages(data.roomId, data.messages);
-                        // Обновляем счётчик участников
                         if (data.roomId === 'public') {
                             publicParticipantCount.textContent = data.userCount;
                         } else if (data.roomId === currentPrivateRoom?.id) {
                             privateChatParticipantCount.textContent = data.userCount;
+                            // Сбрасываем непрочитанные для этой комнаты
+                            resetUnread(data.roomId);
                         }
                     }
                 });
@@ -824,6 +923,17 @@
                     console.log('📩 newMessage', data);
                     if (data.roomId === currentRoom) {
                         addMessageToChat(data);
+                    } else {
+                        // Это сообщение из другой комнаты (личной)
+                        if (data.roomId !== 'public') {
+                            // Находим название комнаты (пока просто ID)
+                            const roomName = data.roomId; // можно улучшить, но пока так
+                            incrementUnread(data.roomId, roomName);
+                            // Обновляем список комнат, если он виден
+                            if (!currentRoom || currentRoom === 'public') {
+                                loadPrivateRooms(); // перезагрузим список, чтобы показать точку
+                            }
+                        }
                     }
                 });
                 socket.on('userCount', (data) => {
@@ -970,12 +1080,17 @@
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/list/' + currentUser.username);
                     const rooms = await res.json();
-                    privateRoomList.innerHTML = rooms.map(r => `
+                    privateRoomList.innerHTML = rooms.map(r => {
+                        const hasUnread = unreadCounts[r.id] > 0;
+                        return `
                         <div class="room-item" data-roomid="${r.id}" data-roomname="${r.name}">
                             <span class="room-name">${escapeHtml(r.name)}</span>
-                            <button class="room-delete" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
+                            <div style="display: flex; align-items: center;">
+                                ${hasUnread ? '<span class="unread-badge"></span>' : ''}
+                                <button class="room-delete" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
+                            </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                     document.querySelectorAll('.room-item').forEach(el => {
                         el.addEventListener('click', (e) => {
                             if (e.target.closest('.room-delete')) return;
@@ -1024,26 +1139,49 @@
                             loadPrivateRooms();
                             modal.style.display = 'none';
                         } else {
+                            // Пытаемся проверить пароль, если комната существует
                             const check = await fetch(API_BASE + '/api/rooms/check-password', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ roomId, password: pwd })
                             });
-                            if (!check.ok) {
-                                const err = await check.json();
-                                modalError.textContent = err.error || 'Неверный пароль';
-                                return;
-                            }
-                            await fetch(API_BASE + '/api/rooms/join', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ roomId, username: currentUser.username })
-                            });
-                            modal.style.display = 'none';
-                            if (shouldJoin) {
-                                if (currentRoom) leaveRoom(currentRoom);
-                                joinRoom(roomId, roomName);
-                                showInnerScreen('private-chat-screen');
+                            if (check.ok) {
+                                // Комната существует и пароль верный - присоединяемся
+                                await fetch(API_BASE + '/api/rooms/join', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ roomId, username: currentUser.username })
+                                });
+                                modal.style.display = 'none';
+                                if (shouldJoin) {
+                                    if (currentRoom) leaveRoom(currentRoom);
+                                    joinRoom(roomId, roomName);
+                                    showInnerScreen('private-chat-screen');
+                                }
+                            } else {
+                                // Если комната не найдена, создаём
+                                if (check.status === 404) {
+                                    // Создаём комнату
+                                    const createRes = await fetch(API_BASE + '/api/rooms/create', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ roomId, roomName, password: pwd, creator: currentUser.username })
+                                    });
+                                    if (!createRes.ok) {
+                                        const err = await createRes.json();
+                                        modalError.textContent = err.error || 'Ошибка создания';
+                                        return;
+                                    }
+                                    modal.style.display = 'none';
+                                    if (shouldJoin) {
+                                        if (currentRoom) leaveRoom(currentRoom);
+                                        joinRoom(roomId, roomName);
+                                        showInnerScreen('private-chat-screen');
+                                    }
+                                } else {
+                                    const err = await check.json();
+                                    modalError.textContent = err.error || 'Неверный пароль';
+                                }
                             }
                         }
                     } catch (err) {
@@ -1064,14 +1202,38 @@
                 const password = prompt('Введите пароль для комнаты');
                 if (!password) return;
                 try {
-                    const res = await fetch(API_BASE + '/api/rooms/create', {
+                    // Проверяем, существует ли уже комната
+                    const check = await fetch(API_BASE + '/api/rooms/check-password', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ roomId, roomName, password, creator: currentUser.username })
+                        body: JSON.stringify({ roomId, password })
                     });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error);
-                    loadPrivateRooms();
+                    if (check.ok) {
+                        // Существует - присоединяемся
+                        await fetch(API_BASE + '/api/rooms/join', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ roomId, username: currentUser.username })
+                        });
+                        if (currentRoom) leaveRoom(currentRoom);
+                        joinRoom(roomId, roomName);
+                        showInnerScreen('private-chat-screen');
+                    } else if (check.status === 404) {
+                        // Не существует - создаём
+                        const res = await fetch(API_BASE + '/api/rooms/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ roomId, roomName, password, creator: currentUser.username })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error);
+                        if (currentRoom) leaveRoom(currentRoom);
+                        joinRoom(roomId, roomName);
+                        showInnerScreen('private-chat-screen');
+                    } else {
+                        const err = await check.json();
+                        alert(err.error || 'Ошибка');
+                    }
                 } catch (err) {
                     alert(err.message);
                 }
@@ -1121,6 +1283,7 @@
                             return;
                         }
                         localStorage.removeItem('chatxUser');
+                        localStorage.removeItem('chatxUnread');
                         currentUser = null;
                         if (socket) socket.close();
                         modal.style.display = 'none';
@@ -1134,6 +1297,11 @@
                     modal.style.display = 'none';
                 };
             });
+
+            // Запрос разрешения на уведомления
+            if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
         })();
     </script>
 </body>
