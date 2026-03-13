@@ -605,7 +605,7 @@
             let isConnected = false;
 
             // --- Подключение к серверу ---
-            const SERVER_URL = 'https://chatx-server-pyyi.onrender.com'; // ЗАМЕНИТЕ НА РЕАЛЬНЫЙ АДРЕС СЕРВЕРА
+            const SERVER_URL = 'https://chatx-server-pyyi.onrender.com';
             const socket = io(SERVER_URL, {
                 reconnectionAttempts: 5,
                 timeout: 10000
@@ -799,7 +799,6 @@
                         <span class="room-name">${room.roomId}</span>
                         <div class="room-meta">
                             <span class="room-date">${new Date(room.lastActive).toLocaleDateString()}</span>
-                            ${room.unreadCount ? `<span class="room-unread">${room.unreadCount}</span>` : ''}
                             <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
                                 <i class="fas fa-times"></i>
                             </button>
