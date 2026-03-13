@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* --- Стили (без изменений) --- */
         * {
             margin: 0;
             padding: 0;
@@ -601,14 +600,16 @@
             const chatExitBtn = document.getElementById('chat-exit-btn');
             const roomHistoryList = document.getElementById('room-history-list');
 
+            // --- Состояние ---
+            let currentRoomId = null;
+            let isConnected = false;
+
             // --- Подключение к серверу ---
-            const SERVER_URL = 'https://chatx-server.onrender.com'; // ЗАМЕНИТЕ НА РЕАЛЬНЫЙ АДРЕС СЕРВЕРА
+            const SERVER_URL = 'https://chatx-server-pyyi.onrender.com'; // ЗАМЕНИТЕ НА РЕАЛЬНЫЙ АДРЕС СЕРВЕРА
             const socket = io(SERVER_URL, {
                 reconnectionAttempts: 5,
                 timeout: 10000
             });
-
-            let isConnected = false;
 
             socket.on('connect', () => {
                 console.log('✅ Подключено к серверу', socket.id);
@@ -648,9 +649,11 @@
 
             function emitWhenConnected(event, data) {
                 if (isConnected) {
+                    console.log(`📤 Отправка события ${event}`, data);
                     socket.emit(event, data);
                 } else {
-                    alert('Нет подключения к серверу. Попробуйте позже.');
+                    console.warn(`⚠️ Событие ${event} не отправлено: нет соединения`);
+                    alert('Нет подключения к серверу. Подождите или перезагрузите страницу.');
                 }
             }
 
@@ -697,7 +700,7 @@
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = 'Не подключено';
                 setDebug('');
-                loadRooms(); // обновляем список комнат
+                loadRooms();
             }
 
             chatExitBtn.addEventListener('click', exitToLogin);
@@ -749,7 +752,6 @@
             });
 
             socket.on('roomList', (data) => {
-                // Обновить список комнат
                 updateRoomList(data.rooms);
             });
 
@@ -859,11 +861,6 @@
                     sendChatBtn.click();
                 }
             });
-
-            // --- Загрузка комнат при старте ---
-            setTimeout(() => {
-                if (isConnected) loadRooms();
-            }, 1000);
         })();
     </script>
 </body>
