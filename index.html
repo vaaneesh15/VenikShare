@@ -230,11 +230,6 @@
             flex-shrink: 0;
             width: 100%;
             z-index: 10;
-            transition: transform 0.3s;
-        }
-        .bottom-nav.hidden {
-            transform: translateY(100%);
-            pointer-events: none;
         }
         .nav-item {
             flex: 1;
@@ -435,10 +430,6 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
-            transition: padding-bottom 0.3s;
-        }
-        .chat-input-area.no-nav {
-            padding-bottom: calc(20px + env(safe-area-inset-bottom));
         }
         .chat-input-area textarea {
             flex: 1;
@@ -710,8 +701,6 @@
             const authLogin = document.getElementById('auth-login');
             const authRegister = document.getElementById('auth-register');
             const editUsernameBtn = document.getElementById('edit-username-btn');
-            const publicInputArea = document.getElementById('public-input-area');
-            const privateChatInputArea = document.getElementById('private-chat-input-area');
             const publicMessages = document.getElementById('public-messages');
             const publicInput = document.getElementById('public-input');
             const publicSend = document.getElementById('public-send');
@@ -765,14 +754,11 @@
                     }
                 });
 
+                // Управление видимостью нижней навигации: в чатах скрываем, в остальных показываем
                 if (screenId === 'public-screen' || screenId === 'private-chat-screen') {
-                    bottomNav.classList.add('hidden');
-                    publicInputArea.classList.add('no-nav');
-                    privateChatInputArea.classList.add('no-nav');
+                    bottomNav.style.display = 'none';
                 } else {
-                    bottomNav.classList.remove('hidden');
-                    publicInputArea.classList.remove('no-nav');
-                    privateChatInputArea.classList.remove('no-nav');
+                    bottomNav.style.display = 'flex';
                 }
             }
 
@@ -882,6 +868,8 @@
                         currentUser.username = newUsername;
                         localStorage.setItem('chatxUser', JSON.stringify(currentUser));
                         profileUsername.textContent = newUsername;
+                        // Перезагружаем список комнат, чтобы обновить имя
+                        loadPrivateRooms();
                         if (currentRoom) {
                             leaveRoom(currentRoom);
                             joinRoom(currentRoom, currentPrivateRoom?.name);
@@ -945,12 +933,14 @@
             function sendMessage(roomId, text) {
                 if (!socket || !currentUser) return;
                 socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
-                addMessageToChat({ id: Date.now(), roomId, sender: currentUser.username, text, timestamp: new Date().toISOString() });
+                // Больше не добавляем локально, так как сервер пришлёт сообщение обратно (broadcast)
+                // addMessageToChat({ id: Date.now(), roomId, sender: currentUser.username, text, timestamp: new Date().toISOString() });
             }
 
             function addMessageToChat(msg) {
                 const container = msg.roomId === 'public' ? publicMessages : (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
                 if (!container) return;
+                // Проверяем, нет ли уже такого сообщения (по id)
                 if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
                 const own = msg.sender === currentUser.username;
                 const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
