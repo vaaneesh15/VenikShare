@@ -123,7 +123,6 @@
             flex-direction: column;
             height: 100%;
             position: relative;
-            padding-bottom: 40px; /* добавляем отступ внизу, чтобы фон перекрыл индикатор */
         }
 
         .screen-container {
@@ -224,13 +223,12 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px calc(12px + env(safe-area-inset-bottom) + 40px) 16px;
+            padding: 8px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
             width: 100%;
-            z-index: 10;
         }
         .nav-item {
             flex: 1;
