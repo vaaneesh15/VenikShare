@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* --- Стили (без изменений) --- */
         * {
             margin: 0;
             padding: 0;
@@ -601,13 +602,35 @@
             const roomHistoryList = document.getElementById('room-history-list');
 
             // --- Подключение к серверу ---
-            const SERVER_URL = 'https://chatx-server.onrender.com';
-            const socket = io(SERVER_URL);
+            const SERVER_URL = 'https://chatx-server.onrender.com'; // ЗАМЕНИТЕ НА РЕАЛЬНЫЙ АДРЕС СЕРВЕРА
+            const socket = io(SERVER_URL, {
+                reconnectionAttempts: 5,
+                timeout: 10000
+            });
 
-            // --- Состояние ---
-            let currentRoomId = null;
+            let isConnected = false;
 
-            // --- Вспомогательные ---
+            socket.on('connect', () => {
+                console.log('✅ Подключено к серверу', socket.id);
+                isConnected = true;
+                setDebug('✅ Подключено к серверу');
+                loadRooms();
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error('❌ Ошибка подключения к серверу:', err.message);
+                setDebug('❌ Ошибка подключения к серверу');
+                isConnected = false;
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Отключено от сервера');
+                setDebug('❌ Отключено от сервера');
+                isConnected = false;
+                exitToLogin();
+            });
+
+            // --- Вспомогательные функции ---
             function setDebug(msg) {
                 debugInfo.textContent = msg;
                 console.log('[DEBUG]', msg);
@@ -623,7 +646,15 @@
                 });
             }
 
-            // --- Функции для работы с сервером ---
+            function emitWhenConnected(event, data) {
+                if (isConnected) {
+                    socket.emit(event, data);
+                } else {
+                    alert('Нет подключения к серверу. Попробуйте позже.');
+                }
+            }
+
+            // --- Функции для работы с комнатами и сообщениями ---
             function addChatMessage(sender, text, own = false) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
@@ -654,12 +685,12 @@
                 chatScreen.classList.remove('screen-hidden');
                 
                 // Подключаемся к комнате на сервере
-                socket.emit('joinRoom', { roomId, username: myUsername });
+                emitWhenConnected('joinRoom', { roomId, username: myUsername });
             }
 
             function exitToLogin() {
                 if (currentRoomId) {
-                    socket.emit('leaveRoom', { roomId: currentRoomId });
+                    emitWhenConnected('leaveRoom', { roomId: currentRoomId });
                     currentRoomId = null;
                 }
                 chatScreen.classList.add('screen-hidden');
@@ -683,16 +714,6 @@
             });
 
             // --- Обработчики Socket.IO ---
-            socket.on('connect', () => {
-                setDebug('✅ Подключено к серверу');
-                loadRooms();
-            });
-
-            socket.on('disconnect', () => {
-                setDebug('❌ Отключено от сервера');
-                exitToLogin();
-            });
-
             socket.on('roomCreated', (data) => {
                 setDebug(`✅ Комната ${data.roomId} создана`);
                 showChatScreen(data.roomId);
@@ -732,6 +753,10 @@
                 updateRoomList(data.rooms);
             });
 
+            socket.on('roomDeleted', (data) => {
+                loadRooms();
+            });
+
             // --- Уведомления ---
             function requestNotificationPermission() {
                 if (!("Notification" in window)) return;
@@ -757,8 +782,8 @@
             }
 
             // --- Список комнат ---
-            async function loadRooms() {
-                socket.emit('getRooms');
+            function loadRooms() {
+                emitWhenConnected('getRooms', {});
             }
 
             function updateRoomList(rooms) {
@@ -792,14 +817,10 @@
             }
 
             window.deleteRoom = (roomId) => {
-                socket.emit('deleteRoom', { roomId });
+                emitWhenConnected('deleteRoom', { roomId });
             };
 
-            socket.on('roomDeleted', (data) => {
-                loadRooms();
-            });
-
-            // --- Создание комнаты ---
+            // --- Кнопки ---
             createBtn.addEventListener('click', () => {
                 const roomId = roomIdInput.value.trim();
                 if (!roomId) {
@@ -810,19 +831,16 @@
                     alert('ID может содержать только латинские буквы, цифры, дефис и подчеркивание');
                     return;
                 }
-
-                socket.emit('createRoom', { roomId });
+                emitWhenConnected('createRoom', { roomId });
             });
 
-            // --- Подключение к комнате ---
             connectBtn.addEventListener('click', () => {
                 const roomId = roomIdInput.value.trim();
                 if (!roomId) {
                     alert('Введите ID комнаты');
                     return;
                 }
-
-                socket.emit('joinRoom', { roomId, username: myUsername });
+                emitWhenConnected('joinRoom', { roomId, username: myUsername });
             });
 
             // --- Отправка сообщения ---
@@ -830,7 +848,7 @@
                 const text = chatInput.value.trim();
                 if (!text || !currentRoomId) return;
 
-                socket.emit('sendMessage', { roomId: currentRoomId, sender: myUsername, text });
+                emitWhenConnected('sendMessage', { roomId: currentRoomId, sender: myUsername, text });
                 addChatMessage(myUsername, text, true);
                 chatInput.value = '';
             });
@@ -844,7 +862,7 @@
 
             // --- Загрузка комнат при старте ---
             setTimeout(() => {
-                if (socket.connected) loadRooms();
+                if (isConnected) loadRooms();
             }, 1000);
         })();
     </script>
