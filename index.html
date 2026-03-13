@@ -96,8 +96,40 @@
             flex-direction: column;
         }
 
-        /* Экраны */
+        /* Экраны авторизации и главный экран */
         .screen {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .screen-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Главный экран (после авторизации) использует flex-колонку, навигация внизу */
+        #main-screen {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        /* Контейнер для активного экрана (заполняет пространство над навигацией) */
+        .screen-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Все внутренние экраны внутри screen-container позиционируются абсолютно, чтобы перекрываться */
+        .inner-screen {
             position: absolute;
             top: 0;
             left: 0;
@@ -108,7 +140,7 @@
             flex-direction: column;
             overflow: hidden;
         }
-        .screen-hidden {
+        .inner-screen-hidden {
             opacity: 0;
             pointer-events: none;
         }
@@ -149,7 +181,7 @@
             transform: scale(0.94);
         }
 
-        /* Нижняя навигация (как в Telegram) */
+        /* Нижняя навигация (внизу главного экрана) */
         .bottom-nav {
             display: flex;
             align-items: center;
@@ -159,6 +191,8 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
+            width: 100%;
+            z-index: 10;
         }
         .nav-item {
             flex: 1;
@@ -183,7 +217,7 @@
             color: var(--accent);
         }
 
-        /* Контент страницы (заполняет оставшееся место) */
+        /* Контент страницы (для профиля и списка комнат) */
         .page-content {
             flex: 1;
             overflow-y: auto;
@@ -298,15 +332,13 @@
 
         /* Экран чата (общий для публичного и личных) */
         .chat-screen {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
             background: var(--container-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100%;
-            margin: 0;
-            padding: 0;
         }
         .chat-header {
             display: flex;
@@ -366,7 +398,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-height: 0; /* важно для flex */
+            min-height: 0;
         }
         .message {
             display: flex;
@@ -498,78 +530,81 @@
 
         <!-- Главное приложение (после авторизации) -->
         <div class="screen screen-hidden" id="main-screen">
-            <!-- Экран профиля -->
-            <div class="screen" id="profile-screen">
-                <div class="page-header">
-                    <h2>Профиль</h2>
-                    <div class="theme-toggle" id="profile-theme-toggle">
-                        <i class="fas fa-sun"></i>
-                    </div>
-                </div>
-                <div class="page-content">
-                    <div class="panel">
-                        <div style="margin-bottom: 20px;">
-                            <div style="color: var(--text-primary); font-size: 18px; margin-bottom: 8px;">Имя пользователя</div>
-                            <div style="color: var(--accent); font-size: 24px; font-weight: 600;" id="profile-username"></div>
+            <!-- Контейнер для активного экрана -->
+            <div class="screen-container" id="screen-container">
+                <!-- Экран профиля -->
+                <div class="inner-screen" id="profile-screen">
+                    <div class="page-header">
+                        <h2>Профиль</h2>
+                        <div class="theme-toggle" id="profile-theme-toggle">
+                            <i class="fas fa-sun"></i>
                         </div>
-                        <button class="btn" id="delete-account-btn" style="background: #ff6b6b; color: white;">Удалить аккаунт</button>
                     </div>
-                </div>
-            </div>
-
-            <!-- Экран публичного чата -->
-            <div class="screen screen-hidden" id="public-screen">
-                <div class="chat-header">
-                    <div class="chat-header-left">
-                        <div class="back-btn" id="public-back">
-                            <i class="fas fa-arrow-left"></i>
+                    <div class="page-content">
+                        <div class="panel">
+                            <div style="margin-bottom: 20px;">
+                                <div style="color: var(--text-primary); font-size: 18px; margin-bottom: 8px;">Имя пользователя</div>
+                                <div style="color: var(--accent); font-size: 24px; font-weight: 600;" id="profile-username"></div>
+                            </div>
+                            <button class="btn" id="delete-account-btn" style="background: #ff6b6b; color: white;">Удалить аккаунт</button>
                         </div>
-                        <h2>Публичный чат</h2>
                     </div>
-                    <div class="participant-count" id="public-participant-count">0</div>
                 </div>
-                <div class="chat-messages" id="public-messages"></div>
-                <div class="chat-input-area">
-                    <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
-                    <button class="btn btn-primary" id="public-send">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
 
-            <!-- Экран личных комнат (список) -->
-            <div class="screen screen-hidden" id="private-screen">
-                <div class="page-header">
-                    <h2>Личные комнаты</h2>
-                    <div></div>
-                </div>
-                <div class="page-content">
-                    <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">➕ Создать комнату</button>
-                    <div id="private-room-list" class="room-list"></div>
-                </div>
-            </div>
-
-            <!-- Экран личного чата (отдельный) -->
-            <div class="screen screen-hidden" id="private-chat-screen">
-                <div class="chat-header">
-                    <div class="chat-header-left">
-                        <div class="back-btn" id="private-chat-back">
-                            <i class="fas fa-arrow-left"></i>
+                <!-- Экран публичного чата -->
+                <div class="inner-screen inner-screen-hidden" id="public-screen">
+                    <div class="chat-header">
+                        <div class="chat-header-left">
+                            <div class="back-btn" id="public-back">
+                                <i class="fas fa-arrow-left"></i>
+                            </div>
+                            <h2>Публичный чат</h2>
                         </div>
-                        <h2 id="private-chat-title"></h2>
+                        <div class="participant-count" id="public-participant-count">0</div>
                     </div>
-                    <div class="participant-count" id="private-chat-participant-count">0</div>
+                    <div class="chat-messages" id="public-messages"></div>
+                    <div class="chat-input-area">
+                        <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
+                        <button class="btn btn-primary" id="public-send">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="chat-messages" id="private-chat-messages"></div>
-                <div class="chat-input-area">
-                    <textarea id="private-chat-input" rows="1" placeholder="Написать..."></textarea>
-                    <button class="btn btn-primary" id="private-chat-send">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
+
+                <!-- Экран личных комнат (список) -->
+                <div class="inner-screen inner-screen-hidden" id="private-screen">
+                    <div class="page-header">
+                        <h2>Личные комнаты</h2>
+                        <div></div>
+                    </div>
+                    <div class="page-content">
+                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">➕ Создать комнату</button>
+                        <div id="private-room-list" class="room-list"></div>
+                    </div>
+                </div>
+
+                <!-- Экран личного чата -->
+                <div class="inner-screen inner-screen-hidden" id="private-chat-screen">
+                    <div class="chat-header">
+                        <div class="chat-header-left">
+                            <div class="back-btn" id="private-chat-back">
+                                <i class="fas fa-arrow-left"></i>
+                            </div>
+                            <h2 id="private-chat-title"></h2>
+                        </div>
+                        <div class="participant-count" id="private-chat-participant-count">0</div>
+                    </div>
+                    <div class="chat-messages" id="private-chat-messages"></div>
+                    <div class="chat-input-area">
+                        <textarea id="private-chat-input" rows="1" placeholder="Написать..."></textarea>
+                        <button class="btn btn-primary" id="private-chat-send">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Нижняя навигация (как в Telegram) -->
+            <!-- Нижняя навигация (внизу) -->
             <div class="bottom-nav">
                 <div class="nav-item" data-screen="profile">
                     <i class="fas fa-user"></i>
@@ -681,35 +716,28 @@
                 applyTheme();
             });
 
-            // --- Навигация ---
-            function showScreen(screenId) {
-                profileScreen.classList.add('screen-hidden');
-                publicScreen.classList.add('screen-hidden');
-                privateScreen.classList.add('screen-hidden');
-                privateChatScreen.classList.add('screen-hidden');
-                document.getElementById(screenId).classList.remove('screen-hidden');
-                navItems.forEach(item => {
-                    const screen = item.dataset.screen;
-                    if (screen === screenId.replace('-screen', '')) {
-                        item.classList.add('active');
-                    } else {
-                        item.classList.remove('active');
-                    }
-                });
+            // --- Навигация между внутренними экранами ---
+            function showInnerScreen(screenId) {
+                // Скрываем все внутренние экраны
+                profileScreen.classList.add('inner-screen-hidden');
+                publicScreen.classList.add('inner-screen-hidden');
+                privateScreen.classList.add('inner-screen-hidden');
+                privateChatScreen.classList.add('inner-screen-hidden');
+                // Показываем нужный
+                document.getElementById(screenId).classList.remove('inner-screen-hidden');
             }
 
             navItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const screen = item.dataset.screen;
-                    // При переходе на публичный чат автоматически присоединяемся
                     if (screen === 'public') {
                         if (currentRoom) leaveRoom(currentRoom);
                         joinRoom('public');
-                        showScreen('public-screen');
+                        showInnerScreen('public-screen');
                     } else if (screen === 'private') {
-                        showScreen('private-screen');
+                        showInnerScreen('private-screen');
                     } else {
-                        showScreen('profile-screen');
+                        showInnerScreen('profile-screen');
                     }
                 });
             });
@@ -731,7 +759,7 @@
                     profileUsername.textContent = username;
                     connectSocket();
                     loadPrivateRooms();
-                    showScreen('profile-screen');
+                    showInnerScreen('profile-screen');
                 } catch (err) {
                     authStatus.textContent = err.message;
                 }
@@ -775,7 +803,7 @@
                 profileUsername.textContent = currentUser.username;
                 connectSocket();
                 loadPrivateRooms();
-                showScreen('profile-screen');
+                showInnerScreen('profile-screen');
             }
 
             // --- Socket.IO ---
@@ -842,6 +870,15 @@
             function sendMessage(roomId, text) {
                 if (socket && currentUser) {
                     socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
+                    // Немедленно добавляем своё сообщение локально
+                    const ownMsg = {
+                        id: Date.now(), // временный ID, но сервер пришлёт с реальным
+                        roomId,
+                        sender: currentUser.username,
+                        text,
+                        timestamp: new Date().toISOString()
+                    };
+                    addMessageToChat(ownMsg);
                 }
             }
 
@@ -910,7 +947,7 @@
             // --- Публичный чат ---
             publicBack.addEventListener('click', () => {
                 leaveRoom('public');
-                showScreen('profile-screen');
+                showInnerScreen('profile-screen');
             });
 
             publicSend.addEventListener('click', () => {
@@ -1007,7 +1044,7 @@
                             if (shouldJoin) {
                                 if (currentRoom) leaveRoom(currentRoom);
                                 joinRoom(roomId, roomName);
-                                showScreen('private-chat-screen');
+                                showInnerScreen('private-chat-screen');
                             }
                         }
                     } catch (err) {
@@ -1046,7 +1083,7 @@
                 if (currentPrivateRoom) {
                     leaveRoom(currentPrivateRoom.id);
                 }
-                showScreen('private-screen');
+                showInnerScreen('private-screen');
             });
 
             privateChatSend.addEventListener('click', () => {
