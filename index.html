@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Стили без изменений, такие же, как в предыдущей версии */
         * {
             margin: 0;
             padding: 0;
@@ -679,15 +680,14 @@
                 participantCount.textContent = count;
             }
 
-            function showChatScreen(roomId) {
+            // Функция переключения на экран чата (без отправки joinRoom)
+            function enterChatScreen(roomId) {
                 currentRoomId = roomId;
                 chatRoomId.textContent = roomId;
                 myUsernameSpan.textContent = myUsername;
                 chatMessages.innerHTML = '';
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
-                
-                emitWhenConnected('joinRoom', { roomId, username: myUsername });
             }
 
             function exitToLogin() {
@@ -718,11 +718,14 @@
             // --- Обработчики Socket.IO ---
             socket.on('roomCreated', (data) => {
                 setDebug(`✅ Комната ${data.roomId} создана`);
-                showChatScreen(data.roomId);
+                enterChatScreen(data.roomId);
             });
 
             socket.on('roomJoined', (data) => {
                 setDebug(`✅ Подключено к комнате ${data.roomId}`);
+                // Переключаем экран чата
+                enterChatScreen(data.roomId);
+                // Загружаем историю сообщений
                 if (data.messages) {
                     data.messages.forEach(msg => {
                         addChatMessage(msg.sender, msg.text, msg.sender === myUsername);
@@ -786,34 +789,11 @@
 
             function updateRoomList(rooms) {
                 if (!roomHistoryList) return;
-                function updateRoomList(rooms) {
-    if (!roomHistoryList) return;
-    if (!rooms || rooms.length === 0) {
-        roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center; color: var(--text-primary); opacity: 0.7;">Нет истории</li>';
-        return;
-    }
-    roomHistoryList.innerHTML = rooms.map(room => `
-        <li class="room-item" data-roomid="${room.roomId}">
-            <span class="room-name">${room.roomId}</span>
-            <div class="room-meta">
-                <span class="room-date">${new Date(room.lastActive).toLocaleDateString()}</span>
-                <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </li>
-    `).join('');
-
-    document.querySelectorAll('.room-item').forEach(el => {
-        el.addEventListener('click', () => {
-            const rid = el.dataset.roomid;
-            if (rid) {
-                roomIdInput.value = rid;
-                connectBtn.click();
-            }
-        });
-    });
-}
+                if (!rooms || rooms.length === 0) {
+                    // Улучшенная контрастность для текста "Нет истории"
+                    roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center; color: var(--text-primary); opacity: 0.8;">Нет истории</li>';
+                    return;
+                }
                 roomHistoryList.innerHTML = rooms.map(room => `
                     <li class="room-item" data-roomid="${room.roomId}">
                         <span class="room-name">${room.roomId}</span>
