@@ -12,9 +12,8 @@
     <meta name="theme-color" id="theme-color-meta" content="#4a3aff">
     <link rel="manifest" href="manifest.json">
     
-    <!-- PeerJS, idb, Font Awesome -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/idb@7.1.1/build/umd.js"></script>
+    <!-- Socket.IO и Font Awesome -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
@@ -514,7 +513,7 @@
                 </div>
                 <div class="chat-room-id" id="chat-room-id" title="Нажмите, чтобы скопировать ID">—</div>
                 <div class="my-username" id="my-username"></div>
-                <div class="participant-count" id="participant-count">1</div>
+                <div class="participant-count" id="participant-count">0</div>
             </div>
             <div class="chat-exit-btn" id="chat-exit-btn" title="Выйти из комнаты">
                 <i class="fas fa-times"></i>
@@ -573,49 +572,6 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // --- IndexedDB (версия 2 с полем unreadCount) ---
-            let dbPromise;
-            const DB_NAME = 'ChatXDatabase';
-            const DB_VERSION = 2;
-
-            async function initDB() {
-                dbPromise = await idb.openDB(DB_NAME, DB_VERSION, {
-                    upgrade(db, oldVersion, newVersion, transaction) {
-                        console.log(`Обновление БД с версии ${oldVersion} до ${newVersion}`);
-                        
-                        if (!db.objectStoreNames.contains('rooms')) {
-                            const roomStore = db.createObjectStore('rooms', { keyPath: 'roomId' });
-                            roomStore.createIndex('by-lastVisit', 'lastVisit');
-                            // unreadCount будет добавлено при put
-                        }
-                        
-                        if (!db.objectStoreNames.contains('messages')) {
-                            const messageStore = db.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
-                            messageStore.createIndex('by-room', 'roomId');
-                            messageStore.createIndex('by-timestamp', 'timestamp');
-                        }
-                    },
-                });
-                console.log('База данных инициализирована (версия 2)');
-            }
-            initDB().catch(console.error);
-
-            // --- Запрос разрешения на уведомления ---
-            function requestNotificationPermission() {
-                if (!("Notification" in window)) {
-                    console.log("Этот браузер не поддерживает уведомления");
-                    return;
-                }
-                if (Notification.permission === "granted") {
-                    console.log("Уведомления уже разрешены");
-                } else if (Notification.permission !== "denied") {
-                    Notification.requestPermission().then(permission => {
-                        console.log("Разрешение на уведомления:", permission);
-                    });
-                }
-            }
-            requestNotificationPermission();
-
             // --- Имя пользователя ---
             const usernameInput = document.getElementById('username-input');
             let myUsername = localStorage.getItem('chatxUsername') || 'Аноним';
@@ -644,11 +600,11 @@
             const chatExitBtn = document.getElementById('chat-exit-btn');
             const roomHistoryList = document.getElementById('room-history-list');
 
+            // --- Подключение к серверу ---
+            const SERVER_URL = 'https://chatx-server.onrender.com'; // замените на URL вашего сервера
+            const socket = io(SERVER_URL);
+
             // --- Состояние ---
-            let peer = null;
-            let connections = [];
-            let activeConn = null;
-            let isHost = false;
             let currentRoomId = null;
 
             // --- Вспомогательные ---
@@ -667,117 +623,7 @@
                 });
             }
 
-            // --- Функции для работы с базой данных ---
-            async function saveMessage(roomId, sender, text, own) {
-                const db = await dbPromise;
-                await db.add('messages', {
-                    roomId: roomId,
-                    sender: sender,
-                    text: text,
-                    timestamp: new Date().toISOString(),
-                    own: own,
-                });
-            }
-
-            async function loadRoomHistory() {
-                const db = await dbPromise;
-                const rooms = await db.getAllFromIndex('rooms', 'by-lastVisit');
-                if (!roomHistoryList) return;
-                
-                if (rooms.length === 0) {
-                    roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center;">Нет истории</li>';
-                    return;
-                }
-                
-                // Сортируем по lastVisit (сначала новые)
-                rooms.sort((a, b) => new Date(b.lastVisit) - new Date(a.lastVisit));
-                
-                roomHistoryList.innerHTML = rooms.map(room => `
-                    <li class="room-item" data-roomid="${room.roomId}">
-                        <span class="room-name">${room.roomId}</span>
-                        <div class="room-meta">
-                            <span class="room-date">${new Date(room.lastVisit).toLocaleDateString()}</span>
-                            ${room.unreadCount ? `<span class="room-unread">${room.unreadCount}</span>` : ''}
-                            <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </li>
-                `).join('');
-
-                // Добавляем обработчики клика на элементы
-                document.querySelectorAll('.room-item').forEach(el => {
-                    el.addEventListener('click', () => {
-                        const rid = el.dataset.roomid;
-                        if (rid) {
-                            roomIdInput.value = rid;
-                            connectBtn.click();
-                        }
-                    });
-                });
-            }
-
-            // Глобальная функция удаления комнаты
-            window.deleteRoom = async (roomId) => {
-                const db = await dbPromise;
-                // Удаляем комнату
-                await db.delete('rooms', roomId);
-                // Удаляем все сообщения этой комнаты
-                const tx = db.transaction('messages', 'readwrite');
-                const index = tx.store.index('by-room');
-                let cursor = await index.openCursor(IDBKeyRange.only(roomId));
-                while (cursor) {
-                    cursor.delete();
-                    cursor = await cursor.continue();
-                }
-                await tx.done;
-                loadRoomHistory();
-            };
-
-            // --- Уведомление ---
-            function showNotification(title, body, roomId) {
-                if (!("Notification" in window) || Notification.permission !== "granted") {
-                    return;
-                }
-                const notification = new Notification(title, {
-                    body: body,
-                    icon: '/icon.svg',
-                    tag: roomId,
-                    renotify: true,
-                });
-                notification.onclick = () => {
-                    window.focus();
-                    roomIdInput.value = roomId;
-                    connectBtn.click();
-                };
-            }
-
-            // --- Сохранение комнаты (с обновлением unreadCount) ---
-            async function saveRoomVisit(roomId) {
-                const db = await dbPromise;
-                let room = await db.get('rooms', roomId);
-                if (!room) {
-                    room = { roomId: roomId, lastVisit: new Date().toISOString(), unreadCount: 0 };
-                } else {
-                    room.lastVisit = new Date().toISOString();
-                    // При входе сбрасываем счётчик
-                    room.unreadCount = 0;
-                }
-                await db.put('rooms', room);
-                loadRoomHistory();
-            }
-
-            async function incrementUnreadCount(roomId) {
-                const db = await dbPromise;
-                let room = await db.get('rooms', roomId);
-                if (room) {
-                    room.unreadCount = (room.unreadCount || 0) + 1;
-                    await db.put('rooms', room);
-                    loadRoomHistory();
-                }
-            }
-
-            // --- Добавление сообщения в чат (и сохранение) ---
+            // --- Функции для работы с сервером ---
             function addChatMessage(sender, text, own = false) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const msgDiv = document.createElement('div');
@@ -795,12 +641,8 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
 
-            function updateParticipantCount() {
-                if (isHost) {
-                    participantCount.textContent = connections.length + 1;
-                } else {
-                    participantCount.textContent = activeConn ? 2 : 1;
-                }
+            function updateParticipantCount(count) {
+                participantCount.textContent = count;
             }
 
             function showChatScreen(roomId) {
@@ -808,39 +650,23 @@
                 chatRoomId.textContent = roomId;
                 myUsernameSpan.textContent = myUsername;
                 chatMessages.innerHTML = '';
-                updateParticipantCount();
                 loginScreen.classList.add('screen-hidden');
                 chatScreen.classList.remove('screen-hidden');
                 
-                // Загружаем историю сообщений из БД
-                (async () => {
-                    const db = await dbPromise;
-                    const index = db.transaction('messages').store.index('by-room');
-                    const messages = await index.getAll(roomId);
-                    messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    messages.forEach(msg => {
-                        addChatMessage(msg.sender, msg.text, msg.own);
-                    });
-                })();
-
-                // Сохраняем визит и сбрасываем счётчик
-                saveRoomVisit(roomId);
+                // Подключаемся к комнате на сервере
+                socket.emit('joinRoom', { roomId, username: myUsername });
             }
 
             function exitToLogin() {
-                if (peer) {
-                    peer.destroy();
-                    peer = null;
+                if (currentRoomId) {
+                    socket.emit('leaveRoom', { roomId: currentRoomId });
+                    currentRoomId = null;
                 }
-                connections = [];
-                activeConn = null;
-                isHost = false;
-                currentRoomId = null;
                 chatScreen.classList.add('screen-hidden');
                 loginScreen.classList.remove('screen-hidden');
                 connectionStatus.textContent = 'Не подключено';
                 setDebug('');
-                loadRoomHistory(); // обновляем список комнат
+                loadRooms(); // обновляем список комнат
             }
 
             chatExitBtn.addEventListener('click', exitToLogin);
@@ -856,74 +682,122 @@
                 }
             });
 
-            // --- Настройка соединения ---
-            function setupConnection(conn) {
-                if (isHost) {
-                    connections.push(conn);
-                } else {
-                    activeConn = conn;
-                    connections.push(conn);
+            // --- Обработчики Socket.IO ---
+            socket.on('connect', () => {
+                setDebug('✅ Подключено к серверу');
+                loadRooms();
+            });
+
+            socket.on('disconnect', () => {
+                setDebug('❌ Отключено от сервера');
+                exitToLogin();
+            });
+
+            socket.on('roomCreated', (data) => {
+                setDebug(`✅ Комната ${data.roomId} создана`);
+                showChatScreen(data.roomId);
+            });
+
+            socket.on('roomJoined', (data) => {
+                setDebug(`✅ Подключено к комнате ${data.roomId}`);
+                // Загружаем историю сообщений
+                if (data.messages) {
+                    data.messages.forEach(msg => {
+                        addChatMessage(msg.sender, msg.text, msg.sender === myUsername);
+                    });
                 }
+                updateParticipantCount(data.userCount);
+            });
 
-                conn.on('open', () => {
-                    connectionStatus.textContent = `✅ Подключено к ${conn.peer}`;
-                    setDebug('Соединение установлено');
-                    updateParticipantCount();
+            socket.on('roomError', (data) => {
+                setDebug(`❌ Ошибка: ${data.message}`);
+                alert(data.message);
+            });
+
+            socket.on('newMessage', (data) => {
+                // Получено новое сообщение
+                addChatMessage(data.sender, data.text, false);
+                // Если комната не активна, показать уведомление
+                if (data.roomId !== currentRoomId || document.hidden) {
+                    showNotification(data.sender, data.text, data.roomId);
+                }
+            });
+
+            socket.on('userCount', (data) => {
+                updateParticipantCount(data.count);
+            });
+
+            socket.on('roomList', (data) => {
+                // Обновить список комнат
+                updateRoomList(data.rooms);
+            });
+
+            // --- Уведомления ---
+            function requestNotificationPermission() {
+                if (!("Notification" in window)) return;
+                if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                    Notification.requestPermission();
+                }
+            }
+            requestNotificationPermission();
+
+            function showNotification(title, body, roomId) {
+                if (!("Notification" in window) || Notification.permission !== "granted") return;
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: '/icon.svg',
+                    tag: roomId,
+                    renotify: true,
                 });
+                notification.onclick = () => {
+                    window.focus();
+                    roomIdInput.value = roomId;
+                    connectBtn.click();
+                };
+            }
 
-                conn.on('data', (data) => {
-                    // Ретрансляция для хоста
-                    if (isHost && connections.length > 0) {
-                        connections.forEach(otherConn => {
-                            if (otherConn !== conn) {
-                                otherConn.send(data);
-                            }
-                        });
-                    }
+            // --- Список комнат ---
+            async function loadRooms() {
+                socket.emit('getRooms');
+            }
 
-                    if (data.type === 'text') {
-                        // Получено сообщение
-                        addChatMessage(data.sender, data.text, false);
-                        
-                        // Сохраняем в БД
-                        if (currentRoomId) {
-                            saveMessage(currentRoomId, data.sender, data.text, false);
+            function updateRoomList(rooms) {
+                if (!roomHistoryList) return;
+                if (!rooms || rooms.length === 0) {
+                    roomHistoryList.innerHTML = '<li class="room-item" style="justify-content:center;">Нет истории</li>';
+                    return;
+                }
+                roomHistoryList.innerHTML = rooms.map(room => `
+                    <li class="room-item" data-roomid="${room.roomId}">
+                        <span class="room-name">${room.roomId}</span>
+                        <div class="room-meta">
+                            <span class="room-date">${new Date(room.lastActive).toLocaleDateString()}</span>
+                            ${room.unreadCount ? `<span class="room-unread">${room.unreadCount}</span>` : ''}
+                            <button class="delete-room-btn" onclick="event.stopPropagation(); window.deleteRoom('${room.roomId}')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </li>
+                `).join('');
+
+                document.querySelectorAll('.room-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const rid = el.dataset.roomid;
+                        if (rid) {
+                            roomIdInput.value = rid;
+                            connectBtn.click();
                         }
-
-                        // Если текущий чат не соответствует комнате отправителя или приложение не активно, увеличиваем счётчик и уведомляем
-                        if (currentRoomId !== conn.peer || document.hidden) {
-                            incrementUnreadCount(conn.peer);
-                            showNotification(data.sender, data.text, conn.peer);
-                        }
-                    }
-                });
-
-                conn.on('close', () => {
-                    const index = connections.indexOf(conn);
-                    if (index !== -1) connections.splice(index, 1);
-                    if (activeConn === conn) {
-                        activeConn = null;
-                        exitToLogin();
-                    } else {
-                        setDebug('Один из клиентов отключился');
-                        updateParticipantCount();
-                    }
-                });
-
-                conn.on('error', (err) => {
-                    console.error(err);
-                    setDebug(`Ошибка соединения: ${err.message}`);
+                    });
                 });
             }
 
-            // --- Отправка всем ---
-            function sendToAll(data) {
-                if (activeConn) {
-                    activeConn.send(data);
-                } else if (connections.length > 0) {
-                    connections.forEach(conn => conn.send(data));
-                }
-            }
+            window.deleteRoom = (roomId) => {
+                socket.emit('deleteRoom', { roomId });
+            };
+
+            socket.on('roomDeleted', (data) => {
+                loadRooms();
+            });
 
             // --- Создание комнаты ---
             createBtn.addEventListener('click', () => {
@@ -937,33 +811,7 @@
                     return;
                 }
 
-                if (peer) peer.destroy();
-                connections = [];
-                activeConn = null;
-                isHost = true;
-
-                setDebug('Создаём комнату...');
-                const server = { host: 'venikshare-server.onrender.com', port: 443, path: '/', secure: true, key: 'peerjs' };
-                const newPeer = new Peer(roomId, server);
-
-                newPeer.on('open', (id) => {
-                    peer = newPeer;
-                    setDebug('✅ Комната создана, ID: ' + id);
-                    showChatScreen(id);
-
-                    newPeer.on('connection', (connection) => {
-                        setupConnection(connection);
-                    });
-                });
-
-                newPeer.on('error', (err) => {
-                    setDebug('❌ Ошибка: ' + err.type);
-                    if (err.type === 'id-taken') {
-                        alert('Этот ID уже занят. Попробуйте другой.');
-                    } else {
-                        alert('Не удалось создать комнату: ' + err.type);
-                    }
-                });
+                socket.emit('createRoom', { roomId });
             });
 
             // --- Подключение к комнате ---
@@ -974,42 +822,16 @@
                     return;
                 }
 
-                if (peer) peer.destroy();
-                connections = [];
-                activeConn = null;
-                isHost = false;
-
-                setDebug('Подключаемся...');
-                const server = { host: 'venikshare-server.onrender.com', port: 443, path: '/', secure: true, key: 'peerjs' };
-                const newPeer = new Peer(server);
-
-                newPeer.on('open', () => {
-                    peer = newPeer;
-                    const conn = peer.connect(roomId);
-                    setupConnection(conn);
-                    showChatScreen(roomId);
-                });
-
-                newPeer.on('error', (err) => {
-                    setDebug('❌ Ошибка: ' + err.type);
-                    if (err.type === 'peer-unavailable') {
-                        alert('Хост не в сети. Комната не существует или хост отключился.');
-                    } else {
-                        alert('Ошибка подключения: ' + err.type);
-                    }
-                });
+                socket.emit('joinRoom', { roomId, username: myUsername });
             });
 
             // --- Отправка сообщения ---
             sendChatBtn.addEventListener('click', () => {
                 const text = chatInput.value.trim();
-                if (!text) return;
+                if (!text || !currentRoomId) return;
 
-                sendToAll({ type: 'text', sender: myUsername, text });
+                socket.emit('sendMessage', { roomId: currentRoomId, sender: myUsername, text });
                 addChatMessage(myUsername, text, true);
-                if (currentRoomId) {
-                    saveMessage(currentRoomId, myUsername, text, true);
-                }
                 chatInput.value = '';
             });
 
@@ -1020,15 +842,10 @@
                 }
             });
 
-            // --- Загрузка истории при старте ---
-            (async () => {
-                await initDB();
-                loadRoomHistory();
-            })();
-
-            window.addEventListener('beforeunload', () => {
-                if (peer) peer.destroy();
-            });
+            // --- Загрузка комнат при старте ---
+            setTimeout(() => {
+                if (socket.connected) loadRooms();
+            }, 1000);
         })();
     </script>
 </body>
