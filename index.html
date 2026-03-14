@@ -12,7 +12,6 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Базовые сбросы */
         * {
             margin: 0;
             padding: 0;
@@ -203,7 +202,6 @@
             pointer-events: none;
         }
 
-        /* Шапки */
         .page-header, .chat-header {
             display: flex;
             align-items: center;
@@ -834,7 +832,7 @@
         .mail-icon {
             position: relative;
             cursor: pointer;
-            color: var(--accent); /* делаем как у других иконок */
+            color: var(--accent);
             font-size: 24px;
             width: 44px;
             height: 44px;
@@ -864,7 +862,6 @@
             font-weight: bold;
         }
 
-        /* Тёмная тема для бейджа */
         body.dark .mail-icon .badge {
             border-color: var(--icon-bg);
         }
@@ -1026,7 +1023,7 @@
         </div>
     </div>
 
-    <!-- Модальные окна (полные) -->
+    <!-- Модальные окна -->
     <div id="password-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
@@ -1152,8 +1149,7 @@
 
 <script>
     (function() {
-        // Адрес сервера (убедитесь, что он правильный)
-        const API_BASE = 'https://chatx-server-pyyi.onrender.com';
+        const API_BASE = 'https://chatx-server-pyyi.onrender.com'; // Убедитесь, что адрес правильный
 
         let currentUser = null;
         let currentRoom = null;
@@ -1569,7 +1565,7 @@
 
         function openUserProfile(username) {
             userProfileName.textContent = username;
-            // Здесь можно добавить запрос статуса, но для простоты оставим "Неизвестно"
+            // Статус можно не показывать, оставим заглушку
             userProfileStatus.textContent = 'Неизвестно';
             userProfileModal.style.display = 'flex';
         }
