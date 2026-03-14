@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Все стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
@@ -242,7 +243,7 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px 40px 16px; /* убрана safe-area, фиксированный отступ */
+            padding: 8px 16px 40px 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -1027,12 +1028,40 @@
                 saveUserSettings();
             });
 
-            // Смена имени пользователя (карандаш)
-            editUsernameBtn.addEventListener('click', () => {
+            // ========== ИСПРАВЛЕНО: Смена имени пользователя ==========
+            editUsernameBtn.addEventListener('click', async () => {
                 const newName = prompt('Введите новое имя пользователя:');
                 if (!newName) return;
-                // Здесь должен быть запрос к API для смены имени (нужен эндпоинт)
-                alert('Функция смены имени требует реализации на сервере');
+                const password = prompt('Введите ваш пароль для подтверждения:');
+                if (!password) return;
+                try {
+                    const res = await fetch(API_BASE + '/api/change-username', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            oldUsername: currentUser.username, 
+                            newUsername: newName, 
+                            password 
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Ошибка смены имени');
+                    
+                    // Обновляем данные пользователя
+                    currentUser.username = newName;
+                    localStorage.setItem('chatxUser', JSON.stringify(currentUser));
+                    profileUsername.textContent = newName;
+                    
+                    // Переподключаем сокет с новым именем (опционально)
+                    if (socket) {
+                        socket.close();
+                        connectSocket();
+                    }
+                    
+                    alert('Имя успешно изменено');
+                } catch (err) {
+                    alert(err.message);
+                }
             });
 
             // Смена пароля
@@ -1063,6 +1092,7 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Ошибка');
                     changePasswordModal.style.display = 'none';
+                    alert('Пароль успешно изменён');
                 } catch (err) {
                     changePasswordError.textContent = err.message;
                 }
