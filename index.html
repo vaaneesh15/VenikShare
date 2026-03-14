@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Все стили как в предыдущей рабочей версии (без изменений) */
         * {
             margin: 0;
             padding: 0;
@@ -97,9 +96,8 @@
             --unread-dot-border: #1a1a2e;
         }
 
-        /* Анимация нажатия */
+        /* ===== Анимация нажатия: только затемнение ===== */
         .btn,
-        .nav-item,
         .room-item,
         .back-btn,
         .theme-toggle,
@@ -117,14 +115,13 @@
         #delete-account-btn,
         .modal .btn,
         .attach-btn {
-            transition: transform 0.1s ease, opacity 0.1s ease;
+            transition: opacity 0.1s ease;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
             cursor: pointer;
         }
 
         .btn:active,
-        .nav-item:active,
         .room-item:active,
         .back-btn:active,
         .theme-toggle:active,
@@ -142,6 +139,14 @@
         #delete-account-btn:active,
         .modal .btn:active,
         .attach-btn:active {
+            opacity: 0.7;
+        }
+
+        /* Навигация остаётся с transform для плавности */
+        .nav-item {
+            transition: background-color 0.2s, color 0.2s, transform 0.1s;
+        }
+        .nav-item:active {
             transform: scale(0.96);
             opacity: 0.8;
         }
@@ -504,7 +509,7 @@
             padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
             min-height: 0;
         }
         .message {
@@ -523,6 +528,7 @@
             border: 1px solid var(--card-border);
             word-break: break-word;
             color: var(--chat-other-text);
+            position: relative;
         }
         .message-bubble-own {
             background: var(--chat-own-bg);
@@ -558,7 +564,7 @@
         .message-download-btn {
             position: absolute;
             bottom: 4px;
-            right: 4px;
+            left: 4px; /* переместили влево */
             background: rgba(0,0,0,0.5);
             color: white;
             border-radius: 20px;
@@ -574,6 +580,22 @@
         }
         .message-download-btn:hover {
             background: rgba(0,0,0,0.7);
+        }
+
+        /* Разделитель даты */
+        .date-separator {
+            display: flex;
+            justify-content: center;
+            margin: 12px 0;
+        }
+        .date-separator span {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            color: var(--text-muted);
+            border: 1px solid var(--container-border);
         }
 
         .chat-input-area {
@@ -703,6 +725,13 @@
             height: 44px;
             font-size: 24px;
             cursor: pointer;
+        }
+
+        /* Индикатор загрузки */
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
         }
     </style>
 </head>
@@ -871,7 +900,7 @@
             </div>
         </div>
 
-        <!-- Модальное окно ввода пароля -->
+        <!-- Модальные окна (полные) -->
         <div id="password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
@@ -884,7 +913,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно подтверждения -->
         <div id="confirm-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="confirm-title">Вы уверены?</h3>
@@ -895,7 +923,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно смены пароля -->
         <div id="change-password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Смена пароля</h3>
@@ -909,7 +936,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно редактирования названия комнаты -->
         <div id="rename-room-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="rename-modal-title">Изменить название комнаты</h3>
@@ -922,23 +948,23 @@
             </div>
         </div>
 
-        <!-- Модальное окно информации о комнате -->
         <div id="room-info-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Информация о комнате</h3>
                 <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>Название:</strong> <span id="room-info-name"></span></div>
                 <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>ID:</strong> <span id="room-info-id"></span></div>
                 <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>Пароль:</strong> <span id="room-info-password"></span></div>
+                <div id="room-info-loading" class="loading-spinner" style="display: none;">Загрузка...</div>
                 <div class="modal-buttons">
                     <button class="btn" id="room-info-close">Закрыть</button>
                 </div>
             </div>
         </div>
 
-        <!-- Модальное окно списка участников -->
         <div id="participants-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Участники онлайн</h3>
+                <div id="participants-loading" class="loading-spinner" style="display: none;">Загрузка...</div>
                 <ul id="participants-list" class="participant-list"></ul>
                 <div class="modal-buttons">
                     <button class="btn" id="participants-close">Закрыть</button>
@@ -946,7 +972,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно просмотра медиа -->
         <div id="media-view-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <button class="close-btn" id="media-view-close"><i class="fas fa-times"></i></button>
@@ -992,7 +1017,7 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // Элементы (полный список)
+            // Элементы
             const authScreen = document.getElementById('auth-screen');
             const mainScreen = document.getElementById('main-screen');
             const profileScreen = document.getElementById('profile-screen');
@@ -1064,8 +1089,10 @@
             const roomInfoName = document.getElementById('room-info-name');
             const roomInfoId = document.getElementById('room-info-id');
             const roomInfoPassword = document.getElementById('room-info-password');
+            const roomInfoLoading = document.getElementById('room-info-loading');
             const roomInfoClose = document.getElementById('room-info-close');
             const participantsList = document.getElementById('participants-list');
+            const participantsLoading = document.getElementById('participants-loading');
             const participantsClose = document.getElementById('participants-close');
 
             // Переключатели в профиле
@@ -1300,7 +1327,7 @@
                 mainScreen.classList.add('screen-hidden');
             }
 
-            // ---------- Загрузка локального хранилища ----------
+            // ---------- Локальное хранилище ----------
             function loadLocalMessages() {
                 try {
                     const saved = localStorage.getItem('chatx_local_room');
@@ -1368,7 +1395,10 @@
                         if (!unreadCounts[data.roomId]) unreadCounts[data.roomId] = 0;
                         unreadCounts[data.roomId]++;
                         saveUnread();
-                        loadPrivateRooms();
+                        // Если экран личных комнат виден, обновляем список
+                        if (!privateScreen.classList.contains('inner-screen-hidden')) {
+                            loadPrivateRooms();
+                        }
                     }
                 });
                 socket.on('userCount', (data) => {
@@ -1431,7 +1461,14 @@
                 socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
             }
 
-            // Отображение сообщений
+            // ---------- Форматирование даты ----------
+            function formatDateHeader(timestamp) {
+                const date = new Date(timestamp);
+                const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                return date.toLocaleDateString('ru-RU', options);
+            }
+
+            // ---------- Отображение сообщений с разделителями даты ----------
             function renderMessageBubble(msg, own) {
                 const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const isMedia = msg.text && (msg.text.startsWith('data:image') || msg.text.startsWith('data:video') || msg.text.startsWith('data:audio'));
@@ -1457,52 +1494,95 @@
                 `;
             }
 
-            function addMessageToChat(msg) {
-                const container = msg.roomId === 'public' ? publicMessages : (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
-                if (!container) return;
-                if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+            function addMessageWithDate(container, msg, prevDate) {
+                const msgDate = new Date(msg.timestamp).toDateString();
+                if (prevDate !== msgDate) {
+                    const separator = document.createElement('div');
+                    separator.className = 'date-separator';
+                    separator.innerHTML = `<span>${formatDateHeader(msg.timestamp)}</span>`;
+                    container.appendChild(separator);
+                }
                 const own = msg.sender === currentUser.username;
                 const div = document.createElement('div');
                 div.className = `message ${own ? 'message-own' : ''}`;
                 div.setAttribute('data-msg-id', msg.id);
                 div.innerHTML = renderMessageBubble(msg, own);
                 container.appendChild(div);
-                container.scrollTop = container.scrollHeight;
+                return msgDate;
             }
 
             function displayMessages(roomId, messages) {
                 const container = roomId === 'public' ? publicMessages : (roomId === currentPrivateRoom?.id ? privateChatMessages : null);
                 if (!container) return;
                 container.innerHTML = '';
+                let lastDate = null;
                 messages.forEach(msg => {
-                    const own = msg.sender === currentUser.username;
-                    const div = document.createElement('div');
-                    div.className = `message ${own ? 'message-own' : ''}`;
-                    div.setAttribute('data-msg-id', msg.id);
-                    div.innerHTML = renderMessageBubble(msg, own);
-                    container.appendChild(div);
+                    lastDate = addMessageWithDate(container, msg, lastDate);
                 });
                 container.scrollTop = container.scrollHeight;
+            }
+
+            function addMessageToChat(msg) {
+                const container = msg.roomId === 'public' ? publicMessages : (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
+                if (!container) return;
+                if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+                // Определяем последнюю дату в контейнере
+                const lastMsgDiv = container.lastElementChild;
+                let lastDate = null;
+                if (lastMsgDiv && !lastMsgDiv.classList.contains('date-separator')) {
+                    // Ищем последнюю дату среди сообщений
+                    const msgElements = container.querySelectorAll('.message:last-child');
+                    if (msgElements.length > 0) {
+                        const lastMsg = msgElements[msgElements.length-1];
+                        // у сообщения есть атрибут data-msg-id, но дату нужно получить из данных
+                        // Проще: хранить последнюю дату в переменной, но здесь мы её не знаем.
+                        // Поэтому будем перерисовывать весь контейнер с сообщениями заново.
+                        // Это проще и надёжнее.
+                        const allMessages = roomMessagesCache[msg.roomId] || [];
+                        if (msg.roomId === '_localstorage') {
+                            displayLocalMessages();
+                        } else {
+                            displayMessages(msg.roomId, allMessages);
+                        }
+                        return;
+                    }
+                }
+                // Если контейнер пуст или последний элемент — разделитель, добавляем с проверкой даты
+                const msgDate = new Date(msg.timestamp).toDateString();
+                // Получим последнюю дату из последнего сообщения (если есть)
+                let lastMsgDate = null;
+                if (container.lastElementChild && container.lastElementChild.classList.contains('message')) {
+                    // У нас нет прямого доступа к дате, но можно попробовать вытащить из атрибута или перебирать
+                    // Опять же, проще перерисовать.
+                    const allMessages = roomMessagesCache[msg.roomId] || [];
+                    if (msg.roomId === '_localstorage') {
+                        displayLocalMessages();
+                    } else {
+                        displayMessages(msg.roomId, allMessages);
+                    }
+                    return;
+                }
+                // Если контейнер пуст, просто добавляем
+                addMessageWithDate(container, msg, lastMsgDate);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // Для локального хранилища
+            function displayLocalMessages() {
+                localChatMessages.innerHTML = '';
+                let lastDate = null;
+                localMessages.forEach(msg => {
+                    lastDate = addMessageWithDate(localChatMessages, msg, lastDate);
+                });
+                localChatMessages.scrollTop = localChatMessages.scrollHeight;
             }
 
             function addLocalMessageToChat(msg) {
                 const container = localChatMessages;
                 if (!container) return;
                 if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
-                const own = true;
-                const div = document.createElement('div');
-                div.className = `message message-own`;
-                div.setAttribute('data-msg-id', msg.id);
-                div.innerHTML = renderMessageBubble(msg, own);
-                container.appendChild(div);
-                container.scrollTop = container.scrollHeight;
-            }
-
-            function displayLocalMessages() {
-                localChatMessages.innerHTML = '';
-                localMessages.forEach(msg => {
-                    addLocalMessageToChat(msg);
-                });
+                // Перерисовываем всё для простоты
+                displayLocalMessages();
             }
 
             window.openMedia = function(src) {
@@ -1534,7 +1614,7 @@
                 });
             }
 
-            // Непрочитанные
+            // ---------- Непрочитанные ----------
             function loadUnreadFromStorage() {
                 try {
                     const saved = localStorage.getItem('chatxUnread');
@@ -1546,7 +1626,7 @@
             }
             loadUnreadFromStorage();
 
-            // Публичный чат
+            // ---------- Публичный чат ----------
             publicBack.addEventListener('click', () => {
                 leaveRoom('public');
                 showInnerScreen('profile-screen');
@@ -1585,143 +1665,150 @@
             });
 
             publicParticipantCount.addEventListener('click', async () => {
+                participantsModal.style.display = 'flex';
+                participantsList.innerHTML = '';
+                participantsLoading.style.display = 'block';
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/participants/public');
                     const data = await res.json();
                     participantsList.innerHTML = data.map(u => `<li>${escapeHtml(u)}</li>`).join('');
-                    participantsModal.style.display = 'flex';
                 } catch (err) {
-                    alert('Не удалось загрузить список участников');
+                    participantsList.innerHTML = '<li style="color:#ff6b6b;">Ошибка загрузки</li>';
+                } finally {
+                    participantsLoading.style.display = 'none';
                 }
             });
 
-            // Личные комнаты (список)
+            // ---------- Личные комнаты (список) с сортировкой ----------
             async function loadPrivateRooms() {
                 if (!currentUser) return;
+                // Всегда показываем локальную комнату
+                const localRoom = {
+                    id: '_localstorage',
+                    name: 'Хранилище',
+                    type: 'local',
+                    local: true
+                };
+                
+                let rooms = [];
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/list/' + currentUser.username);
-                    let rooms = await res.json();
-                    
-                    const localRoom = {
-                        id: '_localstorage',
-                        name: 'Хранилище',
-                        type: 'local',
-                        local: true
-                    };
+                    rooms = await res.json();
                     
                     rooms.sort((a, b) => {
                         const aUnread = unreadCounts[a.id] ? 1 : 0;
                         const bUnread = unreadCounts[b.id] ? 1 : 0;
                         return bUnread - aUnread;
                     });
-                    
-                    const allRooms = [localRoom, ...rooms];
-                    
-                    privateRoomList.innerHTML = allRooms.map(r => {
-                        const hasUnread = unreadCounts[r.id] > 0;
-                        const isLocal = r.id === '_localstorage';
-                        return `
-                        <div class="room-item" data-roomid="${r.id}" data-roomname="${r.name}" data-local="${isLocal}">
-                            <div class="room-info">
-                                <span class="room-name">${escapeHtml(r.name)}</span>
-                                ${hasUnread ? '<span class="room-unread-dot"></span>' : ''}
-                            </div>
-                            <div class="room-actions">
-                                ${!isLocal ? `
-                                    <button class="room-edit-btn" data-roomid="${r.id}" data-roomname="${r.name}"><i class="fas fa-pencil-alt"></i></button>
-                                    <button class="room-delete-btn" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
-                                ` : '<span style="color:var(--text-muted);">локально</span>'}
-                            </div>
+                } catch (err) {
+                    console.warn('Не удалось загрузить список комнат, показываем только хранилище', err);
+                    // Если ошибка, показываем только локальную комнату
+                    rooms = [];
+                }
+                
+                const allRooms = [localRoom, ...rooms];
+                
+                privateRoomList.innerHTML = allRooms.map(r => {
+                    const hasUnread = unreadCounts[r.id] > 0;
+                    const isLocal = r.id === '_localstorage';
+                    return `
+                    <div class="room-item" data-roomid="${r.id}" data-roomname="${r.name}" data-local="${isLocal}">
+                        <div class="room-info">
+                            <span class="room-name">${escapeHtml(r.name)}</span>
+                            ${hasUnread ? '<span class="room-unread-dot"></span>' : ''}
                         </div>
-                    `}).join('');
-                    
-                    privateRoomCount.textContent = rooms.length;
+                        <div class="room-actions">
+                            ${!isLocal ? `
+                                <button class="room-edit-btn" data-roomid="${r.id}" data-roomname="${r.name}"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="room-delete-btn" data-roomid="${r.id}"><i class="fas fa-times"></i></button>
+                            ` : '<span style="color:var(--text-muted);">локально</span>'}
+                        </div>
+                    </div>
+                `}).join('');
+                
+                privateRoomCount.textContent = rooms.length;
 
-                    document.querySelectorAll('.room-item').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            if (e.target.closest('.room-edit-btn') || e.target.closest('.room-delete-btn')) return;
-                            const rid = el.dataset.roomid;
-                            const rname = el.dataset.roomname;
-                            const isLocal = el.dataset.local === 'true';
-                            
-                            if (isLocal) {
-                                if (currentRoom) leaveRoom(currentRoom);
-                                joinRoom('_localstorage');
+                document.querySelectorAll('.room-item').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        if (e.target.closest('.room-edit-btn') || e.target.closest('.room-delete-btn')) return;
+                        const rid = el.dataset.roomid;
+                        const rname = el.dataset.roomname;
+                        const isLocal = el.dataset.local === 'true';
+                        
+                        if (isLocal) {
+                            if (currentRoom) leaveRoom(currentRoom);
+                            joinRoom('_localstorage');
+                            return;
+                        }
+                        
+                        if (userSettings.requirePassword) {
+                            const lastEntry = localStorage.getItem('lastEntry_' + rid);
+                            const now = Date.now();
+                            if (lastEntry && (now - parseInt(lastEntry)) < userSettings.passwordTimeout * 1000) {
+                                performRoomEntry(rid, rname);
+                            } else {
+                                promptPasswordForRoom(rid, rname, true);
+                            }
+                        } else {
+                            performRoomEntry(rid, rname);
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.room-edit-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const rid = btn.dataset.roomid;
+                        const oldName = btn.dataset.roomname;
+                        renameRoomInput.value = oldName;
+                        renameRoomModal.style.display = 'flex';
+                        renameRoomConfirm.onclick = async () => {
+                            const newName = renameRoomInput.value.trim();
+                            if (!newName) {
+                                renameRoomError.textContent = 'Введите название';
                                 return;
                             }
-                            
-                            if (userSettings.requirePassword) {
-                                const lastEntry = localStorage.getItem('lastEntry_' + rid);
-                                const now = Date.now();
-                                if (lastEntry && (now - parseInt(lastEntry)) < userSettings.passwordTimeout * 1000) {
-                                    performRoomEntry(rid, rname);
-                                } else {
-                                    promptPasswordForRoom(rid, rname, true);
-                                }
-                            } else {
-                                performRoomEntry(rid, rname);
+                            try {
+                                const res = await fetch(API_BASE + '/api/rooms/rename', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ roomId: rid, username: currentUser.username, newName })
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || 'Ошибка');
+                                renameRoomModal.style.display = 'none';
+                                loadPrivateRooms();
+                            } catch (err) {
+                                renameRoomError.textContent = err.message;
                             }
-                        });
+                        };
                     });
+                });
 
-                    document.querySelectorAll('.room-edit-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const rid = btn.dataset.roomid;
-                            const oldName = btn.dataset.roomname;
-                            renameRoomInput.value = oldName;
-                            renameRoomModal.style.display = 'flex';
-                            renameRoomConfirm.onclick = async () => {
-                                const newName = renameRoomInput.value.trim();
-                                if (!newName) {
-                                    renameRoomError.textContent = 'Введите название';
-                                    return;
-                                }
-                                try {
-                                    const res = await fetch(API_BASE + '/api/rooms/rename', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ roomId: rid, username: currentUser.username, newName })
-                                    });
-                                    const data = await res.json();
-                                    if (!res.ok) throw new Error(data.error || 'Ошибка');
-                                    renameRoomModal.style.display = 'none';
-                                    loadPrivateRooms();
-                                } catch (err) {
-                                    renameRoomError.textContent = err.message;
-                                }
-                            };
-                        });
+                document.querySelectorAll('.room-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const rid = btn.dataset.roomid;
+                        confirmModal.style.display = 'flex';
+                        document.getElementById('confirm-title').textContent = 'Удалить комнату?';
+                        confirmYes.onclick = async () => {
+                            confirmModal.style.display = 'none';
+                            try {
+                                await fetch(API_BASE + '/api/rooms/delete', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ roomId: rid, username: currentUser.username })
+                                });
+                                loadPrivateRooms();
+                            } catch (err) {
+                                alert('Ошибка удаления');
+                            }
+                        };
+                        confirmNo.onclick = () => {
+                            confirmModal.style.display = 'none';
+                        };
                     });
-
-                    document.querySelectorAll('.room-delete-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const rid = btn.dataset.roomid;
-                            confirmModal.style.display = 'flex';
-                            document.getElementById('confirm-title').textContent = 'Удалить комнату?';
-                            confirmYes.onclick = async () => {
-                                confirmModal.style.display = 'none';
-                                try {
-                                    await fetch(API_BASE + '/api/rooms/delete', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ roomId: rid, username: currentUser.username })
-                                    });
-                                    loadPrivateRooms();
-                                } catch (err) {
-                                    alert('Ошибка удаления');
-                                }
-                            };
-                            confirmNo.onclick = () => {
-                                confirmModal.style.display = 'none';
-                            };
-                        });
-                    });
-
-                } catch (err) {
-                    console.error(err);
-                }
+                });
             }
 
             function performRoomEntry(roomId, roomName) {
@@ -1800,7 +1887,7 @@
                 }
             });
 
-            // Личный чат
+            // ---------- Личный чат ----------
             privateChatBack.addEventListener('click', () => {
                 if (currentPrivateRoom) leaveRoom(currentPrivateRoom.id);
                 showInnerScreen('private-screen');
@@ -1829,15 +1916,21 @@
 
             privateChatInfoBtn.addEventListener('click', async () => {
                 if (!currentPrivateRoom) return;
+                roomInfoModal.style.display = 'flex';
+                roomInfoName.textContent = '';
+                roomInfoId.textContent = '';
+                roomInfoPassword.textContent = '';
+                roomInfoLoading.style.display = 'block';
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/info/' + currentPrivateRoom.id);
                     const data = await res.json();
                     roomInfoName.textContent = data.name;
                     roomInfoId.textContent = data.id;
                     roomInfoPassword.textContent = data.password;
-                    roomInfoModal.style.display = 'flex';
                 } catch (err) {
-                    alert('Не удалось загрузить информацию о комнате');
+                    roomInfoName.textContent = 'Ошибка загрузки';
+                } finally {
+                    roomInfoLoading.style.display = 'none';
                 }
             });
 
@@ -1878,13 +1971,17 @@
 
             privateChatParticipantCount.addEventListener('click', async () => {
                 if (!currentPrivateRoom) return;
+                participantsModal.style.display = 'flex';
+                participantsList.innerHTML = '';
+                participantsLoading.style.display = 'block';
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/participants/' + currentPrivateRoom.id);
                     const data = await res.json();
                     participantsList.innerHTML = data.map(u => `<li>${escapeHtml(u)}</li>`).join('');
-                    participantsModal.style.display = 'flex';
                 } catch (err) {
-                    alert('Не удалось загрузить список участников');
+                    participantsList.innerHTML = '<li style="color:#ff6b6b;">Ошибка загрузки</li>';
+                } finally {
+                    participantsLoading.style.display = 'none';
                 }
             });
 
@@ -1892,7 +1989,7 @@
                 participantsModal.style.display = 'none';
             });
 
-            // Локальное хранилище
+            // ---------- Локальное хранилище ----------
             localChatBack.addEventListener('click', () => {
                 if (currentRoom === '_localstorage') {
                     leaveRoom('_localstorage');
