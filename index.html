@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Все стили без изменений (такие же, как в предыдущем ответе) */
         * {
             margin: 0;
             padding: 0;
@@ -573,7 +574,7 @@
             max-height: 200px;
             border-radius: 16px;
             cursor: pointer;
-            margin-bottom: 30px; /* увеличен отступ для кнопки */
+            margin-bottom: 30px;
         }
         .message-media video, .message-media audio {
             max-width: 200px;
@@ -1181,7 +1182,7 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // Элементы (все необходимые)
+            // ---------- Получение всех элементов DOM ----------
             const authScreen = document.getElementById('auth-screen');
             const mainScreen = document.getElementById('main-screen');
             const profileScreen = document.getElementById('profile-screen');
@@ -1260,12 +1261,44 @@
             const adminList = document.getElementById('admin-list');
             const adminListClose = document.getElementById('admin-list-close');
 
+            // Элементы внутри модалок (для смены пароля и других)
+            const modalTitle = document.getElementById('modal-title');
+            const modalPassword = document.getElementById('modal-password');
+            const modalError = document.getElementById('modal-error');
+            const modalCancel = document.getElementById('modal-cancel');
+            const modalConfirm = document.getElementById('modal-confirm');
+            const confirmNo = document.getElementById('confirm-no');
+            const confirmYes = document.getElementById('confirm-yes');
+            const oldPassword = document.getElementById('old-password');
+            const newPassword = document.getElementById('new-password');
+            const changePasswordError = document.getElementById('change-password-error');
+            const changePasswordCancel = document.getElementById('change-password-cancel');
+            const changePasswordConfirm = document.getElementById('change-password-confirm');
+            const renameRoomInput = document.getElementById('rename-room-input');
+            const renameRoomError = document.getElementById('rename-room-error');
+            const renameRoomCancel = document.getElementById('rename-room-cancel');
+            const renameRoomConfirm = document.getElementById('rename-room-confirm');
+            const roomInfoName = document.getElementById('room-info-name');
+            const roomInfoId = document.getElementById('room-info-id');
+            const roomInfoPassword = document.getElementById('room-info-password');
+            const roomInfoLoading = document.getElementById('room-info-loading');
+            const roomInfoClose = document.getElementById('room-info-close');
+            const participantsList = document.getElementById('participants-list');
+            const participantsLoading = document.getElementById('participants-loading');
+            const participantsClose = document.getElementById('participants-close');
+
             // Переключатели в профиле
             const requirePasswordToggle = document.getElementById('require-password-toggle');
             const passwordTimeoutContainer = document.getElementById('password-timeout-container');
             const passwordTimeoutSelect = document.getElementById('password-timeout');
             const profileThemeToggle = document.getElementById('profile-theme-toggle');
 
+            // ---------- Проверка существования критических элементов (для отладки) ----------
+            if (!authLogin) console.error('authLogin not found');
+            if (!authRegister) console.error('authRegister not found');
+            if (!changePasswordCancel) console.error('changePasswordCancel not found');
+
+            // ---------- Тема ----------
             profileThemeToggle.addEventListener('click', () => {
                 if (currentTheme === 'light') currentTheme = 'dark';
                 else if (currentTheme === 'dark') currentTheme = 'system';
@@ -1274,7 +1307,7 @@
                 applyTheme();
             });
 
-            // Навигация
+            // ---------- Навигация ----------
             function showInnerScreen(screenId) {
                 profileScreen.classList.add('inner-screen-hidden');
                 publicScreen.classList.add('inner-screen-hidden');
@@ -1323,7 +1356,7 @@
                 });
             });
 
-            // Загрузка настроек пользователя
+            // ---------- Загрузка настроек пользователя ----------
             async function loadUserSettings() {
                 if (!currentUser) return;
                 try {
@@ -1362,7 +1395,7 @@
                 saveUserSettings();
             });
 
-            // Смена имени
+            // ---------- Смена имени ----------
             editUsernameBtn.addEventListener('click', async () => {
                 const newName = prompt('Введите новое имя пользователя:');
                 if (!newName) return;
@@ -1389,7 +1422,7 @@
                 }
             });
 
-            // Смена пароля
+            // ---------- Смена пароля ----------
             document.getElementById('change-password-btn').addEventListener('click', () => {
                 changePasswordModal.style.display = 'flex';
                 oldPassword.value = '';
@@ -1423,7 +1456,7 @@
                 }
             });
 
-            // Авторизация
+            // ---------- Авторизация ----------
             async function login(username, password) {
                 try {
                     const res = await fetch(API_BASE + '/api/login', {
@@ -1494,7 +1527,7 @@
                 mainScreen.classList.add('screen-hidden');
             }
 
-            // Загрузка админов из localStorage
+            // ---------- Загрузка админов ----------
             function loadAdmins() {
                 try {
                     const saved = localStorage.getItem('chatx_admins');
@@ -1511,7 +1544,7 @@
                 return admins.includes(username);
             }
 
-            // Загрузка писем
+            // ---------- Письма ----------
             function loadMails() {
                 if (!currentUser) return;
                 try {
@@ -1537,7 +1570,6 @@
                 }
             }
 
-            // Отправка письма
             function sendMail(to, text) {
                 if (!currentUser) return;
                 const mail = {
@@ -1556,7 +1588,7 @@
                 localStorage.setItem('chatx_mails_' + to, JSON.stringify(recipientMails));
             }
 
-            // Загрузка локального хранилища
+            // ---------- Локальное хранилище ----------
             function loadLocalMessages() {
                 try {
                     const saved = localStorage.getItem('chatx_local_room');
@@ -1571,7 +1603,7 @@
             }
             loadLocalMessages();
 
-            // Кеш сообщений для серверных комнат
+            // ---------- Кеш сообщений ----------
             function loadRoomCache(roomId) {
                 try {
                     const saved = localStorage.getItem(`chatx_room_${roomId}`);
@@ -1596,7 +1628,7 @@
                 }
             }
 
-            // Socket
+            // ---------- Socket ----------
             function connectSocket() {
                 if (socket) socket.close();
                 socket = io(API_BASE, { reconnectionAttempts: 5, timeout: 10000 });
@@ -1689,14 +1721,14 @@
                 socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
             }
 
-            // Форматирование даты
+            // ---------- Форматирование даты ----------
             function formatDateHeader(timestamp) {
                 const date = new Date(timestamp);
                 const options = { year: 'numeric', month: 'long', day: 'numeric' };
                 return date.toLocaleDateString('ru-RU', options);
             }
 
-            // Рендер сообщения с поддержкой медиа и звёздочки админа
+            // ---------- Рендер сообщения ----------
             function renderMessageBubble(msg, own) {
                 const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const isMedia = msg.text && (msg.text.startsWith('data:image') || msg.text.startsWith('data:video') || msg.text.startsWith('data:audio'));
@@ -1736,14 +1768,12 @@
                 div.className = `message ${own ? 'message-own' : ''}`;
                 div.setAttribute('data-msg-id', msg.id);
                 div.innerHTML = renderMessageBubble(msg, own);
-                // Добавляем обработчики
                 attachMessageEvents(div, msg);
                 container.appendChild(div);
                 return msgDate;
             }
 
             function attachMessageEvents(div, msg) {
-                // Долгое нажатие для удаления
                 let pressTimer;
                 div.addEventListener('touchstart', (e) => {
                     pressTimer = setTimeout(() => {
@@ -1760,7 +1790,6 @@
                     messageRoomId = msg.roomId;
                     deleteMessageModal.style.display = 'flex';
                 });
-                // Клик на текст для копирования
                 div.addEventListener('click', (e) => {
                     if (e.target.closest('.message-download-btn') || e.target.closest('.message-media')) return;
                     const textDiv = div.querySelector('.message-text');
@@ -1787,7 +1816,6 @@
                 const container = msg.roomId === 'public' ? publicMessages : (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
                 if (!container) return;
                 if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
-                // Просто перерисовываем весь чат для простоты (чтобы даты корректно вставлялись)
                 const allMessages = roomMessagesCache[msg.roomId] || [];
                 displayMessages(msg.roomId, allMessages);
             }
@@ -1847,7 +1875,7 @@
                 });
             }
 
-            // Непрочитанные
+            // ---------- Непрочитанные ----------
             function loadUnreadFromStorage() {
                 try {
                     const saved = localStorage.getItem('chatxUnread');
@@ -1859,7 +1887,7 @@
             }
             loadUnreadFromStorage();
 
-            // Публичный чат
+            // ---------- Публичный чат ----------
             publicBack.addEventListener('click', () => {
                 leaveRoom('public');
                 showInnerScreen('profile-screen');
@@ -1913,7 +1941,7 @@
                 }
             });
 
-            // Личные комнаты
+            // ---------- Личные комнаты ----------
             async function loadPrivateRooms() {
                 if (!currentUser) return;
                 const localRoom = {
@@ -2117,7 +2145,7 @@
                 }
             });
 
-            // Личный чат
+            // ---------- Личный чат ----------
             privateChatBack.addEventListener('click', () => {
                 if (currentPrivateRoom) leaveRoom(currentPrivateRoom.id);
                 showInnerScreen('private-screen');
@@ -2220,7 +2248,7 @@
                 participantsModal.style.display = 'none';
             });
 
-            // Локальное хранилище
+            // ---------- Локальное хранилище ----------
             localChatBack.addEventListener('click', () => {
                 if (currentRoom === '_localstorage') {
                     leaveRoom('_localstorage');
@@ -2246,7 +2274,7 @@
                 }
             });
 
-            // Письма
+            // ---------- Письма ----------
             mailIcon.addEventListener('click', () => {
                 loadMails();
                 mailList.innerHTML = mails.map(m => `
@@ -2256,7 +2284,6 @@
                     </li>
                 `).join('');
                 mailModal.style.display = 'flex';
-                // Помечаем как прочитанные
                 mails.forEach(m => m.read = true);
                 saveMails();
             });
@@ -2285,7 +2312,7 @@
                 alert('Письмо отправлено');
             });
 
-            // Профиль пользователя при клике на ник (делегирование)
+            // ---------- Профиль пользователя ----------
             document.addEventListener('click', (e) => {
                 const senderDiv = e.target.closest('.message-sender');
                 if (senderDiv && senderDiv.dataset.username) {
@@ -2296,7 +2323,7 @@
             function openUserProfile(username) {
                 userProfileName.textContent = username;
                 const lastSeen = userLastSeen[username];
-                const isOnline = false; // упрощённо
+                const isOnline = false; // здесь должна быть логика определения онлайна
                 if (isOnline && !invisible) {
                     userProfileStatus.textContent = 'В сети';
                 } else if (lastSeen) {
@@ -2315,7 +2342,7 @@
 
             userProfileClose.addEventListener('click', () => userProfileModal.style.display = 'none');
 
-            // Удаление сообщения
+            // ---------- Удаление сообщения ----------
             deleteMessageNo.addEventListener('click', () => {
                 deleteMessageModal.style.display = 'none';
                 messageToDelete = null;
@@ -2341,14 +2368,13 @@
                 messageToDelete = null;
             });
 
-            // Админка
+            // ---------- Админка ----------
             if (currentUser && isAdmin(currentUser.username)) {
                 adminOptions.style.display = 'block';
             }
 
             invisibleToggle.addEventListener('change', () => {
                 invisible = invisibleToggle.checked;
-                // TODO: отправить на сервер статус
             });
 
             manageAdminsBtn.addEventListener('click', () => {
@@ -2389,7 +2415,7 @@
 
             adminListClose.addEventListener('click', () => adminListModal.style.display = 'none');
 
-            // Авторасширение textarea
+            // ---------- Авторасширение textarea ----------
             function autoResize(textarea) {
                 textarea.style.height = 'auto';
                 textarea.style.height = (textarea.scrollHeight) + 'px';
@@ -2405,7 +2431,7 @@
                 ta.addEventListener('input', function() { autoResize(this); });
             });
 
-            // Удаление аккаунта и выход
+            // ---------- Удаление аккаунта и выход ----------
             document.getElementById('delete-account-btn').addEventListener('click', () => {
                 modalTitle.textContent = 'Удалить аккаунт? Введите пароль';
                 modalPassword.value = '';
