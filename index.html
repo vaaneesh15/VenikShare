@@ -126,6 +126,7 @@
             flex-direction: column;
             height: 100%;
             position: relative;
+            overflow: hidden;
         }
 
         .screen-container {
@@ -241,7 +242,7 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 16px calc(8px + env(safe-area-inset-bottom)) 16px; /* прижато к низу */
+            padding: 8px 16px 40px 16px; /* убрана safe-area, фиксированный отступ */
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -706,7 +707,7 @@
                         <div class="participant-count" id="private-room-count">0</div>
                     </div>
                     <div class="page-content">
-                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">Войти / Создать</button> <!-- убран + -->
+                        <button class="btn btn-primary" id="create-room-btn" style="margin-bottom: 16px;">Войти / Создать</button>
                         <div id="private-room-list" class="room-list"></div>
                     </div>
                 </div>
