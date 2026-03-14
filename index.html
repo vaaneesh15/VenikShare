@@ -57,6 +57,7 @@
             --chat-other-text: #1a1a2e;
             --unread-dot: #ff4444;
             --unread-dot-border: #ffffff;
+            --admin-star: #ffd700;
             transition: background 0.2s, color 0.2s;
             
             background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end)) fixed;
@@ -94,9 +95,10 @@
             --chat-other-text: #ffffff;
             --unread-dot: #ff6b6b;
             --unread-dot-border: #1a1a2e;
+            --admin-star: #ffb347;
         }
 
-        /* ===== Анимация нажатия: только затемнение ===== */
+        /* Анимация нажатия: только затемнение */
         .btn,
         .room-item,
         .back-btn,
@@ -114,7 +116,8 @@
         #logout-btn,
         #delete-account-btn,
         .modal .btn,
-        .attach-btn {
+        .attach-btn,
+        .message-bubble {
             transition: opacity 0.1s ease;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
@@ -138,7 +141,8 @@
         #logout-btn:active,
         #delete-account-btn:active,
         .modal .btn:active,
-        .attach-btn:active {
+        .attach-btn:active,
+        .message-bubble:active {
             opacity: 0.7;
         }
 
@@ -529,6 +533,7 @@
             word-break: break-word;
             color: var(--chat-other-text);
             position: relative;
+            transition: opacity 0.1s;
         }
         .message-bubble-own {
             background: var(--chat-own-bg);
@@ -540,6 +545,18 @@
             font-weight: 600;
             margin-bottom: 4px;
             color: var(--accent);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .message-sender:hover {
+            text-decoration: underline;
+        }
+        .admin-star {
+            color: var(--admin-star);
+            font-size: 12px;
+            margin-left: 4px;
         }
         .message-text {
             font-size: 15px;
@@ -556,6 +573,7 @@
             max-height: 200px;
             border-radius: 16px;
             cursor: pointer;
+            margin-bottom: 30px; /* увеличен отступ для кнопки */
         }
         .message-media video, .message-media audio {
             max-width: 200px;
@@ -564,7 +582,7 @@
         .message-download-btn {
             position: absolute;
             bottom: 4px;
-            left: 4px; /* переместили влево */
+            left: 4px;
             background: rgba(0,0,0,0.5);
             color: white;
             border-radius: 20px;
@@ -580,6 +598,28 @@
         }
         .message-download-btn:hover {
             background: rgba(0,0,0,0.7);
+        }
+        .message.selected {
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .copy-toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            z-index: 2000;
+            animation: fadeOut 1.5s forwards;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
         }
 
         /* Разделитель даты */
@@ -600,7 +640,7 @@
 
         .chat-input-area {
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             gap: 8px;
             padding: 8px 16px 12px 16px;
             border-top: 1px solid var(--container-border);
@@ -620,6 +660,8 @@
             resize: none;
             min-height: 44px;
             max-height: 120px;
+            line-height: 1.4;
+            overflow-y: auto;
         }
         .chat-input-area button {
             width: 48px;
@@ -677,12 +719,13 @@
         .username-edit {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 8px;
         }
         .edit-btn {
             background: none;
             border: none;
-            color: var(--accent);
+            color: var(--text-muted);
             font-size: 18px;
             cursor: pointer;
             padding: 8px;
@@ -697,6 +740,9 @@
             padding: 8px 0;
             border-bottom: 1px solid var(--card-border);
             color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         #media-view-modal .modal-content {
@@ -733,6 +779,36 @@
             padding: 20px;
             color: var(--text-muted);
         }
+
+        /* Профиль письма */
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .mail-icon {
+            position: relative;
+            cursor: pointer;
+        }
+        .mail-icon .badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--icon-bg);
+        }
+
+        .admin-toggle {
+            margin: 16px 0;
+        }
     </style>
 </head>
 <body>
@@ -767,8 +843,14 @@
                 <div class="inner-screen" id="profile-screen">
                     <div class="page-header">
                         <h2>Профиль</h2>
-                        <div class="theme-toggle" id="profile-theme-toggle">
-                            <i class="fas fa-sun"></i>
+                        <div class="profile-header">
+                            <div class="mail-icon" id="mail-icon">
+                                <i class="fas fa-envelope"></i>
+                                <span class="badge" id="mail-badge" style="display: none;">0</span>
+                            </div>
+                            <div class="theme-toggle" id="profile-theme-toggle">
+                                <i class="fas fa-sun"></i>
+                            </div>
                         </div>
                     </div>
                     <div class="page-content">
@@ -801,6 +883,17 @@
                                         <option value="86400">24 часа</option>
                                     </select>
                                 </div>
+                            </div>
+                            <!-- Админские опции -->
+                            <div id="admin-options" style="display: none; margin-top: 16px;">
+                                <div class="flex-row" style="justify-content: space-between;">
+                                    <span style="color: var(--text-primary);">Невидимка</span>
+                                    <label class="switch">
+                                        <input type="checkbox" id="invisible-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <button class="btn" id="manage-admins-btn" style="margin-top: 12px;">Управление админами</button>
                             </div>
                         </div>
                         <div style="flex:1;"></div>
@@ -900,7 +993,7 @@
             </div>
         </div>
 
-        <!-- Модальные окна (полные) -->
+        <!-- Модальное окно ввода пароля -->
         <div id="password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
@@ -913,6 +1006,7 @@
             </div>
         </div>
 
+        <!-- Модальное окно подтверждения -->
         <div id="confirm-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="confirm-title">Вы уверены?</h3>
@@ -923,6 +1017,7 @@
             </div>
         </div>
 
+        <!-- Модальное окно смены пароля -->
         <div id="change-password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Смена пароля</h3>
@@ -936,6 +1031,7 @@
             </div>
         </div>
 
+        <!-- Модальное окно редактирования названия комнаты -->
         <div id="rename-room-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="rename-modal-title">Изменить название комнаты</h3>
@@ -948,6 +1044,7 @@
             </div>
         </div>
 
+        <!-- Модальное окно информации о комнате -->
         <div id="room-info-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Информация о комнате</h3>
@@ -961,6 +1058,7 @@
             </div>
         </div>
 
+        <!-- Модальное окно списка участников -->
         <div id="participants-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Участники онлайн</h3>
@@ -972,10 +1070,74 @@
             </div>
         </div>
 
+        <!-- Модальное окно просмотра медиа -->
         <div id="media-view-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <button class="close-btn" id="media-view-close"><i class="fas fa-times"></i></button>
                 <div id="media-view-container"></div>
+            </div>
+        </div>
+
+        <!-- Модальное окно писем -->
+        <div id="mail-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Письма</h3>
+                <div id="mail-list" class="participant-list" style="max-height: 300px;"></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="mail-close">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно отправки письма -->
+        <div id="compose-mail-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Новое письмо для <span id="compose-recipient"></span></h3>
+                <textarea id="compose-text" rows="4" placeholder="Текст письма..." style="width:100%; padding:12px; border-radius:30px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--text-primary); margin-bottom:12px;"></textarea>
+                <div id="compose-error" style="color:#ff6b6b; margin-bottom:8px;"></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="compose-cancel">Отмена</button>
+                    <button class="btn btn-primary" id="compose-send">Отправить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно профиля пользователя -->
+        <div id="user-profile-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Профиль пользователя</h3>
+                <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>Ник:</strong> <span id="user-profile-name"></span></div>
+                <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>Сетевой статус:</strong> <span id="user-profile-status"></span></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="user-profile-mail">Написать письмо</button>
+                    <button class="btn" id="user-profile-close">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно подтверждения удаления сообщения -->
+        <div id="delete-message-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Удалить сообщение?</h3>
+                <div class="modal-buttons">
+                    <button class="btn" id="delete-message-no">Нет</button>
+                    <button class="btn btn-primary" id="delete-message-yes">Да</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно управления админами -->
+        <div id="admin-list-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Администраторы</h3>
+                <div style="margin-bottom: 12px;">
+                    <input type="text" id="new-admin-username" placeholder="Имя пользователя" style="width:100%; padding:12px; border-radius:30px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--text-primary); margin-bottom:8px;">
+                    <button class="btn btn-primary" id="add-admin-btn">Добавить</button>
+                </div>
+                <ul id="admin-list" class="participant-list" style="max-height: 200px;"></ul>
+                <div class="modal-buttons">
+                    <button class="btn" id="admin-list-close">Закрыть</button>
+                </div>
             </div>
         </div>
     </div>
@@ -991,11 +1153,13 @@
             let unreadCounts = {};
             let localMessages = [];
             let roomMessagesCache = {};
-
-            let userSettings = {
-                requirePassword: false,
-                passwordTimeout: 0
-            };
+            let userSettings = { requirePassword: false, passwordTimeout: 0 };
+            let mails = [];
+            let admins = [];
+            let userLastSeen = {};
+            let invisible = false;
+            let messageToDelete = null;
+            let messageRoomId = null;
 
             // Тема
             let currentTheme = localStorage.getItem('chatxTheme') || 'system';
@@ -1017,7 +1181,7 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // Элементы
+            // Элементы (все необходимые)
             const authScreen = document.getElementById('auth-screen');
             const mainScreen = document.getElementById('main-screen');
             const profileScreen = document.getElementById('profile-screen');
@@ -1068,32 +1232,33 @@
             const mediaViewModal = document.getElementById('media-view-modal');
             const mediaViewContainer = document.getElementById('media-view-container');
             const mediaViewClose = document.getElementById('media-view-close');
-            
-            // Элементы внутри модалок
-            const modalTitle = document.getElementById('modal-title');
-            const modalPassword = document.getElementById('modal-password');
-            const modalError = document.getElementById('modal-error');
-            const modalCancel = document.getElementById('modal-cancel');
-            const modalConfirm = document.getElementById('modal-confirm');
-            const confirmNo = document.getElementById('confirm-no');
-            const confirmYes = document.getElementById('confirm-yes');
-            const oldPassword = document.getElementById('old-password');
-            const newPassword = document.getElementById('new-password');
-            const changePasswordError = document.getElementById('change-password-error');
-            const changePasswordCancel = document.getElementById('change-password-cancel');
-            const changePasswordConfirm = document.getElementById('change-password-confirm');
-            const renameRoomInput = document.getElementById('rename-room-input');
-            const renameRoomError = document.getElementById('rename-room-error');
-            const renameRoomCancel = document.getElementById('rename-room-cancel');
-            const renameRoomConfirm = document.getElementById('rename-room-confirm');
-            const roomInfoName = document.getElementById('room-info-name');
-            const roomInfoId = document.getElementById('room-info-id');
-            const roomInfoPassword = document.getElementById('room-info-password');
-            const roomInfoLoading = document.getElementById('room-info-loading');
-            const roomInfoClose = document.getElementById('room-info-close');
-            const participantsList = document.getElementById('participants-list');
-            const participantsLoading = document.getElementById('participants-loading');
-            const participantsClose = document.getElementById('participants-close');
+            const mailModal = document.getElementById('mail-modal');
+            const mailList = document.getElementById('mail-list');
+            const mailClose = document.getElementById('mail-close');
+            const mailIcon = document.getElementById('mail-icon');
+            const mailBadge = document.getElementById('mail-badge');
+            const composeModal = document.getElementById('compose-mail-modal');
+            const composeRecipient = document.getElementById('compose-recipient');
+            const composeText = document.getElementById('compose-text');
+            const composeError = document.getElementById('compose-error');
+            const composeCancel = document.getElementById('compose-cancel');
+            const composeSend = document.getElementById('compose-send');
+            const userProfileModal = document.getElementById('user-profile-modal');
+            const userProfileName = document.getElementById('user-profile-name');
+            const userProfileStatus = document.getElementById('user-profile-status');
+            const userProfileMail = document.getElementById('user-profile-mail');
+            const userProfileClose = document.getElementById('user-profile-close');
+            const deleteMessageModal = document.getElementById('delete-message-modal');
+            const deleteMessageNo = document.getElementById('delete-message-no');
+            const deleteMessageYes = document.getElementById('delete-message-yes');
+            const adminOptions = document.getElementById('admin-options');
+            const invisibleToggle = document.getElementById('invisible-toggle');
+            const manageAdminsBtn = document.getElementById('manage-admins-btn');
+            const adminListModal = document.getElementById('admin-list-modal');
+            const newAdminUsername = document.getElementById('new-admin-username');
+            const addAdminBtn = document.getElementById('add-admin-btn');
+            const adminList = document.getElementById('admin-list');
+            const adminListClose = document.getElementById('admin-list-close');
 
             // Переключатели в профиле
             const requirePasswordToggle = document.getElementById('require-password-toggle');
@@ -1276,6 +1441,7 @@
                     connectSocket();
                     loadUserSettings();
                     loadPrivateRooms();
+                    loadMails();
                     showInnerScreen('profile-screen');
                 } catch (err) {
                     authStatus.textContent = err.message;
@@ -1321,13 +1487,76 @@
                 connectSocket();
                 loadUserSettings();
                 loadPrivateRooms();
+                loadMails();
                 showInnerScreen('profile-screen');
             } else {
                 authScreen.classList.remove('screen-hidden');
                 mainScreen.classList.add('screen-hidden');
             }
 
-            // ---------- Локальное хранилище ----------
+            // Загрузка админов из localStorage
+            function loadAdmins() {
+                try {
+                    const saved = localStorage.getItem('chatx_admins');
+                    if (saved) admins = JSON.parse(saved);
+                    else admins = [];
+                } catch (e) { admins = []; }
+            }
+            function saveAdmins() {
+                localStorage.setItem('chatx_admins', JSON.stringify(admins));
+            }
+            loadAdmins();
+
+            function isAdmin(username) {
+                return admins.includes(username);
+            }
+
+            // Загрузка писем
+            function loadMails() {
+                if (!currentUser) return;
+                try {
+                    const saved = localStorage.getItem('chatx_mails_' + currentUser.username);
+                    if (saved) mails = JSON.parse(saved);
+                    else mails = [];
+                } catch (e) { mails = []; }
+                updateMailBadge();
+            }
+            function saveMails() {
+                if (currentUser) {
+                    localStorage.setItem('chatx_mails_' + currentUser.username, JSON.stringify(mails));
+                }
+                updateMailBadge();
+            }
+            function updateMailBadge() {
+                const unread = mails.filter(m => !m.read).length;
+                if (unread > 0) {
+                    mailBadge.style.display = 'flex';
+                    mailBadge.textContent = unread;
+                } else {
+                    mailBadge.style.display = 'none';
+                }
+            }
+
+            // Отправка письма
+            function sendMail(to, text) {
+                if (!currentUser) return;
+                const mail = {
+                    from: currentUser.username,
+                    to: to,
+                    text: text,
+                    timestamp: new Date().toISOString(),
+                    read: false
+                };
+                let recipientMails = [];
+                try {
+                    const saved = localStorage.getItem('chatx_mails_' + to);
+                    if (saved) recipientMails = JSON.parse(saved);
+                } catch (e) {}
+                recipientMails.push(mail);
+                localStorage.setItem('chatx_mails_' + to, JSON.stringify(recipientMails));
+            }
+
+            // Загрузка локального хранилища
             function loadLocalMessages() {
                 try {
                     const saved = localStorage.getItem('chatx_local_room');
@@ -1342,7 +1571,7 @@
             }
             loadLocalMessages();
 
-            // ---------- Кеш сообщений для серверных комнат ----------
+            // Кеш сообщений для серверных комнат
             function loadRoomCache(roomId) {
                 try {
                     const saved = localStorage.getItem(`chatx_room_${roomId}`);
@@ -1367,7 +1596,7 @@
                 }
             }
 
-            // ---------- Socket ----------
+            // Socket
             function connectSocket() {
                 if (socket) socket.close();
                 socket = io(API_BASE, { reconnectionAttempts: 5, timeout: 10000 });
@@ -1395,7 +1624,6 @@
                         if (!unreadCounts[data.roomId]) unreadCounts[data.roomId] = 0;
                         unreadCounts[data.roomId]++;
                         saveUnread();
-                        // Если экран личных комнат виден, обновляем список
                         if (!privateScreen.classList.contains('inner-screen-hidden')) {
                             loadPrivateRooms();
                         }
@@ -1461,33 +1689,34 @@
                 socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
             }
 
-            // ---------- Форматирование даты ----------
+            // Форматирование даты
             function formatDateHeader(timestamp) {
                 const date = new Date(timestamp);
                 const options = { year: 'numeric', month: 'long', day: 'numeric' };
                 return date.toLocaleDateString('ru-RU', options);
             }
 
-            // ---------- Отображение сообщений с разделителями даты ----------
+            // Рендер сообщения с поддержкой медиа и звёздочки админа
             function renderMessageBubble(msg, own) {
                 const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const isMedia = msg.text && (msg.text.startsWith('data:image') || msg.text.startsWith('data:video') || msg.text.startsWith('data:audio'));
+                const senderDisplay = msg.sender ? (isAdmin(msg.sender) ? escapeHtml(msg.sender) + ' <i class="fas fa-star admin-star"></i>' : escapeHtml(msg.sender)) : '';
                 let contentHtml = '';
                 if (isMedia) {
                     if (msg.text.startsWith('data:image')) {
-                        contentHtml = `<img src="${msg.text}" class="message-media" onclick="openMedia('${msg.text}')">`;
+                        contentHtml = `<img src="${msg.text}" class="message-media" onclick="window.openMedia('${msg.text}')">`;
                     } else if (msg.text.startsWith('data:video')) {
                         contentHtml = `<video controls class="message-media" src="${msg.text}"></video>`;
                     } else if (msg.text.startsWith('data:audio')) {
                         contentHtml = `<audio controls src="${msg.text}"></audio>`;
                     }
-                    contentHtml += `<button class="message-download-btn" onclick="downloadMedia('${msg.text}')"><i class="fas fa-download"></i></button>`;
+                    contentHtml += `<button class="message-download-btn" onclick="window.downloadMedia('${msg.text}')"><i class="fas fa-download"></i></button>`;
                 } else {
                     contentHtml = `<div class="message-text">${escapeHtml(msg.text)}</div>`;
                 }
                 return `
                     <div class="message-bubble ${own ? 'message-bubble-own' : ''}">
-                        ${own ? '' : `<div class="message-sender">${escapeHtml(msg.sender)}</div>`}
+                        ${own ? '' : `<div class="message-sender" data-username="${msg.sender}">${senderDisplay}</div>`}
                         ${contentHtml}
                         <div class="message-time">${time}</div>
                     </div>
@@ -1502,13 +1731,45 @@
                     separator.innerHTML = `<span>${formatDateHeader(msg.timestamp)}</span>`;
                     container.appendChild(separator);
                 }
-                const own = msg.sender === currentUser.username;
+                const own = msg.sender === currentUser?.username;
                 const div = document.createElement('div');
                 div.className = `message ${own ? 'message-own' : ''}`;
                 div.setAttribute('data-msg-id', msg.id);
                 div.innerHTML = renderMessageBubble(msg, own);
+                // Добавляем обработчики
+                attachMessageEvents(div, msg);
                 container.appendChild(div);
                 return msgDate;
+            }
+
+            function attachMessageEvents(div, msg) {
+                // Долгое нажатие для удаления
+                let pressTimer;
+                div.addEventListener('touchstart', (e) => {
+                    pressTimer = setTimeout(() => {
+                        messageToDelete = msg;
+                        messageRoomId = msg.roomId;
+                        deleteMessageModal.style.display = 'flex';
+                    }, 500);
+                });
+                div.addEventListener('touchend', () => clearTimeout(pressTimer));
+                div.addEventListener('touchmove', () => clearTimeout(pressTimer));
+                div.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    messageToDelete = msg;
+                    messageRoomId = msg.roomId;
+                    deleteMessageModal.style.display = 'flex';
+                });
+                // Клик на текст для копирования
+                div.addEventListener('click', (e) => {
+                    if (e.target.closest('.message-download-btn') || e.target.closest('.message-media')) return;
+                    const textDiv = div.querySelector('.message-text');
+                    if (textDiv) {
+                        copyText(textDiv.textContent);
+                        div.classList.add('selected');
+                        setTimeout(() => div.classList.remove('selected'), 200);
+                    }
+                });
             }
 
             function displayMessages(roomId, messages) {
@@ -1526,48 +1787,11 @@
                 const container = msg.roomId === 'public' ? publicMessages : (msg.roomId === currentPrivateRoom?.id ? privateChatMessages : null);
                 if (!container) return;
                 if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
-                // Определяем последнюю дату в контейнере
-                const lastMsgDiv = container.lastElementChild;
-                let lastDate = null;
-                if (lastMsgDiv && !lastMsgDiv.classList.contains('date-separator')) {
-                    // Ищем последнюю дату среди сообщений
-                    const msgElements = container.querySelectorAll('.message:last-child');
-                    if (msgElements.length > 0) {
-                        const lastMsg = msgElements[msgElements.length-1];
-                        // у сообщения есть атрибут data-msg-id, но дату нужно получить из данных
-                        // Проще: хранить последнюю дату в переменной, но здесь мы её не знаем.
-                        // Поэтому будем перерисовывать весь контейнер с сообщениями заново.
-                        // Это проще и надёжнее.
-                        const allMessages = roomMessagesCache[msg.roomId] || [];
-                        if (msg.roomId === '_localstorage') {
-                            displayLocalMessages();
-                        } else {
-                            displayMessages(msg.roomId, allMessages);
-                        }
-                        return;
-                    }
-                }
-                // Если контейнер пуст или последний элемент — разделитель, добавляем с проверкой даты
-                const msgDate = new Date(msg.timestamp).toDateString();
-                // Получим последнюю дату из последнего сообщения (если есть)
-                let lastMsgDate = null;
-                if (container.lastElementChild && container.lastElementChild.classList.contains('message')) {
-                    // У нас нет прямого доступа к дате, но можно попробовать вытащить из атрибута или перебирать
-                    // Опять же, проще перерисовать.
-                    const allMessages = roomMessagesCache[msg.roomId] || [];
-                    if (msg.roomId === '_localstorage') {
-                        displayLocalMessages();
-                    } else {
-                        displayMessages(msg.roomId, allMessages);
-                    }
-                    return;
-                }
-                // Если контейнер пуст, просто добавляем
-                addMessageWithDate(container, msg, lastMsgDate);
-                container.scrollTop = container.scrollHeight;
+                // Просто перерисовываем весь чат для простоты (чтобы даты корректно вставлялись)
+                const allMessages = roomMessagesCache[msg.roomId] || [];
+                displayMessages(msg.roomId, allMessages);
             }
 
-            // Для локального хранилища
             function displayLocalMessages() {
                 localChatMessages.innerHTML = '';
                 let lastDate = null;
@@ -1581,7 +1805,6 @@
                 const container = localChatMessages;
                 if (!container) return;
                 if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
-                // Перерисовываем всё для простоты
                 displayLocalMessages();
             }
 
@@ -1604,6 +1827,16 @@
                 mediaViewContainer.innerHTML = '';
             });
 
+            function copyText(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const toast = document.createElement('div');
+                    toast.className = 'copy-toast';
+                    toast.textContent = 'Сообщение скопировано';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 1500);
+                }).catch(() => {});
+            }
+
             function escapeHtml(unsafe) {
                 return unsafe.replace(/[&<>"]/g, m => {
                     if (m === '&') return '&amp;';
@@ -1614,7 +1847,7 @@
                 });
             }
 
-            // ---------- Непрочитанные ----------
+            // Непрочитанные
             function loadUnreadFromStorage() {
                 try {
                     const saved = localStorage.getItem('chatxUnread');
@@ -1626,7 +1859,7 @@
             }
             loadUnreadFromStorage();
 
-            // ---------- Публичный чат ----------
+            // Публичный чат
             publicBack.addEventListener('click', () => {
                 leaveRoom('public');
                 showInnerScreen('profile-screen');
@@ -1655,6 +1888,7 @@
                 if (text && currentRoom === 'public') {
                     sendMessage('public', text);
                     publicInput.value = '';
+                    autoResize(publicInput);
                 }
             });
             publicInput.addEventListener('keypress', (e) => {
@@ -1679,10 +1913,9 @@
                 }
             });
 
-            // ---------- Личные комнаты (список) с сортировкой ----------
+            // Личные комнаты
             async function loadPrivateRooms() {
                 if (!currentUser) return;
-                // Всегда показываем локальную комнату
                 const localRoom = {
                     id: '_localstorage',
                     name: 'Хранилище',
@@ -1694,7 +1927,6 @@
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/list/' + currentUser.username);
                     rooms = await res.json();
-                    
                     rooms.sort((a, b) => {
                         const aUnread = unreadCounts[a.id] ? 1 : 0;
                         const bUnread = unreadCounts[b.id] ? 1 : 0;
@@ -1702,8 +1934,6 @@
                     });
                 } catch (err) {
                     console.warn('Не удалось загрузить список комнат, показываем только хранилище', err);
-                    // Если ошибка, показываем только локальную комнату
-                    rooms = [];
                 }
                 
                 const allRooms = [localRoom, ...rooms];
@@ -1887,7 +2117,7 @@
                 }
             });
 
-            // ---------- Личный чат ----------
+            // Личный чат
             privateChatBack.addEventListener('click', () => {
                 if (currentPrivateRoom) leaveRoom(currentPrivateRoom.id);
                 showInnerScreen('private-screen');
@@ -1904,6 +2134,7 @@
                 if (text && currentRoom && currentRoom !== 'public' && currentRoom !== '_localstorage') {
                     sendMessage(currentRoom, text);
                     privateChatInput.value = '';
+                    autoResize(privateChatInput);
                 }
             });
 
@@ -1989,7 +2220,7 @@
                 participantsModal.style.display = 'none';
             });
 
-            // ---------- Локальное хранилище ----------
+            // Локальное хранилище
             localChatBack.addEventListener('click', () => {
                 if (currentRoom === '_localstorage') {
                     leaveRoom('_localstorage');
@@ -2004,6 +2235,7 @@
                 if (text) {
                     sendMessage('_localstorage', text);
                     localChatInput.value = '';
+                    autoResize(localChatInput);
                 }
             });
 
@@ -2012,6 +2244,165 @@
                     e.preventDefault();
                     localChatSend.click();
                 }
+            });
+
+            // Письма
+            mailIcon.addEventListener('click', () => {
+                loadMails();
+                mailList.innerHTML = mails.map(m => `
+                    <li style="display:flex; justify-content:space-between; flex-wrap:wrap;">
+                        <span><strong>${escapeHtml(m.from)}</strong>: ${escapeHtml(m.text)}</span>
+                        <small>${new Date(m.timestamp).toLocaleString()}</small>
+                    </li>
+                `).join('');
+                mailModal.style.display = 'flex';
+                // Помечаем как прочитанные
+                mails.forEach(m => m.read = true);
+                saveMails();
+            });
+
+            mailClose.addEventListener('click', () => mailModal.style.display = 'none');
+
+            userProfileMail.addEventListener('click', () => {
+                const username = userProfileName.textContent;
+                composeRecipient.textContent = username;
+                composeText.value = '';
+                composeError.textContent = '';
+                composeModal.style.display = 'flex';
+                userProfileModal.style.display = 'none';
+            });
+
+            composeCancel.addEventListener('click', () => composeModal.style.display = 'none');
+            composeSend.addEventListener('click', () => {
+                const to = composeRecipient.textContent;
+                const text = composeText.value.trim();
+                if (!text) {
+                    composeError.textContent = 'Введите текст';
+                    return;
+                }
+                sendMail(to, text);
+                composeModal.style.display = 'none';
+                alert('Письмо отправлено');
+            });
+
+            // Профиль пользователя при клике на ник (делегирование)
+            document.addEventListener('click', (e) => {
+                const senderDiv = e.target.closest('.message-sender');
+                if (senderDiv && senderDiv.dataset.username) {
+                    openUserProfile(senderDiv.dataset.username);
+                }
+            });
+
+            function openUserProfile(username) {
+                userProfileName.textContent = username;
+                const lastSeen = userLastSeen[username];
+                const isOnline = false; // упрощённо
+                if (isOnline && !invisible) {
+                    userProfileStatus.textContent = 'В сети';
+                } else if (lastSeen) {
+                    const last = new Date(lastSeen);
+                    const now = new Date();
+                    if (last.toDateString() === now.toDateString()) {
+                        userProfileStatus.textContent = `Был(-а) сегодня в ${last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    } else {
+                        userProfileStatus.textContent = `Был(-а) ${last.toLocaleDateString('ru-RU')}`;
+                    }
+                } else {
+                    userProfileStatus.textContent = 'Неизвестно';
+                }
+                userProfileModal.style.display = 'flex';
+            }
+
+            userProfileClose.addEventListener('click', () => userProfileModal.style.display = 'none');
+
+            // Удаление сообщения
+            deleteMessageNo.addEventListener('click', () => {
+                deleteMessageModal.style.display = 'none';
+                messageToDelete = null;
+            });
+
+            deleteMessageYes.addEventListener('click', () => {
+                if (messageToDelete && messageRoomId) {
+                    if (isAdmin(currentUser.username) || messageToDelete.sender === currentUser.username) {
+                        if (messageRoomId === '_localstorage') {
+                            localMessages = localMessages.filter(m => m.id !== messageToDelete.id);
+                            saveLocalMessages();
+                            displayLocalMessages();
+                        } else {
+                            roomMessagesCache[messageRoomId] = roomMessagesCache[messageRoomId].filter(m => m.id !== messageToDelete.id);
+                            saveRoomCache(messageRoomId);
+                            if (currentRoom === messageRoomId) {
+                                displayMessages(messageRoomId, roomMessagesCache[messageRoomId]);
+                            }
+                        }
+                    }
+                }
+                deleteMessageModal.style.display = 'none';
+                messageToDelete = null;
+            });
+
+            // Админка
+            if (currentUser && isAdmin(currentUser.username)) {
+                adminOptions.style.display = 'block';
+            }
+
+            invisibleToggle.addEventListener('change', () => {
+                invisible = invisibleToggle.checked;
+                // TODO: отправить на сервер статус
+            });
+
+            manageAdminsBtn.addEventListener('click', () => {
+                adminList.innerHTML = admins.map(a => `
+                    <li style="display:flex; justify-content:space-between;">
+                        <span>${escapeHtml(a)}</span>
+                        <button class="btn" onclick="window.removeAdmin('${a}')" style="padding:4px 8px;">Удалить</button>
+                    </li>
+                `).join('');
+                adminListModal.style.display = 'flex';
+            });
+
+            window.removeAdmin = function(username) {
+                admins = admins.filter(a => a !== username);
+                saveAdmins();
+                adminList.innerHTML = admins.map(a => `
+                    <li style="display:flex; justify-content:space-between;">
+                        <span>${escapeHtml(a)}</span>
+                        <button class="btn" onclick="window.removeAdmin('${a}')" style="padding:4px 8px;">Удалить</button>
+                    </li>
+                `).join('');
+            };
+
+            addAdminBtn.addEventListener('click', () => {
+                const newAdmin = newAdminUsername.value.trim();
+                if (newAdmin && !admins.includes(newAdmin)) {
+                    admins.push(newAdmin);
+                    saveAdmins();
+                    newAdminUsername.value = '';
+                    adminList.innerHTML = admins.map(a => `
+                        <li style="display:flex; justify-content:space-between;">
+                            <span>${escapeHtml(a)}</span>
+                            <button class="btn" onclick="window.removeAdmin('${a}')" style="padding:4px 8px;">Удалить</button>
+                        </li>
+                    `).join('');
+                }
+            });
+
+            adminListClose.addEventListener('click', () => adminListModal.style.display = 'none');
+
+            // Авторасширение textarea
+            function autoResize(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+                if (textarea.scrollHeight > 120) {
+                    textarea.style.height = '120px';
+                    textarea.style.overflowY = 'auto';
+                } else {
+                    textarea.style.overflowY = 'hidden';
+                }
+            }
+
+            document.querySelectorAll('textarea').forEach(ta => {
+                ta.addEventListener('input', function() { autoResize(this); });
             });
 
             // Удаление аккаунта и выход
