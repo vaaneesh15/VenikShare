@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* Все стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
@@ -73,6 +72,21 @@
             height: 200vh;
             background: inherit;
             z-index: -1;
+        }
+
+        /* ===== ИСПРАВЛЕНИЕ SAFE AREA ===== */
+        /* Перекрываем белую полосу внизу фоном панели навигации */
+        body::before {
+            content: '';
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: env(safe-area-inset-bottom);
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            pointer-events: none;
         }
 
         body.dark {
@@ -738,7 +752,7 @@
                 </div>
             </div>
 
-            <!-- Нижняя навигация -->
+            <!-- Нижняя навигация (без изменений) -->
             <div class="bottom-nav" id="bottom-nav">
                 <div class="nav-item" data-screen="profile">
                     <i class="fas fa-user"></i>
@@ -755,7 +769,7 @@
             </div>
         </div>
 
-        <!-- Модальное окно подтверждения (универсальное) -->
+        <!-- Модальные окна (без изменений) -->
         <div id="password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
@@ -768,7 +782,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно подтверждения выхода (без пароля) -->
         <div id="confirm-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="confirm-title">Вы уверены?</h3>
@@ -779,7 +792,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно смены пароля -->
         <div id="change-password-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Смена пароля</h3>
@@ -793,7 +805,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно редактирования названия комнаты -->
         <div id="rename-room-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="rename-modal-title">Изменить название комнаты</h3>
@@ -806,7 +817,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно информации о комнате -->
         <div id="room-info-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Информация о комнате</h3>
@@ -819,7 +829,6 @@
             </div>
         </div>
 
-        <!-- Модальное окно списка участников -->
         <div id="participants-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <h3 style="color: var(--text-primary); margin-bottom: 16px;">Участники онлайн</h3>
@@ -841,7 +850,7 @@
             let unreadCounts = {};
             let userSettings = {
                 requirePassword: false,
-                passwordTimeout: 0 // в секундах, 0 = сразу
+                passwordTimeout: 0
             };
 
             // Тема
@@ -1003,7 +1012,6 @@
                 }
             }
 
-            // Сохранение настроек
             async function saveUserSettings() {
                 if (!currentUser) return;
                 try {
@@ -1028,7 +1036,7 @@
                 saveUserSettings();
             });
 
-            // ========== ИСПРАВЛЕНО: Смена имени пользователя ==========
+            // Смена имени пользователя (карандаш) — исправлено
             editUsernameBtn.addEventListener('click', async () => {
                 const newName = prompt('Введите новое имя пользователя:');
                 if (!newName) return;
@@ -1038,26 +1046,17 @@
                     const res = await fetch(API_BASE + '/api/change-username', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            oldUsername: currentUser.username, 
-                            newUsername: newName, 
-                            password 
-                        })
+                        body: JSON.stringify({ oldUsername: currentUser.username, newUsername: newName, password })
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Ошибка смены имени');
-                    
-                    // Обновляем данные пользователя
                     currentUser.username = newName;
                     localStorage.setItem('chatxUser', JSON.stringify(currentUser));
                     profileUsername.textContent = newName;
-                    
-                    // Переподключаем сокет с новым именем (опционально)
                     if (socket) {
                         socket.close();
                         connectSocket();
                     }
-                    
                     alert('Имя успешно изменено');
                 } catch (err) {
                     alert(err.message);
@@ -1193,10 +1192,8 @@
                         if (!unreadCounts[data.roomId]) unreadCounts[data.roomId] = 0;
                         unreadCounts[data.roomId]++;
                         saveUnread();
-                        // Если мы на экране личных комнат, обновим список
-                        if (!currentRoom || currentRoom === 'public') {
-                            loadPrivateRooms();
-                        }
+                        // ВСЕГДА обновляем список комнат, чтобы точка появилась сразу
+                        loadPrivateRooms();
                     }
                 });
                 socket.on('userCount', (data) => {
@@ -1212,7 +1209,7 @@
                 if (roomId === 'public') return;
                 currentPrivateRoom = { id: roomId, name: roomName || roomId };
                 privateChatTitle.textContent = roomName || roomId;
-                // Сбрасываем непрочитанные
+                // Сбрасываем непрочитанные при входе
                 if (unreadCounts[roomId]) {
                     delete unreadCounts[roomId];
                     saveUnread();
@@ -1323,7 +1320,6 @@
                 }
             });
 
-            // Клик по счётчику участников (публичный чат)
             publicParticipantCount.addEventListener('click', async () => {
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/participants/public');
@@ -1363,20 +1359,15 @@
                             if (e.target.closest('.room-edit-btn') || e.target.closest('.room-delete-btn')) return;
                             const rid = el.dataset.roomid;
                             const rname = el.dataset.roomname;
-                            // Проверяем настройку требования пароля
                             if (userSettings.requirePassword) {
-                                // Проверяем, не истек ли таймаут
                                 const lastEntry = localStorage.getItem('lastEntry_' + rid);
                                 const now = Date.now();
                                 if (lastEntry && (now - parseInt(lastEntry)) < userSettings.passwordTimeout * 1000) {
-                                    // Таймаут ещё действует, вход без пароля
                                     performRoomEntry(rid, rname);
                                 } else {
-                                    // Запрашиваем пароль
                                     promptPasswordForRoom(rid, rname, true);
                                 }
                             } else {
-                                // Требование отключено, вход без пароля
                                 performRoomEntry(rid, rname);
                             }
                         });
@@ -1413,7 +1404,7 @@
                         });
                     });
 
-                    // Удаление комнаты (без пароля, просто подтверждение)
+                    // Удаление комнаты
                     document.querySelectorAll('.room-delete-btn').forEach(btn => {
                         btn.addEventListener('click', (e) => {
                             e.stopPropagation();
@@ -1448,15 +1439,11 @@
                 if (currentRoom) leaveRoom(currentRoom);
                 joinRoom(roomId, roomName);
                 showInnerScreen('private-chat-screen');
-                // Запоминаем время входа для таймаута
                 localStorage.setItem('lastEntry_' + roomId, Date.now().toString());
             }
 
             function promptPasswordForRoom(roomId, roomName, shouldJoin = true, isDelete = false) {
-                if (isDelete) {
-                    // Удаление теперь без пароля
-                    return;
-                }
+                if (isDelete) return;
                 modalTitle.textContent = 'Введите пароль комнаты';
                 modalPassword.value = '';
                 modalError.textContent = '';
@@ -1473,7 +1460,6 @@
                                 performRoomEntry(roomId, roomName);
                             }
                         } else if (check.status === 404) {
-                            // Комната не существует, создаём
                             const newName = prompt('Введите название новой комнаты:', roomName);
                             if (!newName) return;
                             const createRes = await fetch(API_BASE + '/api/rooms/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, roomName: newName, password: pwd, creator: currentUser.username }) });
@@ -1547,7 +1533,6 @@
                 }
             });
 
-            // Кнопка информации о комнате
             privateChatInfoBtn.addEventListener('click', async () => {
                 if (!currentPrivateRoom) return;
                 try {
@@ -1566,7 +1551,6 @@
                 roomInfoModal.style.display = 'none';
             });
 
-            // Кнопка изменения названия в чате
             privateChatRenameBtn.addEventListener('click', () => {
                 if (!currentPrivateRoom) return;
                 renameRoomInput.value = currentPrivateRoom.name;
@@ -1598,7 +1582,6 @@
                 renameRoomModal.style.display = 'none';
             });
 
-            // Клик по счётчику участников (личный чат)
             privateChatParticipantCount.addEventListener('click', async () => {
                 if (!currentPrivateRoom) return;
                 try {
@@ -1615,7 +1598,6 @@
                 participantsModal.style.display = 'none';
             });
 
-            // Удаление аккаунта
             document.getElementById('delete-account-btn').addEventListener('click', () => {
                 modalTitle.textContent = 'Удалить аккаунт? Введите пароль';
                 modalPassword.value = '';
@@ -1647,7 +1629,6 @@
                 };
             });
 
-            // Выход из аккаунта
             document.getElementById('logout-btn').addEventListener('click', () => {
                 confirmModal.style.display = 'flex';
                 document.getElementById('confirm-title').textContent = 'Вы уверены, что хотите выйти?';
