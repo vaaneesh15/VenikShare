@@ -12,7 +12,7 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Все стили (без изменений, они уже были рабочие) */
+        /* Все стили полностью (как в предыдущей версии) */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         html, body { overscroll-behavior: none; overflow: hidden; width: 100%; height: 100%; background: transparent; }
         body {
@@ -34,7 +34,6 @@
             --icon-bg: #2a2a40; --panel-bg: rgba(30,30,46,0.8); --input-bg: rgba(40,40,55,0.6);
             --chat-other-bg: #3a3a5a; --chat-other-text: #ffffff; --unread-dot: #ff6b6b; --unread-dot-border: #1a1a2e;
         }
-        /* Анимация нажатия (затемнение) */
         .btn, .room-item, .back-btn, .theme-toggle, .participant-count, .info-btn, .edit-btn, .room-edit-btn, .room-delete-btn,
         #public-send, #private-chat-send, #create-room-btn, #auth-login, #auth-register, #logout-btn, #delete-account-btn,
         .modal .btn, .attach-btn, .message-bubble, .avatar-upload-btn, .mail-delete-btn {
@@ -49,7 +48,7 @@
         .modal .btn:active, .attach-btn:active, .message-bubble:active, .avatar-upload-btn:active, .mail-delete-btn:active {
             opacity: 0.7;
         }
-        .nav-item { transition: background-color 0.2s, color 0.2s, transform 0.1s; }
+        .nav-item { transition: background-color 0.2s, color 0.2s, transform 0.1s; position: relative; }
         .nav-item:active { transform: scale(0.96); opacity: 0.8; }
         .app { width: 100%; height: 100%; position: relative; background: transparent; display: flex; flex-direction: column; }
         .screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; transition: opacity 0.3s; display: flex; flex-direction: column; overflow: hidden; }
@@ -101,11 +100,19 @@
             flex: 1; display: flex; flex-direction: column; align-items: center;
             color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 8px 0;
             transition: background-color 0.2s, color 0.2s; border-radius: 30px;
+            position: relative;
         }
         .nav-item i { font-size: 22px; margin-bottom: 2px; }
         .nav-item span { font-size: 11px; font-weight: 500; }
         .nav-item.active { color: var(--accent); background: rgba(74, 58, 255, 0.1); }
         body.dark .nav-item.active { background: rgba(109, 95, 255, 0.2); }
+        .nav-badge {
+            position: absolute; top: -2px; right: 10px; background: #ff4444; color: white;
+            border-radius: 50%; min-width: 18px; height: 18px; font-size: 11px;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--icon-bg); font-weight: bold; padding: 0 2px;
+        }
+        body.dark .nav-badge { border-color: var(--icon-bg); }
         .page-content { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; }
         .panel {
             background: var(--panel-bg); backdrop-filter: blur(10px); border-radius: 36px;
@@ -147,9 +154,11 @@
         .room-info { display: flex; align-items: center; gap: 8px; flex: 1; }
         .room-name { color: var(--text-primary); font-weight: 500; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
         .room-actions { display: flex; align-items: center; gap: 12px; }
-        .room-unread-dot {
-            width: 10px; height: 10px; border-radius: 50%; background: var(--unread-dot);
-            border: 2px solid var(--unread-dot-border); display: inline-block;
+        .room-unread-badge {
+            background: var(--unread-dot); color: white; border-radius: 50%;
+            min-width: 20px; height: 20px; font-size: 12px; display: flex;
+            align-items: center; justify-content: center; border: 2px solid var(--unread-dot-border);
+            font-weight: bold; padding: 0 2px;
         }
         .room-edit-btn, .room-delete-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 4px; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 4px; min-height: 0; }
@@ -159,7 +168,7 @@
             width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
             background: var(--icon-bg); border: 1px solid var(--card-border); flex-shrink: 0;
         }
-        .message-own .message-avatar { display: none; } /* свои аватарки не показываем */
+        .message-own .message-avatar { display: none; }
         .message-content { display: flex; flex-direction: column; max-width: calc(80% - 48px); }
         .message-bubble {
             background: var(--chat-other-bg); border-radius: 24px; padding: 10px 16px;
@@ -234,19 +243,10 @@
         .mail-header {
             display: flex; justify-content: space-between; align-items: center; width: 100%;
         }
-        .mail-from {
-            font-weight: bold; color: var(--accent);
-        }
-        .mail-time {
-            font-size: 11px; color: var(--text-muted);
-        }
-        .mail-text {
-            white-space: pre-wrap; word-wrap: break-word; font-size: 14px; margin: 4px 0;
-        }
-        .mail-delete-btn {
-            background: none; border: none; color: #ff6b6b; font-size: 16px; cursor: pointer; padding: 4px;
-            align-self: flex-end;
-        }
+        .mail-from { font-weight: bold; color: var(--accent); }
+        .mail-time { font-size: 11px; color: var(--text-muted); }
+        .mail-text { white-space: pre-wrap; word-wrap: break-word; font-size: 14px; margin: 4px 0; }
+        .mail-delete-btn { background: none; border: none; color: #ff6b6b; font-size: 16px; cursor: pointer; padding: 4px; align-self: flex-end; }
         .mail-delete-btn:hover { opacity: 0.7; }
         #media-view-modal .modal-content {
             background: transparent; backdrop-filter: none; box-shadow: none;
@@ -258,12 +258,9 @@
             border: none; border-radius: 30px; width: 44px; height: 44px; font-size: 24px; cursor: pointer;
         }
         .loading-spinner { text-align: center; padding: 20px; color: var(--text-muted); }
-        .profile-header {
-            display: flex; align-items: center; gap: 16px;
-        }
+        .profile-header { display: flex; align-items: center; gap: 16px; }
         .mail-icon {
-            position: relative; cursor: pointer;
-            color: var(--accent); font-size: 24px; width: 44px; height: 44px;
+            position: relative; cursor: pointer; color: var(--accent); font-size: 24px; width: 44px; height: 44px;
             display: flex; align-items: center; justify-content: center;
             background: var(--icon-bg); border-radius: 30px; border: 1px solid var(--container-border);
             box-shadow: 0 6px 12px rgba(0,0,0,0.05);
@@ -325,36 +322,31 @@
                             <img id="profile-avatar-img" class="avatar-img" src="" alt="avatar">
                             <button class="avatar-upload-btn" id="upload-avatar-btn"><i class="fas fa-camera"></i> Загрузить фото</button>
                         </div>
-                        <div style="margin-bottom: 20px;">
-                            <div style="color: var(--text-primary); font-size: 18px; margin-bottom: 8px;">Имя пользователя</div>
+                        <div style="margin-bottom:20px;">
+                            <div style="color:var(--text-primary);font-size:18px;margin-bottom:8px;">Имя пользователя</div>
                             <div class="username-edit">
-                                <span style="color: var(--accent); font-size: 24px; font-weight: 600;" id="profile-username"></span>
+                                <span style="color:var(--accent);font-size:24px;font-weight:600;" id="profile-username"></span>
                                 <button class="edit-btn" id="edit-username-btn"><i class="fas fa-pencil-alt"></i></button>
                             </div>
                         </div>
-                        <button class="btn" id="change-password-btn" style="margin-bottom: 8px;">Изменить пароль</button>
-                        <div style="margin: 16px 0;">
-                            <div class="flex-row" style="justify-content: space-between;">
-                                <span style="color: var(--text-primary);">Требовать пароль для комнат</span>
+                        <button class="btn" id="change-password-btn" style="margin-bottom:8px;">Изменить пароль</button>
+                        <div style="margin:16px 0;">
+                            <div class="flex-row" style="justify-content:space-between;">
+                                <span style="color:var(--text-primary);">Требовать пароль для комнат</span>
                                 <label class="switch"><input type="checkbox" id="require-password-toggle"><span class="slider"></span></label>
                             </div>
-                            <div id="password-timeout-container" style="margin-top: 12px; display: none;">
-                                <select id="password-timeout" class="btn" style="width: 100%;">
-                                    <option value="0">Выкл (сразу)</option>
-                                    <option value="60">1 минута</option>
-                                    <option value="300">5 минут</option>
-                                    <option value="900">15 минут</option>
-                                    <option value="3600">1 час</option>
-                                    <option value="7200">2 часа</option>
-                                    <option value="21600">6 часов</option>
-                                    <option value="86400">24 часа</option>
+                            <div id="password-timeout-container" style="margin-top:12px;display:none;">
+                                <select id="password-timeout" class="btn" style="width:100%;">
+                                    <option value="0">Выкл (сразу)</option><option value="60">1 минута</option><option value="300">5 минут</option>
+                                    <option value="900">15 минут</option><option value="3600">1 час</option><option value="7200">2 часа</option>
+                                    <option value="21600">6 часов</option><option value="86400">24 часа</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div style="flex:1;"></div>
-                    <button class="btn" id="logout-btn" style="margin-bottom: 8px;">Выйти</button>
-                    <button class="btn" id="delete-account-btn" style="background: #ff6b6b; color: white;">Удалить аккаунт</button>
+                    <button class="btn" id="logout-btn" style="margin-bottom:8px;">Выйти</button>
+                    <button class="btn" id="delete-account-btn" style="background:#ff6b6b;color:white;">Удалить аккаунт</button>
                 </div>
             </div>
 
@@ -387,47 +379,163 @@
         </div>
 
         <!-- Нижняя навигация -->
-        <div class="bottom-nav" id="bottom-nav"><div class="nav-item" data-screen="profile"><i class="fas fa-user"></i><span>Профиль</span></div><div class="nav-item" data-screen="public"><i class="fas fa-globe"></i><span>Публичный</span></div><div class="nav-item" data-screen="private"><i class="fas fa-lock"></i><span>Личные</span></div></div>
+        <div class="bottom-nav" id="bottom-nav">
+            <div class="nav-item" data-screen="profile"><i class="fas fa-user"></i><span>Профиль</span></div>
+            <div class="nav-item" data-screen="public"><i class="fas fa-globe"></i><span>Публичный</span></div>
+            <div class="nav-item" data-screen="private">
+                <i class="fas fa-lock"></i><span>Личные</span>
+                <span class="nav-badge" id="private-nav-badge" style="display:none;">0</span>
+            </div>
+        </div>
     </div>
 
-    <!-- Модальные окна -->
-    <div id="password-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;" id="modal-title">Введите пароль</h3><input type="password" id="modal-password" placeholder="Пароль" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);"><div id="modal-error" style="color:#ff6b6b;margin-top:8px;font-size:14px;"></div><div class="modal-buttons"><button class="btn" id="modal-cancel">Отмена</button><button class="btn btn-primary" id="modal-confirm">Подтвердить</button></div></div></div>
-    <div id="confirm-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;" id="confirm-title">Вы уверены?</h3><div class="modal-buttons"><button class="btn" id="confirm-no">Нет</button><button class="btn btn-primary" id="confirm-yes">Да</button></div></div></div>
-    <div id="change-password-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;">Смена пароля</h3><input type="password" id="old-password" placeholder="Старый пароль" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);margin-bottom:12px;"><input type="password" id="new-password" placeholder="Новый пароль" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);margin-bottom:12px;"><div id="change-password-error" style="color:#ff6b6b;margin-top:8px;font-size:14px;"></div><div class="modal-buttons"><button class="btn" id="change-password-cancel">Отмена</button><button class="btn btn-primary" id="change-password-confirm">Сменить</button></div></div></div>
-    <div id="rename-room-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;" id="rename-modal-title">Изменить название комнаты</h3><input type="text" id="rename-room-input" placeholder="Новое название" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);"><div id="rename-room-error" style="color:#ff6b6b;margin-top:8px;font-size:14px;"></div><div class="modal-buttons"><button class="btn" id="rename-room-cancel">Отмена</button><button class="btn btn-primary" id="rename-room-confirm">Сохранить</button></div></div></div>
-    <div id="room-info-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;">Информация о комнате</h3><div style="color:var(--text-primary);margin-bottom:8px;"><strong>Название:</strong> <span id="room-info-name"></span></div><div style="color:var(--text-primary);margin-bottom:8px;"><strong>ID:</strong> <span id="room-info-id"></span></div><div style="color:var(--text-primary);margin-bottom:8px;"><strong>Пароль:</strong> <span id="room-info-password"></span></div><div id="room-info-loading" class="loading-spinner" style="display:none;">Загрузка...</div><div class="modal-buttons"><button class="btn" id="room-info-close">Закрыть</button></div></div></div>
-    <div id="participants-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;">Участники онлайн</h3><div id="participants-loading" class="loading-spinner" style="display:none;">Загрузка...</div><ul id="participants-list" class="participant-list"></ul><div class="modal-buttons"><button class="btn" id="participants-close">Закрыть</button></div></div></div>
-    <div id="media-view-modal" class="modal" style="display:none;"><div class="modal-content"><button class="close-btn" id="media-view-close"><i class="fas fa-times"></i></button><div id="media-view-container"></div></div></div>
+    <!-- Модальное окно ввода пароля -->
+    <div id="password-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;" id="modal-title">Введите пароль</h3>
+            <input type="password" id="modal-password" placeholder="Пароль" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);">
+            <div id="modal-error" style="color:#ff6b6b;margin-top:8px;font-size:14px;"></div>
+            <div class="modal-buttons">
+                <button class="btn" id="modal-cancel">Отмена</button>
+                <button class="btn btn-primary" id="modal-confirm">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения -->
+    <div id="confirm-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;" id="confirm-title">Вы уверены?</h3>
+            <div class="modal-buttons">
+                <button class="btn" id="confirm-no">Нет</button>
+                <button class="btn btn-primary" id="confirm-yes">Да</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены пароля -->
+    <div id="change-password-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;">Смена пароля</h3>
+            <input type="password" id="old-password" placeholder="Старый пароль" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);margin-bottom:12px;">
+            <input type="password" id="new-password" placeholder="Новый пароль" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);margin-bottom:12px;">
+            <div id="change-password-error" style="color:#ff6b6b;margin-top:8px;font-size:14px;"></div>
+            <div class="modal-buttons">
+                <button class="btn" id="change-password-cancel">Отмена</button>
+                <button class="btn btn-primary" id="change-password-confirm">Сменить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования названия комнаты -->
+    <div id="rename-room-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;" id="rename-modal-title">Изменить название комнаты</h3>
+            <input type="text" id="rename-room-input" placeholder="Новое название" style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);">
+            <div id="rename-room-error" style="color:#ff6b6b;margin-top:8px;font-size:14px;"></div>
+            <div class="modal-buttons">
+                <button class="btn" id="rename-room-cancel">Отмена</button>
+                <button class="btn btn-primary" id="rename-room-confirm">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно информации о комнате -->
+    <div id="room-info-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;">Информация о комнате</h3>
+            <div style="color:var(--text-primary);margin-bottom:8px;"><strong>Название:</strong> <span id="room-info-name"></span></div>
+            <div style="color:var(--text-primary);margin-bottom:8px;"><strong>ID:</strong> <span id="room-info-id"></span></div>
+            <div style="color:var(--text-primary);margin-bottom:8px;"><strong>Пароль:</strong> <span id="room-info-password"></span></div>
+            <div id="room-info-loading" class="loading-spinner" style="display:none;">Загрузка...</div>
+            <div class="modal-buttons">
+                <button class="btn" id="room-info-close">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно списка участников -->
+    <div id="participants-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;">Участники онлайн</h3>
+            <div id="participants-loading" class="loading-spinner" style="display:none;">Загрузка...</div>
+            <ul id="participants-list" class="participant-list"></ul>
+            <div class="modal-buttons">
+                <button class="btn" id="participants-close">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно просмотра медиа -->
+    <div id="media-view-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <button class="close-btn" id="media-view-close"><i class="fas fa-times"></i></button>
+            <div id="media-view-container"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно писем -->
     <div id="mail-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 style="color:var(--text-primary);margin-bottom:16px;">Письма</h3>
             <div id="mail-list" class="participant-list" style="max-height:300px;"></div>
-            <div class="modal-buttons"><button class="btn" id="mail-close">Закрыть</button></div>
+            <div class="modal-buttons">
+                <button class="btn" id="mail-close">Закрыть</button>
+            </div>
         </div>
     </div>
+
+    <!-- Модальное окно отправки письма -->
     <div id="compose-mail-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 style="color:var(--text-primary);margin-bottom:16px;">Новое письмо для <span id="compose-recipient"></span></h3>
             <textarea id="compose-text" rows="4" placeholder="Текст письма..." style="width:100%;padding:12px;border-radius:30px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-primary);margin-bottom:12px;"></textarea>
             <div id="compose-error" style="color:#ff6b6b;margin-bottom:8px;"></div>
-            <div class="modal-buttons"><button class="btn" id="compose-cancel">Отмена</button><button class="btn btn-primary" id="compose-send">Отправить</button></div>
+            <div class="modal-buttons">
+                <button class="btn" id="compose-cancel">Отмена</button>
+                <button class="btn btn-primary" id="compose-send">Отправить</button>
+            </div>
         </div>
     </div>
+
+    <!-- Модальное окно профиля пользователя -->
     <div id="user-profile-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 style="color:var(--text-primary);margin-bottom:16px;">Профиль пользователя</h3>
             <div style="color:var(--text-primary);margin-bottom:8px;"><strong>Ник:</strong> <span id="user-profile-name"></span></div>
-            <!-- Сетевой статус удалён -->
-            <div class="modal-buttons"><button class="btn" id="user-profile-mail">Написать письмо</button><button class="btn" id="user-profile-close">Закрыть</button></div>
+            <div class="modal-buttons">
+                <button class="btn" id="user-profile-mail">Написать письмо</button>
+                <button class="btn" id="user-profile-close">Закрыть</button>
+            </div>
         </div>
     </div>
-    <div id="delete-message-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;">Удалить сообщение?</h3><div class="modal-buttons"><button class="btn" id="delete-message-no">Нет</button><button class="btn btn-primary" id="delete-message-yes">Да</button></div></div></div>
-    <div id="delete-mail-modal" class="modal" style="display:none;"><div class="modal-content"><h3 style="color:var(--text-primary);margin-bottom:16px;">Удалить письмо?</h3><div class="modal-buttons"><button class="btn" id="delete-mail-no">Нет</button><button class="btn btn-primary" id="delete-mail-yes">Да</button></div></div></div>
+
+    <!-- Модальное окно подтверждения удаления сообщения -->
+    <div id="delete-message-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;">Удалить сообщение?</h3>
+            <div class="modal-buttons">
+                <button class="btn" id="delete-message-no">Нет</button>
+                <button class="btn btn-primary" id="delete-message-yes">Да</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения удаления письма -->
+    <div id="delete-mail-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="color:var(--text-primary);margin-bottom:16px;">Удалить письмо?</h3>
+            <div class="modal-buttons">
+                <button class="btn" id="delete-mail-no">Нет</button>
+                <button class="btn btn-primary" id="delete-mail-yes">Да</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 (function() {
-    const API_BASE = 'https://chatx-server-pyyi.onrender.com'; // убедитесь, что адрес правильный
+    const API_BASE = 'https://chatx-server-pyyi.onrender.com';
     let currentUser = null;
     let currentUserAvatar = null;
     let currentRoom = null;
@@ -459,7 +567,7 @@
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
     applyTheme();
 
-    // Элементы DOM (полный список)
+    // Элементы DOM
     const authScreen = document.getElementById('auth-screen');
     const mainScreen = document.getElementById('main-screen');
     const profileScreen = document.getElementById('profile-screen');
@@ -562,6 +670,8 @@
     const participantsLoading = document.getElementById('participants-loading');
     const participantsClose = document.getElementById('participants-close');
 
+    const privateNavBadge = document.getElementById('private-nav-badge');
+
     // Тема
     profileThemeToggle.addEventListener('click', () => {
         if (currentTheme === 'light') currentTheme = 'dark';
@@ -640,7 +750,7 @@
         saveUserSettings();
     });
 
-    // Смена имени (без функционала, просто заглушка)
+    // Смена имени (заглушка)
     editUsernameBtn.addEventListener('click', () => {
         alert('Функция смены имени временно отключена');
     });
@@ -684,8 +794,9 @@
             profileUsername.textContent = username;
             connectSocket();
             loadUserSettings();
-            loadPrivateRooms();
-            loadMails();
+            await loadMails();
+            await loadPrivateRooms();
+            await loadAllRoomMessages();
             showInnerScreen('profile-screen');
         } catch (err) { authStatus.textContent = err.message; }
     }
@@ -713,7 +824,6 @@
     const savedUser = localStorage.getItem('chatxUser');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
-        // Загружаем аватар
         fetch(API_BASE + '/api/avatar/' + currentUser.username)
             .then(r => r.json())
             .then(data => { if (data.avatar) { currentUserAvatar = data.avatar; profileAvatarImg.src = data.avatar; } })
@@ -723,12 +833,52 @@
         profileUsername.textContent = currentUser.username;
         connectSocket();
         loadUserSettings();
-        loadPrivateRooms();
         loadMails();
+        loadPrivateRooms().then(() => loadAllRoomMessages());
         showInnerScreen('profile-screen');
     } else {
         authScreen.classList.remove('screen-hidden');
         mainScreen.classList.add('screen-hidden');
+    }
+
+    // Фоновая загрузка сообщений всех личных комнат
+    async function loadAllRoomMessages() {
+        if (!currentUser) return;
+        try {
+            const res = await fetch(API_BASE + '/api/rooms/list/' + currentUser.username);
+            const rooms = await res.json();
+            for (const room of rooms) {
+                if (!roomMessagesCache[room.id]) {
+                    roomMessagesCache[room.id] = [];
+                }
+                fetch(API_BASE + '/api/rooms/' + room.id + '/messages?username=' + currentUser.username)
+                    .then(r => r.json())
+                    .then(messages => {
+                        roomMessagesCache[room.id] = messages;
+                        saveRoomCache(room.id);
+                        const lastRead = localStorage.getItem('lastRead_' + room.id);
+                        if (lastRead) {
+                            const lastReadTime = new Date(lastRead).getTime();
+                            const unread = messages.filter(m => new Date(m.timestamp).getTime() > lastReadTime).length;
+                            if (unread > 0) {
+                                unreadCounts[room.id] = unread;
+                            } else {
+                                delete unreadCounts[room.id];
+                            }
+                        } else {
+                            // Если никогда не заходили, не считаем непрочитанными
+                        }
+                        saveUnread();
+                        updatePrivateNavBadge();
+                        if (!privateScreen.classList.contains('inner-screen-hidden')) {
+                            loadPrivateRooms();
+                        }
+                    })
+                    .catch(err => console.warn('Не удалось загрузить сообщения для комнаты', room.id, err));
+            }
+        } catch (err) {
+            console.warn('Не удалось загрузить список комнат для фоновой загрузки', err);
+        }
     }
 
     // Загрузка аватара
@@ -786,7 +936,6 @@
             updateMailBadge();
         } catch (err) { console.error('Ошибка отметки', err); }
     }
-
     mailIcon.addEventListener('click', async () => {
         await loadMails();
         renderMailList();
@@ -794,7 +943,6 @@
         const unreadIds = mails.filter(m => !m.is_read).map(m => m.id);
         if (unreadIds.length) await markMailsAsRead(unreadIds);
     });
-
     function renderMailList() {
         mailList.innerHTML = mails.map(m => `
             <div class="mail-item">
@@ -814,10 +962,7 @@
             });
         });
     }
-
     mailClose.addEventListener('click', () => mailModal.style.display = 'none');
-
-    // Удаление письма
     deleteMailNo.addEventListener('click', () => { deleteMailModal.style.display = 'none'; mailToDelete = null; });
     deleteMailYes.addEventListener('click', async () => {
         if (!mailToDelete) return;
@@ -832,8 +977,6 @@
             mailToDelete = null;
         } catch (err) { alert(err.message); deleteMailModal.style.display = 'none'; }
     });
-
-    // Отправка письма
     composeSend.addEventListener('click', async () => {
         const to = composeRecipient.textContent;
         const text = composeText.value.trim();
@@ -849,7 +992,6 @@
             alert('Письмо отправлено');
         } catch (err) { composeError.textContent = err.message; }
     });
-
     composeCancel.addEventListener('click', () => composeModal.style.display = 'none');
 
     // Профиль пользователя
@@ -859,12 +1001,10 @@
             openUserProfile(senderDiv.dataset.username);
         }
     });
-
     function openUserProfile(username) {
         userProfileName.textContent = username;
         userProfileModal.style.display = 'flex';
     }
-
     userProfileMail.addEventListener('click', () => {
         composeRecipient.textContent = userProfileName.textContent;
         composeText.value = '';
@@ -872,7 +1012,6 @@
         composeModal.style.display = 'flex';
         userProfileModal.style.display = 'none';
     });
-
     userProfileClose.addEventListener('click', () => userProfileModal.style.display = 'none');
 
     // Локальное хранилище
@@ -919,6 +1058,8 @@
                 saveUnread();
                 if (!privateScreen.classList.contains('inner-screen-hidden')) {
                     loadPrivateRooms();
+                } else {
+                    updatePrivateNavBadge();
                 }
             }
         });
@@ -944,7 +1085,9 @@
         if (id === 'public') return;
         currentPrivateRoom = { id, name: name || id };
         privateChatTitle.textContent = name || id;
-        if (unreadCounts[id]) { delete unreadCounts[id]; saveUnread(); }
+        // Сохраняем время входа для подсчёта непрочитанных
+        localStorage.setItem('lastRead_' + id, new Date().toISOString());
+        if (unreadCounts[id]) { delete unreadCounts[id]; saveUnread(); updatePrivateNavBadge(); }
         if (roomMessagesCache[id]) displayMessages(id, roomMessagesCache[id]);
         else privateChatMessages.innerHTML = '';
     }
@@ -1047,6 +1190,15 @@
     function saveUnread() { localStorage.setItem('chatxUnread', JSON.stringify(unreadCounts)); }
     loadUnreadFromStorage();
 
+    function updatePrivateNavBadge() {
+        let total = 0;
+        for (let roomId in unreadCounts) {
+            if (roomId !== '_localstorage') total += unreadCounts[roomId];
+        }
+        if (total > 0) { privateNavBadge.style.display = 'flex'; privateNavBadge.textContent = total; }
+        else privateNavBadge.style.display = 'none';
+    }
+
     // Публичный чат
     publicBack.addEventListener('click', () => { leaveRoom('public'); showInnerScreen('profile-screen'); });
     function attachMediaHandler(id) {
@@ -1074,10 +1226,14 @@
         } catch (e) { console.warn('Не удалось загрузить комнаты', e); }
         const all = [localRoom, ...rooms];
         privateRoomList.innerHTML = all.map(r => {
-            let u = unreadCounts[r.id] > 0, l = r.id === '_localstorage';
-            return `<div class="room-item" data-roomid="${r.id}" data-roomname="${r.name}" data-local="${l}"><div class="room-info"><span class="room-name">${escapeHtml(r.name)}</span>${u ? '<span class="room-unread-dot"></span>' : ''}</div><div class="room-actions">${!l ? `<button class="room-edit-btn" data-roomid="${r.id}" data-roomname="${r.name}"><i class="fas fa-pencil-alt"></i></button><button class="room-delete-btn" data-roomid="${r.id}"><i class="fas fa-times"></i></button>` : '<span style="color:var(--text-muted);">локально</span>'}</div></div>`;
+            let unread = unreadCounts[r.id] || 0;
+            let l = r.id === '_localstorage';
+            let badgeHtml = unread > 0 ? `<span class="room-unread-badge">${unread}</span>` : '';
+            return `<div class="room-item" data-roomid="${r.id}" data-roomname="${r.name}" data-local="${l}"><div class="room-info"><span class="room-name">${escapeHtml(r.name)}</span>${badgeHtml}</div><div class="room-actions">${!l ? `<button class="room-edit-btn" data-roomid="${r.id}" data-roomname="${r.name}"><i class="fas fa-pencil-alt"></i></button><button class="room-delete-btn" data-roomid="${r.id}"><i class="fas fa-times"></i></button>` : '<span style="color:var(--text-muted);">локально</span>'}</div></div>`;
         }).join('');
         privateRoomCount.textContent = rooms.length;
+        updatePrivateNavBadge();
+
         document.querySelectorAll('.room-item').forEach(el => el.addEventListener('click', e => {
             if (e.target.closest('.room-edit-btn') || e.target.closest('.room-delete-btn')) return;
             let rid = el.dataset.roomid, rname = el.dataset.roomname, loc = el.dataset.local === 'true';
