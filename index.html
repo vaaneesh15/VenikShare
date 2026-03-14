@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* Все стили как в предыдущей рабочей версии (без изменений) */
         * {
             margin: 0;
             padding: 0;
@@ -96,7 +97,7 @@
             --unread-dot-border: #1a1a2e;
         }
 
-        /* Анимация нажатия для всех устройств */
+        /* Анимация нажатия */
         .btn,
         .nav-item,
         .room-item,
@@ -281,13 +282,13 @@
             cursor: pointer;
         }
 
-        /* ===== Новая нижняя навигация (без смещения) ===== */
+        /* Нижняя навигация */
         .bottom-nav {
             display: flex;
             align-items: center;
             justify-content: space-around;
             margin: 8px 16px 16px 16px;
-            padding: 6px 8px 8px 8px;  /* убрал safe-area */
+            padding: 6px 8px 8px 8px;
             background: var(--panel-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -544,7 +545,6 @@
             margin-top: 4px;
             text-align: right;
         }
-        /* Стили для медиа-сообщений */
         .message-media {
             max-width: 200px;
             max-height: 200px;
@@ -580,7 +580,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px 12px 16px;  /* убрал safe-area */
+            padding: 8px 16px 12px 16px;
             border-top: 1px solid var(--container-border);
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -677,7 +677,6 @@
             color: var(--text-primary);
         }
 
-        /* Модальное окно просмотра медиа */
         #media-view-modal .modal-content {
             background: transparent;
             backdrop-filter: none;
@@ -709,7 +708,7 @@
 </head>
 <body>
     <div class="app" id="app">
-        <!-- Экран входа (без изменений) -->
+        <!-- Экран входа -->
         <div class="screen" id="auth-screen">
             <div class="page-header">
                 <h2>ChatX</h2>
@@ -735,7 +734,7 @@
         <!-- Главное приложение -->
         <div class="screen screen-hidden" id="main-screen">
             <div class="screen-container">
-                <!-- Профиль (без изменений) -->
+                <!-- Профиль -->
                 <div class="inner-screen" id="profile-screen">
                     <div class="page-header">
                         <h2>Профиль</h2>
@@ -781,7 +780,7 @@
                     </div>
                 </div>
 
-                <!-- Публичный чат (добавлена кнопка скрепки) -->
+                <!-- Публичный чат -->
                 <div class="inner-screen inner-screen-hidden" id="public-screen">
                     <div class="chat-header">
                         <div class="chat-header-left">
@@ -812,7 +811,7 @@
                     </div>
                 </div>
 
-                <!-- Личный чат (для серверных комнат) -->
+                <!-- Личный чат (серверный) -->
                 <div class="inner-screen inner-screen-hidden" id="private-chat-screen">
                     <div class="chat-header">
                         <div class="chat-header-left">
@@ -835,7 +834,7 @@
                     </div>
                 </div>
 
-                <!-- Локальное хранилище (отдельный экран) -->
+                <!-- Локальное хранилище -->
                 <div class="inner-screen inner-screen-hidden" id="local-chat-screen">
                     <div class="chat-header">
                         <div class="chat-header-left">
@@ -855,7 +854,7 @@
                 </div>
             </div>
 
-            <!-- Нижняя навигация (обновлённая) -->
+            <!-- Нижняя навигация -->
             <div class="bottom-nav" id="bottom-nav">
                 <div class="nav-item" data-screen="profile">
                     <i class="fas fa-user"></i>
@@ -872,13 +871,82 @@
             </div>
         </div>
 
-        <!-- Модальные окна (добавлено окно просмотра медиа) -->
-        <div id="password-modal" class="modal" style="display: none;">...</div>
-        <div id="confirm-modal" class="modal" style="display: none;">...</div>
-        <div id="change-password-modal" class="modal" style="display: none;">...</div>
-        <div id="rename-room-modal" class="modal" style="display: none;">...</div>
-        <div id="room-info-modal" class="modal" style="display: none;">...</div>
-        <div id="participants-modal" class="modal" style="display: none;">...</div>
+        <!-- Модальное окно ввода пароля -->
+        <div id="password-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="modal-title">Введите пароль</h3>
+                <input type="password" id="modal-password" placeholder="Пароль" style="width:100%; padding:12px; border-radius:30px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--text-primary);">
+                <div id="modal-error" style="color:#ff6b6b; margin-top:8px; font-size:14px;"></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="modal-cancel">Отмена</button>
+                    <button class="btn btn-primary" id="modal-confirm">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно подтверждения -->
+        <div id="confirm-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="confirm-title">Вы уверены?</h3>
+                <div class="modal-buttons">
+                    <button class="btn" id="confirm-no">Нет</button>
+                    <button class="btn btn-primary" id="confirm-yes">Да</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно смены пароля -->
+        <div id="change-password-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Смена пароля</h3>
+                <input type="password" id="old-password" placeholder="Старый пароль" style="width:100%; padding:12px; border-radius:30px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--text-primary); margin-bottom:12px;">
+                <input type="password" id="new-password" placeholder="Новый пароль" style="width:100%; padding:12px; border-radius:30px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--text-primary); margin-bottom:12px;">
+                <div id="change-password-error" style="color:#ff6b6b; margin-top:8px; font-size:14px;"></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="change-password-cancel">Отмена</button>
+                    <button class="btn btn-primary" id="change-password-confirm">Сменить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно редактирования названия комнаты -->
+        <div id="rename-room-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;" id="rename-modal-title">Изменить название комнаты</h3>
+                <input type="text" id="rename-room-input" placeholder="Новое название" style="width:100%; padding:12px; border-radius:30px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--text-primary);">
+                <div id="rename-room-error" style="color:#ff6b6b; margin-top:8px; font-size:14px;"></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="rename-room-cancel">Отмена</button>
+                    <button class="btn btn-primary" id="rename-room-confirm">Сохранить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно информации о комнате -->
+        <div id="room-info-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Информация о комнате</h3>
+                <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>Название:</strong> <span id="room-info-name"></span></div>
+                <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>ID:</strong> <span id="room-info-id"></span></div>
+                <div style="color: var(--text-primary); margin-bottom: 8px;"><strong>Пароль:</strong> <span id="room-info-password"></span></div>
+                <div class="modal-buttons">
+                    <button class="btn" id="room-info-close">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно списка участников -->
+        <div id="participants-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 style="color: var(--text-primary); margin-bottom: 16px;">Участники онлайн</h3>
+                <ul id="participants-list" class="participant-list"></ul>
+                <div class="modal-buttons">
+                    <button class="btn" id="participants-close">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно просмотра медиа -->
         <div id="media-view-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <button class="close-btn" id="media-view-close"><i class="fas fa-times"></i></button>
@@ -893,11 +961,11 @@
             let currentUser = null;
             let currentRoom = null;
             let socket = null;
-            let currentPrivateRoom = null; // { id, name }
-            let isLocalRoom = false;        // флаг для локального хранилища
+            let currentPrivateRoom = null;
+            let isLocalRoom = false;
             let unreadCounts = {};
-            let localMessages = [];          // сообщения локального хранилища
-            let roomMessagesCache = {};      // кеш сообщений для серверных комнат { roomId: [messages] }
+            let localMessages = [];
+            let roomMessagesCache = {};
 
             let userSettings = {
                 requirePassword: false,
@@ -924,7 +992,7 @@
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
             applyTheme();
 
-            // Элементы
+            // Элементы (полный список)
             const authScreen = document.getElementById('auth-screen');
             const mainScreen = document.getElementById('main-screen');
             const profileScreen = document.getElementById('profile-screen');
@@ -1023,7 +1091,6 @@
                 localChatScreen.classList.add('inner-screen-hidden');
                 document.getElementById(screenId).classList.remove('inner-screen-hidden');
 
-                // Активация пункта навигации
                 let targetNav = null;
                 if (screenId === 'profile-screen') targetNav = 'profile';
                 else if (screenId === 'public-screen') targetNav = 'public';
@@ -1267,7 +1334,6 @@
                 if (!roomMessagesCache[roomId]) {
                     roomMessagesCache[roomId] = [];
                 }
-                // избегаем дубликатов по id
                 if (!roomMessagesCache[roomId].some(m => m.id === msg.id)) {
                     roomMessagesCache[roomId].push(msg);
                     saveRoomCache(roomId);
@@ -1282,7 +1348,6 @@
                 socket.on('roomError', (data) => alert(data.message));
                 socket.on('roomJoined', (data) => {
                     console.log('✅ roomJoined', data.roomId, data.messages.length);
-                    // Кешируем полученные сообщения
                     roomMessagesCache[data.roomId] = data.messages;
                     saveRoomCache(data.roomId);
                     if (data.roomId === currentRoom && !isLocalRoom) {
@@ -1296,16 +1361,14 @@
                 });
                 socket.on('newMessage', (data) => {
                     console.log('📩 newMessage for room', data.roomId);
-                    // Кешируем сообщение
                     addMessageToCache(data.roomId, data);
                     if (data.roomId === currentRoom && !isLocalRoom) {
                         addMessageToChat(data);
                     } else if (data.roomId !== 'public') {
-                        // Для личных комнат увеличиваем счётчик, если не в этой комнате
                         if (!unreadCounts[data.roomId]) unreadCounts[data.roomId] = 0;
                         unreadCounts[data.roomId]++;
                         saveUnread();
-                        loadPrivateRooms(); // обновляем список
+                        loadPrivateRooms();
                     }
                 });
                 socket.on('userCount', (data) => {
@@ -1315,9 +1378,8 @@
             }
 
             function joinRoom(roomId, roomName = null) {
-                if (!socket || !currentUser) return;
+                if (!socket && roomId !== '_localstorage') return;
                 if (roomId === '_localstorage') {
-                    // локальная комната
                     isLocalRoom = true;
                     currentRoom = '_localstorage';
                     currentPrivateRoom = null;
@@ -1331,16 +1393,14 @@
                 if (roomId === 'public') return;
                 currentPrivateRoom = { id: roomId, name: roomName || roomId };
                 privateChatTitle.textContent = roomName || roomId;
-                // Сбрасываем непрочитанные
                 if (unreadCounts[roomId]) {
                     delete unreadCounts[roomId];
                     saveUnread();
                 }
-                // Показываем кешированные сообщения, если есть
                 if (roomMessagesCache[roomId]) {
                     displayMessages(roomId, roomMessagesCache[roomId]);
                 } else {
-                    privateChatMessages.innerHTML = ''; // очищаем
+                    privateChatMessages.innerHTML = '';
                 }
             }
 
@@ -1354,7 +1414,6 @@
 
             function sendMessage(roomId, text, isMedia = false) {
                 if (roomId === '_localstorage') {
-                    // локальное сообщение
                     const msg = {
                         id: 'local_' + Date.now() + Math.random(),
                         roomId: '_localstorage',
@@ -1372,7 +1431,7 @@
                 socket.emit('sendMessage', { roomId, sender: currentUser.username, text });
             }
 
-            // ---------- Отображение сообщений (с поддержкой медиа) ----------
+            // Отображение сообщений
             function renderMessageBubble(msg, own) {
                 const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const isMedia = msg.text && (msg.text.startsWith('data:image') || msg.text.startsWith('data:video') || msg.text.startsWith('data:audio'));
@@ -1430,7 +1489,7 @@
                 const container = localChatMessages;
                 if (!container) return;
                 if (container.querySelector(`[data-msg-id="${msg.id}"]`)) return;
-                const own = true; // локальные всегда свои
+                const own = true;
                 const div = document.createElement('div');
                 div.className = `message message-own`;
                 div.setAttribute('data-msg-id', msg.id);
@@ -1446,7 +1505,6 @@
                 });
             }
 
-            // Глобальные функции для открытия/скачивания медиа
             window.openMedia = function(src) {
                 mediaViewContainer.innerHTML = src.startsWith('data:video') ? 
                     `<video controls src="${src}"></video>` : 
@@ -1476,7 +1534,7 @@
                 });
             }
 
-            // ---------- Непрочитанные ----------
+            // Непрочитанные
             function loadUnreadFromStorage() {
                 try {
                     const saved = localStorage.getItem('chatxUnread');
@@ -1488,13 +1546,13 @@
             }
             loadUnreadFromStorage();
 
-            // ---------- Публичный чат с медиа ----------
+            // Публичный чат
             publicBack.addEventListener('click', () => {
                 leaveRoom('public');
                 showInnerScreen('profile-screen');
             });
 
-            function attachMediaHandler(roomId, isLocal = false) {
+            function attachMediaHandler(roomId) {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'image/*,video/*,audio/*';
@@ -1537,14 +1595,13 @@
                 }
             });
 
-            // ---------- Личные комнаты (список) с сортировкой ----------
+            // Личные комнаты (список)
             async function loadPrivateRooms() {
                 if (!currentUser) return;
                 try {
                     const res = await fetch(API_BASE + '/api/rooms/list/' + currentUser.username);
                     let rooms = await res.json();
                     
-                    // Добавляем локальное хранилище как первую комнату
                     const localRoom = {
                         id: '_localstorage',
                         name: 'Хранилище',
@@ -1552,11 +1609,10 @@
                         local: true
                     };
                     
-                    // Сортируем: сначала локальная, потом с непрочитанными, потом остальные
                     rooms.sort((a, b) => {
                         const aUnread = unreadCounts[a.id] ? 1 : 0;
                         const bUnread = unreadCounts[b.id] ? 1 : 0;
-                        return bUnread - aUnread; // комнаты с непрочитанными выше
+                        return bUnread - aUnread;
                     });
                     
                     const allRooms = [localRoom, ...rooms];
@@ -1579,9 +1635,8 @@
                         </div>
                     `}).join('');
                     
-                    privateRoomCount.textContent = rooms.length; // только серверные
+                    privateRoomCount.textContent = rooms.length;
 
-                    // Обработчики
                     document.querySelectorAll('.room-item').forEach(el => {
                         el.addEventListener('click', (e) => {
                             if (e.target.closest('.room-edit-btn') || e.target.closest('.room-delete-btn')) return;
@@ -1745,7 +1800,7 @@
                 }
             });
 
-            // ---------- Личный чат (серверный) с медиа ----------
+            // Личный чат
             privateChatBack.addEventListener('click', () => {
                 if (currentPrivateRoom) leaveRoom(currentPrivateRoom.id);
                 showInnerScreen('private-screen');
@@ -1837,7 +1892,7 @@
                 participantsModal.style.display = 'none';
             });
 
-            // ---------- Локальное хранилище ----------
+            // Локальное хранилище
             localChatBack.addEventListener('click', () => {
                 if (currentRoom === '_localstorage') {
                     leaveRoom('_localstorage');
@@ -1845,7 +1900,7 @@
                 showInnerScreen('private-screen');
             });
 
-            localChatAttach.addEventListener('click', () => attachMediaHandler('_localstorage', true));
+            localChatAttach.addEventListener('click', () => attachMediaHandler('_localstorage'));
 
             localChatSend.addEventListener('click', () => {
                 const text = localChatInput.value.trim();
@@ -1862,7 +1917,7 @@
                 }
             });
 
-            // Удаление аккаунта и выход (без изменений)
+            // Удаление аккаунта и выход
             document.getElementById('delete-account-btn').addEventListener('click', () => {
                 modalTitle.textContent = 'Удалить аккаунт? Введите пароль';
                 modalPassword.value = '';
