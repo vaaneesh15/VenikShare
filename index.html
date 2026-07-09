@@ -93,6 +93,27 @@
             overflow: hidden;
         }
 
+        /* Панель аудио под шапкой */
+        .audio-panel {
+            background: var(--panel-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--container-border);
+            padding: 8px 16px; display: none; align-items: center; gap: 12px; flex-shrink: 0;
+        }
+        .audio-panel.active { display: flex; }
+        .audio-panel .play-btn {
+            width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: white; border: none;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;
+        }
+        .audio-panel .title {
+            flex: 1; font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .audio-panel .close-btn {
+            background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer;
+        }
+        .audio-panel .progress {
+            position: absolute; bottom: 0; left: 0; height: 3px; background: var(--accent); width: 0;
+        }
+
         .chat-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: max(env(safe-area-inset-top), 12px) 16px 12px 16px;
@@ -102,9 +123,9 @@
             flex-shrink: 0;
         }
         .chat-header-left { display: flex; align-items: center; gap: 12px; }
-        /* Кнопки шапки опускаем на 4px вниз */
+        /* Кнопки шапки опущены на 2px */
         .profile-btn, .participant-count {
-            margin-top: 4px;
+            margin-top: 6px;
         }
         .profile-btn {
             background: var(--icon-bg); width: 40px; height: 40px; border-radius: 30px;
@@ -118,6 +139,13 @@
             font-weight: 600; color: var(--accent); border: 1px solid var(--card-border); cursor: pointer;
         }
 
+        /* Индикатор печати */
+        .typing-indicator {
+            font-size: 13px; color: var(--text-muted); padding: 4px 16px; background: var(--panel-bg);
+            border-top: 1px solid var(--container-border); display: none; flex-shrink: 0;
+        }
+        .typing-indicator.active { display: block; }
+
         .chat-messages {
             flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 4px;
             -webkit-overflow-scrolling: touch;
@@ -130,7 +158,6 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             flex-shrink: 0;
-            padding-bottom: 12px;
         }
         .chat-input-area textarea {
             flex: 1; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 30px;
@@ -162,20 +189,32 @@
         .message-bubble {
             background: var(--chat-other-bg); border-radius: 24px; padding: 10px 16px;
             border: 1px solid var(--card-border); word-break: break-word; color: var(--chat-other-text);
-            position: relative;
+            position: relative; min-width: 120px;
         }
         .message-bubble-own { background: var(--chat-own-bg); color: var(--chat-own-text); border-color: var(--accent-light); }
         .message-sender { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--accent); }
         .message-text { font-size: 15px; line-height: 1.4; }
         .message-time { font-size: 11px; opacity: 0.7; margin-top: 4px; text-align: right; }
-        /* Медиа-элементы (изображения, видео, аудио) внутри сообщений */
+        /* Медиа-элементы */
         .message-media {
-            max-width: 100%; /* ограничиваем шириной родителя */
-            border-radius: 16px; cursor: pointer; margin-bottom: 30px; display: block;
+            max-width: 100%; border-radius: 16px; cursor: pointer; margin-bottom: 30px; display: block;
         }
         audio.message-media {
-            width: 100%; /* аудио на всю ширину пузыря */
-            margin-bottom: 30px;
+            width: 100%; margin-bottom: 30px;
+        }
+        .custom-audio {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 28px;
+        }
+        .custom-audio .play-btn {
+            width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: white; border: none;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;
+        }
+        .custom-audio .progress-bar {
+            flex: 1; height: 4px; background: var(--slider-track, rgba(0,0,0,0.1)); border-radius: 4px;
+            overflow: hidden;
+        }
+        .custom-audio .progress-fill {
+            height: 100%; background: var(--accent); width: 0;
         }
         .message-download-btn {
             position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.5); color: white;
@@ -199,7 +238,6 @@
         .color-option, .emoji-option { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid transparent; font-size: 24px; }
         .color-option.selected, .emoji-option.selected { border-color: var(--accent); }
 
-        /* Просмотр медиа */
         #media-view-modal .modal-content {
             background: transparent; backdrop-filter: none; box-shadow: none;
             display: flex; justify-content: center; align-items: center; padding: 0;
@@ -209,7 +247,6 @@
         #media-view-modal img, #media-view-modal video {
             max-width: 90vw; max-height: 80vh; border-radius: 16px; object-fit: contain; cursor: default;
         }
-        /* Крестик – ниже статус-бара */
         #media-view-close-btn {
             position: absolute;
             top: max(env(safe-area-inset-top) + 20px, 60px);
@@ -246,6 +283,16 @@
                 </div>
                 <div class="participant-count" id="public-participant-count" title="Участники онлайн">0</div>
             </div>
+            <!-- Панель аудио -->
+            <div class="audio-panel" id="audio-panel">
+                <button class="play-btn" id="audio-panel-play"><i class="fas fa-play"></i></button>
+                <div class="title" id="audio-panel-title"></div>
+                <button class="close-btn" id="audio-panel-close"><i class="fas fa-times"></i></button>
+                <div class="progress" id="audio-panel-progress"></div>
+            </div>
+            <!-- Индикатор печати -->
+            <div class="typing-indicator" id="typing-indicator"></div>
+
             <div class="chat-messages" id="public-messages"></div>
             <div class="chat-input-area">
                 <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
@@ -324,6 +371,8 @@
         const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
         const COLORS = ['#E57373','#F06292','#BA68C8','#9575CD','#7986CB','#64B5F6','#4FC3F7','#4DD0E1','#4DB6AC','#81C784','#AED581','#DCE775','#FFD54F','#FFB74D','#FF8A65','#A1887F','#E0E0E0','#90A4AE'];
         let selectedEmoji = '', selectedColor = '#ccc', currentTheme = localStorage.getItem('chatxTheme') || 'system';
+        let typingUsers = new Set();
+        let typingTimer = null;
 
         function applyTheme() {
             const isDark = currentTheme === 'dark' || (currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -345,7 +394,11 @@
               profileUsernameDisplay = $('profile-username-display'), themeToggleBtn = $('theme-toggle-btn'), logoutBtn = $('logout-btn'),
               profileCloseBtn = $('profile-close-btn'), participantsModal = $('participants-modal'), participantsList = $('participants-list'),
               participantsLoading = $('participants-loading'), participantsCloseBtn = $('participants-close-btn'),
-              mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'), cooldownBar = $('cooldown-bar');
+              mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'), cooldownBar = $('cooldown-bar'),
+              audioPanel = $('audio-panel'), audioPanelPlay = $('audio-panel-play'), audioPanelTitle = $('audio-panel-title'),
+              audioPanelClose = $('audio-panel-close'), audioPanelProgress = $('audio-panel-progress'),
+              typingIndicator = $('typing-indicator');
+        let currentAudio = null; // аудиоэлемент панели
 
         function showMain() { authScreen.classList.add('hidden'); mainScreen.style.display = 'flex'; }
         function showAuth() { authScreen.classList.remove('hidden'); mainScreen.style.display = 'none'; }
@@ -400,6 +453,7 @@
             } else showAuth();
         })();
 
+        // Сокет
         function connectSocket() {
             if (socket) socket.close();
             socket = io({ reconnectionAttempts: 5, timeout: 10000 });
@@ -420,9 +474,78 @@
                 displayPublicMessages();
             });
             socket.on('userCount', d => { publicParticipantCount.textContent = d.count; });
+            socket.on('typingUpdate', users => {
+                updateTypingIndicator(users);
+            });
             socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
         }
 
+        // Индикатор печати
+        publicInput.addEventListener('input', () => {
+            if (!socket || !currentUser) return;
+            if (publicInput.value.trim().length > 0) {
+                socket.emit('typingStart', { roomId: 'public', username: currentUser.username });
+            } else {
+                socket.emit('typingStop', { roomId: 'public', username: currentUser.username });
+            }
+        });
+        function updateTypingIndicator(users) {
+            typingUsers = new Set(users.filter(u => u !== currentUser?.username));
+            if (typingUsers.size === 0) {
+                typingIndicator.classList.remove('active');
+                typingIndicator.textContent = '';
+            } else {
+                typingIndicator.classList.add('active');
+                const names = Array.from(typingUsers);
+                if (names.length === 1) {
+                    typingIndicator.textContent = `${names[0]} печатает...`;
+                } else if (names.length === 2) {
+                    typingIndicator.textContent = `${names[0]}, ${names[1]} печатают...`;
+                } else {
+                    typingIndicator.textContent = `${names.length} печатают...`;
+                }
+            }
+        }
+
+        // Панель аудио
+        function openAudioPanel(src, name) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.remove();
+            }
+            currentAudio = new Audio(src);
+            currentAudio.addEventListener('timeupdate', () => {
+                const percent = (currentAudio.currentTime / currentAudio.duration) * 100;
+                audioPanelProgress.style.width = percent + '%';
+            });
+            currentAudio.addEventListener('ended', () => {
+                audioPanel.classList.remove('active');
+                currentAudio.remove();
+                currentAudio = null;
+            });
+            audioPanelTitle.textContent = name || 'Аудио';
+            audioPanel.classList.add('active');
+            audioPanelPlay.innerHTML = '<i class="fas fa-play"></i>';
+            audioPanelPlay.onclick = () => {
+                if (currentAudio.paused) {
+                    currentAudio.play();
+                    audioPanelPlay.innerHTML = '<i class="fas fa-pause"></i>';
+                } else {
+                    currentAudio.pause();
+                    audioPanelPlay.innerHTML = '<i class="fas fa-play"></i>';
+                }
+            };
+            audioPanelClose.onclick = () => {
+                currentAudio.pause();
+                currentAudio.remove();
+                currentAudio = null;
+                audioPanel.classList.remove('active');
+            };
+            currentAudio.play();
+            audioPanelPlay.innerHTML = '<i class="fas fa-pause"></i>';
+        }
+
+        // Отправка сообщения
         function sendMessage() {
             if (!canSend || !socket || !currentUser) return;
             const text = publicInput.value.trim(); if (!text) return;
@@ -436,6 +559,7 @@
             publicMessagesCache.push(optimisticMsg);
             displayPublicMessages();
             publicInput.value = ''; autoResize(publicInput); publicInput.focus();
+            socket.emit('typingStop', { roomId: 'public', username: currentUser.username });
             socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text, _tempId: tempId });
             canSend = false; publicSend.classList.add('disabled');
             cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0';
@@ -445,14 +569,14 @@
         publicSend.onclick = sendMessage;
         publicInput.addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (canSend) sendMessage(); } });
 
+        // Загрузка медиа (до 25 МБ)
         function attachMediaHandler() {
             const inp = document.createElement('input');
             inp.type = 'file';
-            // Принимаем все изображения, видео, аудио, включая HEIC/HEIF
             inp.accept = 'image/*,image/heic,image/heif,video/*,audio/*';
             inp.onchange = e => {
                 const f = e.target.files[0]; if (!f) return;
-                if (f.size > 10*1024*1024) { alert('Файл не должен превышать 10 МБ'); return; }
+                if (f.size > 25*1024*1024) { alert('Файл не должен превышать 25 МБ'); return; }
                 if (!canSend) return;
                 const reader = new FileReader();
                 reader.onload = ev => {
@@ -477,6 +601,7 @@
         }
         publicAttach.onclick = attachMediaHandler;
 
+        // Рендеринг сообщений
         function escapeHtml(t) { return t.replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
         function formatDate(ts) { return new Date(ts).toLocaleDateString('ru-RU', { year:'numeric', month:'long', day:'numeric' }); }
         function renderBubble(msg, own) {
@@ -489,8 +614,11 @@
                 } else if (msg.text.startsWith('data:video')) {
                     content = `<video controls class="message-media" src="${msg.text}"></video>`;
                 } else if (msg.text.startsWith('data:audio')) {
-                    // аудио с классом message-media, чтобы подстроить ширину
-                    content = `<audio controls class="message-media" src="${msg.text}"></audio>`;
+                    // Кастомный плеер
+                    content = `<div class="custom-audio" data-src="${msg.text}">
+                        <button class="play-btn" onclick="window.playCustomAudio(this)"><i class="fas fa-play"></i></button>
+                        <div class="progress-bar"><div class="progress-fill"></div></div>
+                    </div>`;
                 }
                 content += `<button class="message-download-btn" onclick="event.stopPropagation(); window.downloadMedia('${msg.text}')"><i class="fas fa-download"></i></button>`;
             } else {
@@ -498,6 +626,30 @@
             }
             return `<div class="message-bubble ${own ? 'message-bubble-own' : ''}">${own ? '' : `<div class="message-sender">${escapeHtml(msg.sender)}</div>`}${content}<div class="message-time">${time}</div></div>`;
         }
+        window.playCustomAudio = function(btn) {
+            const wrapper = btn.parentElement;
+            const src = wrapper.dataset.src;
+            const audio = new Audio(src);
+            const fill = wrapper.querySelector('.progress-fill');
+            btn.innerHTML = '<i class="fas fa-pause"></i>';
+            audio.play();
+            audio.addEventListener('timeupdate', () => {
+                const pct = (audio.currentTime / audio.duration) * 100;
+                fill.style.width = pct + '%';
+            });
+            audio.addEventListener('ended', () => {
+                btn.innerHTML = '<i class="fas fa-play"></i>';
+                fill.style.width = '0';
+            });
+            btn.onclick = () => {
+                if (audio.paused) { audio.play(); btn.innerHTML = '<i class="fas fa-pause"></i>'; }
+                else { audio.pause(); btn.innerHTML = '<i class="fas fa-play"></i>'; }
+            };
+            // Также открываем панель аудио
+            const msgDiv = btn.closest('.message');
+            const sender = msgDiv.querySelector('.message-sender')?.textContent || '';
+            openAudioPanel(src, sender + ' – аудио');
+        };
         function renderAvatar(emoji, color, username) {
             return `<div class="message-avatar" style="background:${color||'#ccc'};">${emoji || (username?.[0]?.toUpperCase()||'?')}</div>`;
         }
