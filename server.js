@@ -47,9 +47,9 @@ initDB();
 
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
-const typingUsers = new Map(); // roomId -> Set of usernames
+const typingUsers = new Map();
 
-// ---------- API ----------
+// API
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -99,7 +99,7 @@ app.get('/api/rooms/participants/public', (req, res) => {
   res.json(users ? Array.from(users) : []);
 });
 
-// ---------- Сокеты ----------
+// Сокеты
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
   socket.on('joinRoom', async ({ roomId, username }) => {
@@ -143,7 +143,6 @@ io.on('connection', (socket) => {
     };
     io.to('public').emit('newMessage', msg);
 
-    // Лимит 40 сообщений
     const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
     if (parseInt(countRows[0].count) > 40) {
       await pool.query(
