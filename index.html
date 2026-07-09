@@ -14,7 +14,8 @@
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
 
         html, body {
-            width: 100%; height: 100%; overflow: hidden;
+            width: 100%; height: 100vh; /* используем vh, чтобы включить безопасную зону */
+            overflow: hidden;
             background: linear-gradient(145deg, #e9e9f0, #dadde8);
         }
         body.dark { background: linear-gradient(145deg, #000000, #121212); }
@@ -61,12 +62,11 @@
             --chat-other-text:#ffffff;
         }
 
-        /* Главная обёртка */
+        /* Главный контейнер без дополнительного padding-bottom */
         .app-container {
             width: 100%; height: 100vh;
             display: flex; flex-direction: column;
-            background: inherit;
-            padding-bottom: env(safe-area-inset-bottom);
+            background: inherit; /* фон уже задан на body */
         }
 
         #auth-screen {
@@ -117,6 +117,8 @@
             background: var(--panel-bg);
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             flex-shrink: 0;
+            /* небольшой отступ снизу для комфорта, но без безопасной зоны */
+            padding-bottom: 12px;
         }
         .chat-input-area textarea {
             flex: 1; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 30px;
@@ -217,7 +219,7 @@
         </div>
     </div>
 
-    <!-- Модалки (без изменений) -->
+    <!-- Модалки без изменений -->
     <div id="profile-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 style="color:var(--text-primary); margin-bottom:16px;">Профиль</h3>
@@ -370,7 +372,6 @@
                 publicParticipantCount.textContent = d.userCount;
             });
             socket.on('newMessage', d => {
-                // Замена временного сообщения по _tempId (если есть) или добавление
                 const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
                 if (tempIndex !== -1) {
                     publicMessagesCache[tempIndex] = { ...d, _temp: false };
