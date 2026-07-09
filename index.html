@@ -61,14 +61,12 @@
             --chat-other-text:#ffffff;
         }
 
-        /* Главный контейнер — аналог .player-container из Пупок FM */
+        /* Главная обёртка */
         .app-container {
-            width: 100%;
-            height: 100vh;                   /* полная высота viewport, включая безопасную зону */
-            display: flex;
-            flex-direction: column;
-            background: inherit;              /* наследует градиент от body */
-            padding-bottom: env(safe-area-inset-bottom);  /* заливает нижнюю безопасную зону фоном */
+            width: 100%; height: 100vh;
+            display: flex; flex-direction: column;
+            background: inherit;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         #auth-screen {
@@ -91,9 +89,8 @@
 
         #main-screen {
             flex: 1;
-            display: flex; flex-direction: column;
-            background: transparent;
-            overflow: hidden;                 /* чтобы сообщения прокручивались внутри */
+            display: flex; flex-direction: column; background: transparent;
+            overflow: hidden;
         }
 
         .chat-header {
@@ -220,7 +217,7 @@
         </div>
     </div>
 
-    <!-- Модалки без изменений -->
+    <!-- Модалки (без изменений) -->
     <div id="profile-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 style="color:var(--text-primary); margin-bottom:16px;">Профиль</h3>
@@ -373,6 +370,7 @@
                 publicParticipantCount.textContent = d.userCount;
             });
             socket.on('newMessage', d => {
+                // Замена временного сообщения по _tempId (если есть) или добавление
                 const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
                 if (tempIndex !== -1) {
                     publicMessagesCache[tempIndex] = { ...d, _temp: false };
@@ -408,7 +406,9 @@
         publicInput.addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (canSend) sendMessage(); } });
 
         function attachMediaHandler() {
-            const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '*/*';
+            const inp = document.createElement('input');
+            inp.type = 'file';
+            inp.accept = 'image/*,video/*,audio/*'; // HEIC/HEIF входят в image/*
             inp.onchange = e => {
                 const f = e.target.files[0]; if (!f) return;
                 if (f.size > 10*1024*1024) { alert('Файл не должен превышать 10 МБ'); return; }
