@@ -39,11 +39,9 @@ async function initDB() {
 }
 initDB();
 
-// Активные пользователи в паблике
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
 
-// АПИ аккаунтов
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -87,7 +85,6 @@ app.post('/api/delete-account', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
-// Аватар
 app.post('/api/upload-avatar', async (req, res) => {
   const { username, avatar } = req.body;
   if (!username || !avatar) return res.status(400).json({ error: 'Нет данных' });
@@ -101,13 +98,11 @@ app.get('/api/avatar/:username', async (req, res) => {
   res.json({ avatar: user.rows[0].avatar });
 });
 
-// Участники паблика
 app.get('/api/rooms/participants/public', (req, res) => {
   const users = activeUsers.get('public');
   res.json(users ? Array.from(users) : []);
 });
 
-// Сокеты
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
   socket.on('joinRoom', async ({ roomId, username }) => {
