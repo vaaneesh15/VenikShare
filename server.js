@@ -38,8 +38,11 @@ async function initDB() {
       avatar_emoji VARCHAR(10) DEFAULT '',
       avatar_color VARCHAR(7) DEFAULT '',
       text TEXT NOT NULL,
+      file_name VARCHAR(255) DEFAULT '',
       timestamp TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
+    // Добавляем колонку file_name, если её нет (для существующих таблиц)
+    await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT ''`);
     console.log('✅ БД готова');
   } catch (err) { console.error('❌ Ошибка БД:', err); }
 }
@@ -109,17 +112,34 @@ io.on('connection', (socket) => {
     socket.data.username = username;
     activeUsers.get('public').add(username);
     const messages = await pool.query(
-      `SELECT m.id, u.username AS sender, m.text, m.timestamp, m.avatar_emoji, m.avatar_color 
+      `SELECT m.id, u.username AS sender, m.text, m.file_name, m.timestamp, m.avatar_emoji, m.avatar_color 
        FROM messages m 
        JOIN users u ON m.user_id = u.id 
        WHERE m.room_id = 'public' 
-       ORDER BY m.timestamp ASC`
+       ORDER BY m.timestamp DESC 
+       LIMIT 15`
     );
-    socket.emit('roomJoined', { roomId: 'public', messages: messages.rows, userCount: activeUsers.get('public').size });
+    // Разворачиваем, чтобы последние были внизу
+    const rows = messages.rows.reverse();
+    socket.emit('roomJoined', { roomId: 'public', messages: rows, userCount: activeUsers.get('public').size });
     io.to('public').emit('userCount', { count: activeUsers.get('public').size });
   });
 
-  socket.on('sendMessage', async ({ roomId, username, text, _tempId }) => {
+  socket.on('loadOlderMessages', async ({ roomId, beforeTimestamp }) => {
+    if (roomId !== 'public' || !beforeTimestamp) return;
+    const messages = await pool.query(
+      `SELECT m.id, u.username AS sender, m.text, m.file_name, m.timestamp, m.avatar_emoji, m.avatar_color 
+       FROM messages m 
+       JOIN users u ON m.user_id = u.id 
+       WHERE m.room_id = 'public' AND m.timestamp < $1 
+       ORDER BY m.timestamp DESC 
+       LIMIT 15`,
+      [beforeTimestamp]
+    );
+    socket.emit('olderMessages', { messages: messages.rows.reverse() });
+  });
+
+  socket.on('sendMessage', async ({ roomId, username, text, fileName, _tempId }) => {
     if (roomId !== 'public' || !username) return;
     const user = await pool.query('SELECT id, avatar_emoji, avatar_color FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0) return;
@@ -127,8 +147,8 @@ io.on('connection', (socket) => {
     const emoji = user.rows[0].avatar_emoji || '';
     const color = user.rows[0].avatar_color || '';
     const result = await pool.query(
-      'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, timestamp',
-      ['public', userId, username, emoji, color, text]
+      'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text, file_name) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, timestamp',
+      ['public', userId, username, emoji, color, text, fileName || '']
     );
     const newMsg = result.rows[0];
     const msg = {
@@ -138,11 +158,13 @@ io.on('connection', (socket) => {
       avatar_emoji: emoji,
       avatar_color: color,
       text,
+      fileName: fileName || '',
       timestamp: newMsg.timestamp.toISOString(),
       _tempId
     };
     io.to('public').emit('newMessage', msg);
 
+    // Лимит 40 сообщений
     const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
     if (parseInt(countRows[0].count) > 40) {
       await pool.query(
