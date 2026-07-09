@@ -10,7 +10,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(__dirname));
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 1e7 // 10 MB
+});
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -120,27 +123,29 @@ io.on('connection', (socket) => {
     const userId = user.rows[0].id;
     const emoji = user.rows[0].avatar_emoji || '';
     const color = user.rows[0].avatar_color || '';
-    await pool.query(
-      'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text) VALUES ($1, $2, $3, $4, $5, $6)',
+    const result = await pool.query(
+      'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, timestamp',
       ['public', userId, username, emoji, color, text]
     );
-    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
-    const count = parseInt(countRows[0].count);
-    if (count > 40) {
-      await pool.query(
-        'DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE room_id = $1 ORDER BY timestamp ASC LIMIT $2)',
-        ['public', count - 40]
-      );
-    }
+    const newMsg = result.rows[0];
     const msg = {
+      id: newMsg.id,
       roomId: 'public',
       sender: username,
       avatar_emoji: emoji,
       avatar_color: color,
       text,
-      timestamp: new Date().toISOString()
+      timestamp: newMsg.timestamp.toISOString()
     };
     io.to('public').emit('newMessage', msg);
+
+    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
+    if (parseInt(countRows[0].count) > 40) {
+      await pool.query(
+        'DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE room_id = $1 ORDER BY timestamp ASC LIMIT $2)',
+        ['public', parseInt(countRows[0].count) - 40]
+      );
+    }
   });
 
   socket.on('leaveRoom', ({ roomId }) => {
