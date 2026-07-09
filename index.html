@@ -191,7 +191,6 @@
     let selectedEmoji = '', selectedColor = '#ccc', currentTheme = localStorage.getItem('chatxTheme') || 'system';
     let currentAudio = null, currentAudioSrc = null, currentAudioBtns = [], currentAudioFills = [];
 
-    // Запись голоса
     let mediaRecorder = null, audioChunks = [], recordingState = 'idle';
     const voiceBtn = document.getElementById('voice-btn');
     const publicSend = document.getElementById('public-send');
@@ -521,6 +520,10 @@
         inp.accept = 'image/*,audio/*';
         inp.onchange = e => {
             const f = e.target.files[0]; if (!f) return;
+            if (f.type.startsWith('video/')) {
+                alert('Видео не поддерживается');
+                return;
+            }
             if (f.size > 25*1024*1024) { alert('Файл не должен превышать 25 МБ'); return; }
             if (!canSend) return;
             const reader = new FileReader();
@@ -594,14 +597,13 @@
         content.innerHTML = renderBubble(msg, own, skipPlaceholder || own);
         div.appendChild(content);
         container.appendChild(div);
-        return div;
+        return msgDate;
     }
 
     function displayPublicMessages(initial) {
         publicMessagesEl.innerHTML = '';
         let last = null;
         publicMessagesCache.forEach(m => last = addMessageWithDate(publicMessagesEl, m, last, false));
-        // Инициализация всех аудио-плееров (для своих и загруженных ранее)
         document.querySelectorAll('.custom-audio').forEach(w => window.initCustomAudio(w));
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
