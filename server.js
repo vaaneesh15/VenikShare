@@ -50,7 +50,7 @@ initDB();
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
 
-// ----- API -----
+// ----- API (только нужное) -----
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -80,64 +80,19 @@ app.post('/api/login', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
-app.post('/api/change-password', async (req, res) => {
-  const { username, oldPassword, newPassword } = req.body;
-  if (!username || !oldPassword || !newPassword) return res.status(400).json({ error: 'Не все поля' });
-  try {
-    const user = await pool.query('SELECT id FROM users WHERE username = $1 AND password = $2', [username, oldPassword]);
-    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверный старый пароль' });
-    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [newPassword, user.rows[0].id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/change-username', async (req, res) => {
-  const { username, password, newUsername } = req.body;
-  if (!username || !password || !newUsername) return res.status(400).json({ error: 'Не все поля' });
-  try {
-    const user = await pool.query('SELECT id FROM users WHERE username = $1 AND password = $2', [username, password]);
-    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверный пароль' });
-    const exist = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [newUsername, user.rows[0].id]);
-    if (exist.rows.length > 0) return res.status(409).json({ error: 'Это имя уже занято' });
-    await pool.query('UPDATE users SET username = $1 WHERE id = $2', [newUsername, user.rows[0].id]);
-    res.json({ success: true, newUsername });
-  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
 app.post('/api/update-avatar', async (req, res) => {
   const { username, emoji, color } = req.body;
   if (!username || !emoji || !color) return res.status(400).json({ error: 'Не все поля' });
   try {
-    // Обновляем аватар пользователя
     await pool.query('UPDATE users SET avatar_emoji = $1, avatar_color = $2 WHERE username = $3', [emoji, color, username]);
-    // Обновляем аватары во всех его сообщениях
-    await pool.query(
-      `UPDATE messages SET avatar_emoji = $1, avatar_color = $2 
-       WHERE user_id = (SELECT id FROM users WHERE username = $3)`,
-      [emoji, color, username]
-    );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
 app.get('/api/avatar/:username', async (req, res) => {
-  const user = await pool.query(
-    'SELECT avatar_emoji, avatar_color FROM users WHERE username = $1',
-    [req.params.username]
-  );
+  const user = await pool.query('SELECT avatar_emoji, avatar_color FROM users WHERE username = $1', [req.params.username]);
   if (user.rows.length === 0) return res.status(404).json({ error: 'Не найден' });
   res.json({ emoji: user.rows[0].avatar_emoji, color: user.rows[0].avatar_color });
-});
-
-app.post('/api/delete-account', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Не все поля' });
-  try {
-    const user = await pool.query('SELECT id FROM users WHERE username = $1 AND password = $2', [username, password]);
-    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверный пароль' });
-    await pool.query('DELETE FROM users WHERE id = $1', [user.rows[0].id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
 app.get('/api/rooms/participants/public', (req, res) => {
