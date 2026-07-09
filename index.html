@@ -65,8 +65,6 @@
         .typing-indicator { font-size:13px; color:var(--text-muted); padding:4px 16px; background:var(--panel-bg); border-top:1px solid var(--container-border); display:none; flex-shrink:0; }
         .typing-indicator.active { display:block; }
         .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
-        .load-older-btn { text-align:center; padding:12px; cursor:pointer; color:var(--accent); font-weight:600; display:none; }
-        .load-older-btn.visible { display:block; }
         .chat-input-area { display:flex; align-items:flex-end; gap:8px; padding:8px 16px 12px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
         .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:44px; max-height:120px; line-height:1.4; overflow-y:auto; }
         .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition: transform 0.15s ease; }
@@ -139,9 +137,7 @@
             <button class="close-btn" id="audio-panel-close"><i class="fas fa-times"></i></button>
             <div class="progress" id="audio-panel-progress"></div>
         </div>
-        <div class="chat-messages" id="public-messages">
-            <div class="load-older-btn" id="load-older-btn">Загрузить более старые сообщения</div>
-        </div>
+        <div class="chat-messages" id="public-messages"></div>
         <div class="typing-indicator" id="typing-indicator"></div>
         <div class="chat-input-area">
             <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
@@ -152,7 +148,7 @@
     </div>
 </div>
 
-<!-- Модальные окна без изменений -->
+<!-- Модальные окна (без изменений) -->
 <div id="profile-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <h3 style="color:var(--text-primary); margin-bottom:16px;">Профиль</h3>
@@ -190,7 +186,7 @@
 (function() {
     const API_BASE = '';
     let currentUser = null, socket = null, publicMessagesCache = [], canSend = true, cooldownTimer;
-    let isLoadingMore = false, oldestTimestamp = null, noMoreMessages = false;
+    let isLoadingMore = false, oldestTimestamp = null;
     const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
     const COLORS = ['#E57373','#F06292','#BA68C8','#9575CD','#7986CB','#64B5F6','#4FC3F7','#4DD0E1','#4DB6AC','#81C784','#AED581','#DCE775','#FFD54F','#FFB74D','#FF8A65','#A1887F','#E0E0E0','#90A4AE'];
     let selectedEmoji = '', selectedColor = '#ccc', currentTheme = localStorage.getItem('chatxTheme') || 'system';
@@ -321,7 +317,7 @@
           mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'), cooldownBar = $('cooldown-bar'),
           audioPanel = $('audio-panel'), audioPanelPlay = $('audio-panel-play'), audioPanelTitle = $('audio-panel-title'),
           audioPanelDownload = $('audio-panel-download'), audioPanelClose = $('audio-panel-close'), audioPanelProgress = $('audio-panel-progress'),
-          typingIndicator = $('typing-indicator'), loadOlderBtn = $('load-older-btn');
+          typingIndicator = $('typing-indicator');
 
     function showMain() { authScreen.classList.add('hidden'); mainScreen.style.display = 'flex'; }
     function showAuth() { authScreen.classList.remove('hidden'); mainScreen.style.display = 'none'; }
@@ -377,7 +373,6 @@
     window.loadMediaPlaceholder = function(placeholder) {
         const src = placeholder.dataset.src;
         const isAudio = src.startsWith('data:audio');
-        const isVideo = src.startsWith('data:video');
         const isImage = src.startsWith('data:image');
         if (isAudio) {
             const fileName = placeholder.dataset.filename || 'Аудио';
@@ -386,8 +381,6 @@
             </div>`;
             const audioWrapper = placeholder.querySelector('.custom-audio');
             if (audioWrapper) window.initCustomAudio(audioWrapper);
-        } else if (isVideo) {
-            placeholder.innerHTML = `<video controls class="message-media" src="${src}"></video>`;
         } else if (isImage) {
             placeholder.innerHTML = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
         }
@@ -436,30 +429,20 @@
         socket.on('roomError', d => alert(d.message));
         socket.on('roomJoined', d => {
             publicMessagesCache = d.messages;
-            if (d.messages.length > 0) {
-                oldestTimestamp = d.messages[0].timestamp;
-                noMoreMessages = false;
-            } else {
-                oldestTimestamp = null;
-                noMoreMessages = true;
-            }
+            if (d.messages.length > 0) oldestTimestamp = d.messages[0].timestamp;
+            else oldestTimestamp = null;
             displayPublicMessages(true);
             publicParticipantCount.textContent = d.userCount;
-            updateLoadOlderButton();
         });
         socket.on('olderMessages', d => {
             if (d.messages.length > 0) {
                 publicMessagesCache = d.messages.concat(publicMessagesCache);
                 oldestTimestamp = d.messages[0].timestamp;
-                if (d.messages.length < 20) noMoreMessages = true;
                 const prevScrollHeight = publicMessagesEl.scrollHeight;
                 displayPublicMessages(false);
                 publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight - prevScrollHeight;
-            } else {
-                noMoreMessages = true;
             }
             isLoadingMore = false;
-            updateLoadOlderButton();
         });
         socket.on('newMessage', d => {
             const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
@@ -477,19 +460,12 @@
         socket.on('typingUpdate', users => updateTypingIndicator(users));
         socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
 
-        loadOlderBtn.addEventListener('click', () => {
-            if (isLoadingMore || noMoreMessages) return;
-            isLoadingMore = true;
-            socket.emit('loadOlderMessages', { roomId: 'public', beforeTimestamp: oldestTimestamp, limit: 20 });
+        publicMessagesEl.addEventListener('scroll', () => {
+            if (publicMessagesEl.scrollTop === 0 && !isLoadingMore && oldestTimestamp && socket) {
+                isLoadingMore = true;
+                socket.emit('loadOlderMessages', { roomId: 'public', beforeTimestamp: oldestTimestamp, limit: 20 });
+            }
         });
-    }
-
-    function updateLoadOlderButton() {
-        if (oldestTimestamp && !noMoreMessages && !isLoadingMore) {
-            loadOlderBtn.classList.add('visible');
-        } else {
-            loadOlderBtn.classList.remove('visible');
-        }
     }
 
     function isScrolledToBottom() {
@@ -537,7 +513,9 @@
     }
 
     function attachMediaHandler() {
-        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '*/*';
+        const inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = 'image/*,audio/*'; // видео исключено
         inp.onchange = e => {
             const f = e.target.files[0]; if (!f) return;
             if (f.size > 25*1024*1024) { alert('Файл не должен превышать 25 МБ'); return; }
@@ -572,20 +550,19 @@
             bubbleClass = 'media-bubble';
             const src = msg.text;
             const fileName = msg.fileName || '';
-            if (own || skipPlaceholder) {
-                if (msg.text.startsWith('data:audio')) {
+            // Видео не поддерживается – показываем заглушку
+            if (src.startsWith('data:video')) {
+                content = `<div class="media-placeholder" style="cursor:default;"><i class="fas fa-video-slash"></i><span>Видео недоступно</span></div>`;
+            } else if (own || skipPlaceholder) {
+                if (src.startsWith('data:audio')) {
                     content = `<div class="custom-audio" data-src="${src}" data-filename="${escapeHtml(fileName)}">
                         <button class="voice-btn"><i class="fas fa-microphone"></i></button>
                     </div>`;
-                } else if (msg.text.startsWith('data:video')) {
-                    content = `<video controls class="message-media" src="${src}"></video>`;
-                } else if (msg.text.startsWith('data:image')) {
+                } else if (src.startsWith('data:image')) {
                     content = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
-                } else {
-                    content = `<div class="media-placeholder" data-src="${src}" data-filename="${escapeHtml(fileName)}" onclick="window.loadMediaPlaceholder(this)">
-                        <i class="fas fa-download"></i><span>Загрузить медиа</span></div>`;
                 }
-                if (msg.text.startsWith('data:audio') || msg.text.startsWith('data:video') || msg.text.startsWith('data:image')) {
+                // Кнопка скачивания для изображений
+                if (src.startsWith('data:image')) {
                     content += `<button class="message-download-btn" onclick="event.stopPropagation(); window.downloadMedia('${src}')"><i class="fas fa-download"></i></button>`;
                 }
             } else {
@@ -614,20 +591,15 @@
         if (!own) div.innerHTML = renderAvatar(msg.avatar_emoji, msg.avatar_color, msg.sender);
         const content = document.createElement('div'); content.className = 'message-content';
         content.innerHTML = renderBubble(msg, own, skipPlaceholder || own);
-        div.appendChild(content);
-        container.appendChild(div);
+        div.appendChild(content); container.appendChild(div);
         return msgDate;
     }
 
     function displayPublicMessages(initial) {
-        // сохраняем кнопку загрузки старых
-        const loadBtn = loadOlderBtn;
         publicMessagesEl.innerHTML = '';
-        publicMessagesEl.appendChild(loadBtn);
         let last = null;
         publicMessagesCache.forEach(m => last = addMessageWithDate(publicMessagesEl, m, last, false));
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
-        updateLoadOlderButton();
     }
 
     profileBtn.onclick = () => { updateAvatarPreview(); profileUsernameDisplay.textContent = currentUser.username; profileModal.style.display = 'flex'; };
