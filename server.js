@@ -19,15 +19,10 @@ const pool = new Pool({
 
 async function initDB() {
   try {
-    // Полностью удаляем все таблицы, чтобы точно не осталось старой схемы
+    // Удаляем всё и создаём заново
     await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS messages CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS reactions CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS room_participants CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS rooms CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS user_settings CASCADE`);
 
-    // Создаём таблицу пользователей с id
     await pool.query(`CREATE TABLE users (
       id SERIAL PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
@@ -36,10 +31,9 @@ async function initDB() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
-    // Создаём таблицу сообщений, связь через user_id
     await pool.query(`CREATE TABLE messages (
       id SERIAL PRIMARY KEY,
-      room_id VARCHAR(50) NOT NULL,
+      room_id VARCHAR(50) NOT NULL DEFAULT 'public',
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       sender VARCHAR(50) NOT NULL,
       avatar TEXT,
@@ -47,8 +41,8 @@ async function initDB() {
       timestamp TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
-    console.log('✅ База данных полностью пересоздана');
-  } catch (err) { console.error('❌ Ошибка инициализации БД:', err); }
+    console.log('✅ БД пересоздана');
+  } catch (err) { console.error('❌ Ошибка БД:', err); }
 }
 initDB();
 
@@ -71,9 +65,9 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
   try {
-    const user = await pool.query('SELECT id, username, password, avatar FROM users WHERE username = $1', [username]);
-    if (user.rows.length === 0 || user.rows[0].password !== password) return res.status(401).json({ error: 'Неверное имя или пароль' });
-    res.json({ success: true, id: user.rows[0].id, username: user.rows[0].username, avatar: user.rows[0].avatar });
+    const user = await pool.query('SELECT username, avatar FROM users WHERE username = $1 AND password = $2', [username, password]);
+    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверное имя или пароль' });
+    res.json({ success: true, username: user.rows[0].username, avatar: user.rows[0].avatar });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
@@ -81,23 +75,22 @@ app.post('/api/change-password', async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
   if (!username || !oldPassword || !newPassword) return res.status(400).json({ error: 'Не все поля' });
   try {
-    const user = await pool.query('SELECT id, password FROM users WHERE username = $1', [username]);
-    if (user.rows.length === 0 || user.rows[0].password !== oldPassword) return res.status(401).json({ error: 'Неверный старый пароль' });
+    const user = await pool.query('SELECT id FROM users WHERE username = $1 AND password = $2', [username, oldPassword]);
+    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверный старый пароль' });
     await pool.query('UPDATE users SET password = $1 WHERE id = $2', [newPassword, user.rows[0].id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/change-username', async (req, res) => {
-  const { userId, password, newUsername } = req.body;
-  if (!userId || !password || !newUsername) return res.status(400).json({ error: 'Не все поля' });
+  const { username, password, newUsername } = req.body;
+  if (!username || !password || !newUsername) return res.status(400).json({ error: 'Не все поля' });
   try {
-    const user = await pool.query('SELECT password FROM users WHERE id = $1', [userId]);
-    if (user.rows.length === 0) return res.status(404).json({ error: 'Пользователь не найден' });
-    if (user.rows[0].password !== password) return res.status(401).json({ error: 'Неверный пароль' });
-    const exist = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [newUsername, userId]);
+    const user = await pool.query('SELECT id FROM users WHERE username = $1 AND password = $2', [username, password]);
+    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверный пароль' });
+    const exist = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [newUsername, user.rows[0].id]);
     if (exist.rows.length > 0) return res.status(409).json({ error: 'Это имя уже занято' });
-    await pool.query('UPDATE users SET username = $1 WHERE id = $2', [newUsername, userId]);
+    await pool.query('UPDATE users SET username = $1 WHERE id = $2', [newUsername, user.rows[0].id]);
     res.json({ success: true, newUsername });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
@@ -106,8 +99,8 @@ app.post('/api/delete-account', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Не все поля' });
   try {
-    const user = await pool.query('SELECT id, password FROM users WHERE username = $1', [username]);
-    if (user.rows.length === 0 || user.rows[0].password !== password) return res.status(401).json({ error: 'Неверный пароль' });
+    const user = await pool.query('SELECT id FROM users WHERE username = $1 AND password = $2', [username, password]);
+    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверный пароль' });
     await pool.query('DELETE FROM users WHERE id = $1', [user.rows[0].id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
@@ -127,7 +120,7 @@ app.get('/api/avatar/:username', async (req, res) => {
   res.json({ avatar: user.rows[0].avatar });
 });
 
-// Участники паблика
+// Участники
 app.get('/api/rooms/participants/public', (req, res) => {
   const users = activeUsers.get('public');
   res.json(users ? Array.from(users) : []);
@@ -159,11 +152,23 @@ io.on('connection', (socket) => {
     if (user.rows.length === 0) return;
     const userId = user.rows[0].id;
     const avatar = user.rows[0].avatar || null;
-    const result = await pool.query(
-      'INSERT INTO messages (room_id, user_id, sender, avatar, text) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    await pool.query(
+      'INSERT INTO messages (room_id, user_id, sender, avatar, text) VALUES ($1, $2, $3, $4, $5)',
       ['public', userId, username, avatar, text]
     );
-    const msg = { id: result.rows[0].id, roomId: 'public', sender: username, avatar, text, timestamp: new Date().toISOString() };
+
+    // Ограничение 50 сообщений
+    const countResult = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
+    const count = parseInt(countResult.rows[0].count);
+    if (count > 50) {
+      await pool.query(
+        'DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE room_id = $1 ORDER BY timestamp ASC LIMIT $2)',
+        ['public', count - 50]
+      );
+    }
+
+    // Получаем последнее сообщение (id мы не знаем, но можем вернуть примерное)
+    const msg = { roomId: 'public', sender: username, avatar, text, timestamp: new Date().toISOString() };
     io.to('public').emit('newMessage', msg);
   });
 
