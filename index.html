@@ -55,7 +55,8 @@
         .audio-panel .progress { position:absolute; bottom:0; left:0; height:3px; background:var(--accent); width:0; }
         .chat-header { display:flex; align-items:center; justify-content:space-between; padding:max(env(safe-area-inset-top),12px) 16px 12px 16px; border-bottom:1px solid var(--container-border); background:var(--container-bg); backdrop-filter:blur(20px); flex-shrink:0; }
         .chat-header-left { display:flex; align-items:center; gap:12px; }
-        .profile-btn, .participant-count { margin-top:6px; }
+        /* опускаем кнопки ещё на 2px */
+        .profile-btn, .participant-count { margin-top:8px; }
         .profile-btn { background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
         .participant-count { background:var(--icon-bg); border-radius:30px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:var(--accent); border:1px solid var(--card-border); cursor:pointer; }
         .typing-indicator { font-size:13px; color:var(--text-muted); padding:4px 16px; background:var(--panel-bg); border-top:1px solid var(--container-border); display:none; flex-shrink:0; }
@@ -68,17 +69,29 @@
         #public-send { background:var(--accent); color:white; border:none; overflow:hidden; position:relative; }
         #public-send .cooldown-bar { position:absolute; bottom:0; left:0; height:100%; width:0; background:rgba(255,255,255,0.3); transition:width 3s linear; pointer-events:none; }
         #public-send.disabled { pointer-events:none; opacity:0.7; }
+
+        /* Кнопка новых сообщений */
+        .new-messages-btn {
+            position: absolute; bottom: 80px; right: 20px;
+            background: var(--accent); color: white; border: none; border-radius: 30px;
+            padding: 10px 18px; font-size: 14px; font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; z-index: 10;
+            display: none; align-items: center; gap: 6px;
+        }
+        .new-messages-btn.active { display: flex; }
+
         .message { display:flex; margin-bottom:4px; align-items:flex-start; gap:8px; }
         .message-own { justify-content:flex-end; }
         .message-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; cursor:pointer; color:#fff; background:#ccc; }
         .message-own .message-avatar { display:none; }
-        .message-content { max-width:calc(80% - 48px); display:flex; flex-direction:column; }
+        .message-content { max-width: calc(80% - 48px); display:flex; flex-direction:column; }
         .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px 16px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); position:relative; min-width:80px; }
         .message-bubble-own { background:var(--chat-own-bg); color:var(--chat-own-text); border-color:var(--accent-light); }
         .message-sender { font-size:13px; font-weight:600; margin-bottom:4px; color:var(--accent); }
         .message-text { font-size:15px; line-height:1.4; }
         .message-time { font-size:11px; opacity:0.7; margin-top:4px; text-align:right; }
         .message-media { max-width:100%; border-radius:16px; cursor:pointer; margin-bottom:30px; display:block; }
+        /* Аудио */
         .custom-audio { display:flex; align-items:center; gap:8px; margin-bottom:28px; }
         .custom-audio .play-btn { width:36px; height:36px; border-radius:50%; background:var(--accent); color:white; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
         .message-own .custom-audio .play-btn { background:white; color:var(--accent); }
@@ -129,7 +142,9 @@
             <button class="close-btn" id="audio-panel-close"><i class="fas fa-times"></i></button>
             <div class="progress" id="audio-panel-progress"></div>
         </div>
-        <div class="chat-messages" id="public-messages"></div>
+        <div class="chat-messages" id="public-messages">
+            <button class="new-messages-btn" id="new-messages-btn"><i class="fas fa-arrow-down"></i> <span id="new-count">0</span></button>
+        </div>
         <div class="typing-indicator" id="typing-indicator"></div>
         <div class="chat-input-area">
             <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
@@ -174,7 +189,8 @@
 (function() {
     const API_BASE = '';
     let currentUser = null, socket = null, publicMessagesCache = [], canSend = true, cooldownTimer;
-    let isLoadingMore = false, oldestTimestamp = null; // для подгрузки
+    let isLoadingMore = false, oldestTimestamp = null;
+    let newMessagesCount = 0;
     const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
     const COLORS = ['#E57373','#F06292','#BA68C8','#9575CD','#7986CB','#64B5F6','#4FC3F7','#4DD0E1','#4DB6AC','#81C784','#AED581','#DCE775','#FFD54F','#FFB74D','#FF8A65','#A1887F','#E0E0E0','#90A4AE'];
     let selectedEmoji = '', selectedColor = '#ccc', currentTheme = localStorage.getItem('chatxTheme') || 'system';
@@ -203,7 +219,8 @@
           mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'), cooldownBar = $('cooldown-bar'),
           audioPanel = $('audio-panel'), audioPanelPlay = $('audio-panel-play'), audioPanelTitle = $('audio-panel-title'),
           audioPanelClose = $('audio-panel-close'), audioPanelProgress = $('audio-panel-progress'),
-          typingIndicator = $('typing-indicator');
+          typingIndicator = $('typing-indicator'),
+          newMessagesBtn = $('new-messages-btn'), newCountSpan = $('new-count');
 
     function showMain() { authScreen.classList.add('hidden'); mainScreen.style.display = 'flex'; }
     function showAuth() { authScreen.classList.remove('hidden'); mainScreen.style.display = 'none'; }
@@ -291,6 +308,38 @@
         else showAuth();
     })();
 
+    function isScrolledToBottom() {
+        return publicMessagesEl.scrollTop + publicMessagesEl.clientHeight >= publicMessagesEl.scrollHeight - 50;
+    }
+
+    function updateNewMessagesButton(count) {
+        newMessagesCount += count;
+        if (newMessagesCount > 0) {
+            newMessagesBtn.classList.add('active');
+            newCountSpan.textContent = newMessagesCount;
+        }
+    }
+
+    function resetNewMessages() {
+        newMessagesCount = 0;
+        newMessagesBtn.classList.remove('active');
+    }
+
+    newMessagesBtn.addEventListener('click', () => {
+        publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
+        resetNewMessages();
+    });
+
+    publicMessagesEl.addEventListener('scroll', () => {
+        if (isScrolledToBottom()) {
+            resetNewMessages();
+        }
+        if (publicMessagesEl.scrollTop === 0 && !isLoadingMore && oldestTimestamp && socket) {
+            isLoadingMore = true;
+            socket.emit('loadOlderMessages', { roomId: 'public', beforeTimestamp: oldestTimestamp });
+        }
+    });
+
     function connectSocket() {
         if (socket) socket.close();
         socket = io({ reconnectionAttempts: 5, timeout: 10000 });
@@ -309,7 +358,6 @@
                 oldestTimestamp = d.messages[0].timestamp;
                 const prevScrollHeight = publicMessagesEl.scrollHeight;
                 displayPublicMessages(false);
-                // сохраняем позицию скролла
                 publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight - prevScrollHeight;
             }
             isLoadingMore = false;
@@ -317,8 +365,16 @@
         socket.on('newMessage', d => {
             const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
             if (tempIndex !== -1) publicMessagesCache[tempIndex] = { ...d, _temp: false };
-            else publicMessagesCache.push(d);
+            else {
+                publicMessagesCache.push(d);
+                if (!isScrolledToBottom()) {
+                    updateNewMessagesButton(1);
+                }
+            }
             displayPublicMessages(false);
+            if (isScrolledToBottom()) {
+                publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
+            }
         });
         socket.on('userCount', d => { publicParticipantCount.textContent = d.count; });
         socket.on('typingUpdate', users => updateTypingIndicator(users));
@@ -346,12 +402,12 @@
         if (!canSend || !socket || !currentUser) return;
         const text = publicInput.value.trim(); if (!text) return;
         const tempId = 'temp_' + Date.now() + Math.random();
-        const optimisticMsg = { id: tempId, _temp: true, _tempId: tempId, roomId: 'public', sender: currentUser.username, avatar_emoji: currentUser.avatar_emoji || '', avatar_color: currentUser.avatar_color || '', text, timestamp: new Date().toISOString() };
+        const optimisticMsg = { id: tempId, _temp: true, _tempId: tempId, roomId: 'public', sender: currentUser.username, avatar_emoji: currentUser.avatar_emoji || '', avatar_color: currentUser.avatar_color || '', text, fileName: '', timestamp: new Date().toISOString() };
         publicMessagesCache.push(optimisticMsg);
         displayPublicMessages(false);
         publicInput.value = ''; autoResize(publicInput); publicInput.focus();
         socket.emit('typingStop', { roomId: 'public', username: currentUser.username });
-        socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text, _tempId: tempId });
+        socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text, fileName: '', _tempId: tempId });
         canSend = false; publicSend.classList.add('disabled');
         cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0';
         requestAnimationFrame(() => { cooldownBar.style.transition = 'width 3s linear'; cooldownBar.style.width = '100%'; });
@@ -398,7 +454,8 @@
                 content = `<video controls class="message-media" src="${msg.text}"></video>`;
             } else if (msg.text.startsWith('data:audio')) {
                 bubbleClass = 'audio-bubble';
-                content = `<div class="custom-audio" data-src="${msg.text}" data-filename="${escapeHtml(msg.fileName || '')}">
+                const fileName = msg.fileName || 'Аудио';
+                content = `<div class="custom-audio" data-src="${msg.text}" data-filename="${escapeHtml(fileName)}">
                     <button class="play-btn"><i class="fas fa-play"></i></button>
                     <div class="progress-bar"><div class="progress-fill"></div></div>
                 </div>`;
@@ -427,7 +484,6 @@
         const content = document.createElement('div'); content.className = 'message-content';
         content.innerHTML = renderBubble(msg, own);
         div.appendChild(content); container.appendChild(div);
-        // привязка аудио
         const audioWrapper = div.querySelector('.custom-audio');
         if (audioWrapper) window.initCustomAudio(audioWrapper);
         return msgDate;
@@ -435,21 +491,11 @@
 
     function displayPublicMessages(initial) {
         publicMessagesEl.innerHTML = '';
+        // оставляем кнопку новых сообщений, она абсолютная внутри контейнера
         let last = null;
         publicMessagesCache.forEach(m => last = addMessageWithDate(publicMessagesEl, m, last));
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
-        else if (!initial) {
-            // скролл сохраняется в событии olderMessages
-        }
     }
-
-    // Infinite scroll вверх
-    publicMessagesEl.addEventListener('scroll', () => {
-        if (publicMessagesEl.scrollTop === 0 && !isLoadingMore && oldestTimestamp && socket) {
-            isLoadingMore = true;
-            socket.emit('loadOlderMessages', { roomId: 'public', beforeTimestamp: oldestTimestamp });
-        }
-    });
 
     profileBtn.onclick = () => { updateAvatarPreview(); profileUsernameDisplay.textContent = currentUser.username; profileModal.style.display = 'flex'; };
     profileCloseBtn.onclick = () => profileModal.style.display = 'none';
