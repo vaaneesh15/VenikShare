@@ -19,7 +19,7 @@
         body.dark { --bg-gradient-start:#000000; --bg-gradient-end:#121212; --container-bg:rgba(0,0,0,0.8); --container-border:rgba(255,255,255,0.15); --text-primary:#f0f0ff; --text-secondary:#ecf0f1; --text-muted:#8a8aa0; --accent:#6d5fff; --accent-light:#9a8cff; --card-bg:rgba(20,20,30,0.7); --card-border:rgba(255,255,255,0.1); --shadow:0 25px 50px -12px rgba(0,0,0,0.6); --icon-bg:#1e1e2a; --panel-bg:rgba(0,0,0,0.8); --input-bg:rgba(20,20,30,0.6); --chat-other-bg:#2a2a3a; --chat-other-text:#ffffff; }
         .btn,.back-btn,.theme-toggle,.participant-count,.info-btn,#public-send,#local-send,#auth-login,#auth-register,#logout-btn,#delete-account-btn,.modal .btn,.attach-btn,.avatar-upload-btn { transition:opacity 0.1s ease; touch-action:manipulation; cursor:pointer; }
         .btn:active,.back-btn:active,.theme-toggle:active,.participant-count:active,.info-btn:active,#public-send:active,#local-send:active,#auth-login:active,#auth-register:active,#logout-btn:active,#delete-account-btn:active,.modal .btn:active,.attach-btn:active,.avatar-upload-btn:active { opacity:0.7; }
-        .app { width:100%; height:100%; position:relative; display:flex; flex-direction:column; padding-bottom:env(safe-area-inset-bottom); }
+        .app { width:100%; height:100%; position:relative; display:flex; flex-direction:column; padding-bottom: env(safe-area-inset-bottom); }
         .screen { width:100%; height:100%; position:absolute; top:0; left:0; transition:opacity 0.3s; display:flex; flex-direction:column; overflow:hidden; }
         .screen-hidden { opacity:0; pointer-events:none; }
         #main-screen { display:flex; flex-direction:column; height:100%; position:relative; overflow:hidden; }
@@ -156,7 +156,8 @@
                         <div class="back-btn" id="local-back"><i class="fas fa-arrow-left"></i></div>
                         <h2>Сейвы</h2>
                     </div>
-                    <div class="participant-count" title="Только вы">1</div>
+                    <!-- Кнопка участников удалена -->
+                    <div></div>
                 </div>
                 <div class="chat-messages" id="local-messages"></div>
                 <div class="chat-input-area">
@@ -168,7 +169,7 @@
         </div>
 
         <!-- Нижняя навигация -->
-        <div class="bottom-nav" id="bottom-nav" style="margin-bottom: env(safe-area-inset-bottom);">
+        <div class="bottom-nav" id="bottom-nav">
             <div class="nav-item" data-screen="profile"><i class="fas fa-user"></i><span>Профиль</span></div>
             <div class="nav-item" data-screen="public"><i class="fas fa-globe"></i><span>Паблик</span></div>
             <div class="nav-item" data-screen="local"><i class="fas fa-save"></i><span>Сейвы</span></div>
@@ -211,8 +212,8 @@
             </div>
         </div>
     </div>
-    <div id="media-view-modal" class="modal" style="display:none;" onclick="if(event.target===this) this.style.display='none'">
-        <div class="modal-content">
+    <div id="media-view-modal" class="modal" style="display:none;">
+        <div class="modal-content" onclick="event.stopPropagation();">
             <div id="media-view-container"></div>
         </div>
     </div>
@@ -234,12 +235,11 @@
     const API_BASE = '';
     let currentUser = null;
     let currentUserAvatar = null;
-    let currentRoom = null;   // 'public' или '_localstorage'
+    let currentRoom = null;
     let socket = null;
     let localMessages = [];
     let publicMessagesCache = [];
 
-    // Тема
     let currentTheme = localStorage.getItem('chatxTheme') || 'system';
     function applyTheme() {
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -253,7 +253,6 @@
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
     applyTheme();
 
-    // DOM-элементы
     const authScreen = document.getElementById('auth-screen');
     const mainScreen = document.getElementById('main-screen');
     const profileScreen = document.getElementById('profile-screen');
@@ -309,6 +308,13 @@
         applyTheme();
     });
 
+    // Закрытие медиа по клику на фон
+    mediaViewModal.addEventListener('click', function(e) {
+        if (e.target === mediaViewModal) {
+            mediaViewModal.style.display = 'none';
+        }
+    });
+
     function showInnerScreen(screenId) {
         profileScreen.classList.add('inner-screen-hidden');
         publicScreen.classList.add('inner-screen-hidden');
@@ -335,7 +341,6 @@
         });
     });
 
-    // Авторизация
     async function login(username, password) {
         try {
             const res = await fetch(API_BASE + '/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
@@ -386,7 +391,6 @@
         mainScreen.classList.add('screen-hidden');
     }
 
-    // Аватар
     document.getElementById('upload-avatar-btn').addEventListener('click', () => {
         const input = document.createElement('input');
         input.type = 'file'; input.accept = 'image/*';
@@ -412,7 +416,6 @@
         }
     });
 
-    // Смена пароля
     document.getElementById('change-password-btn').addEventListener('click', () => {
         changePasswordModal.style.display = 'flex'; oldPassword.value = ''; newPassword.value = ''; changePasswordError.textContent = '';
     });
@@ -428,7 +431,6 @@
         } catch (err) { changePasswordError.textContent = err.message; }
     });
 
-    // Удаление аккаунта
     document.getElementById('delete-account-btn').addEventListener('click', () => {
         modalTitle.textContent = 'Удалить аккаунт? Введите пароль'; modalPassword.value = ''; modalError.textContent = ''; passwordModal.style.display = 'flex';
         modalConfirm.onclick = async () => {
@@ -448,25 +450,21 @@
         confirmNo.onclick = () => confirmModal.style.display = 'none';
     });
 
-    // Смена ника (заглушка)
     editUsernameBtn.addEventListener('click', () => {
         const newNick = prompt('Новый ник:', currentUser?.username || '');
         if (newNick && newNick.trim()) {
-            // Здесь можно добавить API-запрос на смену ника, пока просто обновим локально
             currentUser.username = newNick.trim();
             localStorage.setItem('chatxUser', JSON.stringify(currentUser));
             profileUsernameHeader.textContent = currentUser.username;
         }
     });
 
-    // Локальные сейвы
     function loadLocalMessages() {
         try { localMessages = JSON.parse(localStorage.getItem('chatx_local_room') || '[]'); } catch (e) { localMessages = []; }
     }
     function saveLocalMessages() { localStorage.setItem('chatx_local_room', JSON.stringify(localMessages)); }
     loadLocalMessages();
 
-    // Сокет и публичный чат
     function connectSocket() {
         if (socket) socket.close();
         socket = io({ reconnectionAttempts: 5, timeout: 10000 });
@@ -513,7 +511,6 @@
         if (socket && currentUser) socket.emit('sendMessage', { roomId: 'public', sender: currentUser.username, text });
     }
 
-    // Рендеринг сообщений
     function formatDateHeader(ts) { return new Date(ts).toLocaleDateString('ru-RU', { year:'numeric', month:'long', day:'numeric' }); }
     function escapeHtml(t) { return t.replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
     function renderMessageBubble(msg, own) {
@@ -596,14 +593,12 @@
     publicBack.addEventListener('click', () => { leaveRoom('public'); showInnerScreen('profile-screen'); });
     localBack.addEventListener('click', () => { leaveRoom('_localstorage'); showInnerScreen('profile-screen'); });
 
-    // Просмотр медиа
     window.openMedia = (src) => {
         mediaViewContainer.innerHTML = src.startsWith('data:video') ? `<video controls src="${src}"></video>` : `<img src="${src}">`;
         mediaViewModal.style.display = 'flex';
     };
     window.downloadMedia = (src) => { const a = document.createElement('a'); a.href = src; a.download = 'media_' + Date.now(); document.body.appendChild(a); a.click(); document.body.removeChild(a); };
 
-    // Модалка участников паблика
     publicParticipantCount.addEventListener('click', async () => {
         participantsModal.style.display = 'flex';
         participantsList.innerHTML = '';
