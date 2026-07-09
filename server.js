@@ -19,7 +19,6 @@ const pool = new Pool({
 
 async function initDB() {
   try {
-    // Удаляем всё и создаём заново
     await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS messages CASCADE`);
 
@@ -27,7 +26,8 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
       password VARCHAR(100) NOT NULL,
-      avatar TEXT,
+      avatar_emoji VARCHAR(10) DEFAULT '',
+      avatar_color VARCHAR(7) DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
@@ -36,7 +36,8 @@ async function initDB() {
       room_id VARCHAR(50) NOT NULL DEFAULT 'public',
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       sender VARCHAR(50) NOT NULL,
-      avatar TEXT,
+      avatar_emoji VARCHAR(10) DEFAULT '',
+      avatar_color VARCHAR(7) DEFAULT '',
       text TEXT NOT NULL,
       timestamp TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
@@ -65,9 +66,17 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
   try {
-    const user = await pool.query('SELECT username, avatar FROM users WHERE username = $1 AND password = $2', [username, password]);
+    const user = await pool.query(
+      'SELECT username, avatar_emoji, avatar_color FROM users WHERE username = $1 AND password = $2',
+      [username, password]
+    );
     if (user.rows.length === 0) return res.status(401).json({ error: 'Неверное имя или пароль' });
-    res.json({ success: true, username: user.rows[0].username, avatar: user.rows[0].avatar });
+    res.json({
+      success: true,
+      username: user.rows[0].username,
+      avatar_emoji: user.rows[0].avatar_emoji,
+      avatar_color: user.rows[0].avatar_color
+    });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
@@ -95,6 +104,24 @@ app.post('/api/change-username', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
+app.post('/api/update-avatar', async (req, res) => {
+  const { username, emoji, color } = req.body;
+  if (!username || !emoji || !color) return res.status(400).json({ error: 'Не все поля' });
+  try {
+    await pool.query('UPDATE users SET avatar_emoji = $1, avatar_color = $2 WHERE username = $3', [emoji, color, username]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
+});
+
+app.get('/api/avatar/:username', async (req, res) => {
+  const user = await pool.query(
+    'SELECT avatar_emoji, avatar_color FROM users WHERE username = $1',
+    [req.params.username]
+  );
+  if (user.rows.length === 0) return res.status(404).json({ error: 'Не найден' });
+  res.json({ emoji: user.rows[0].avatar_emoji, color: user.rows[0].avatar_color });
+});
+
 app.post('/api/delete-account', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Не все поля' });
@@ -104,20 +131,6 @@ app.post('/api/delete-account', async (req, res) => {
     await pool.query('DELETE FROM users WHERE id = $1', [user.rows[0].id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-// Аватар
-app.post('/api/upload-avatar', async (req, res) => {
-  const { username, avatar } = req.body;
-  if (!username || !avatar) return res.status(400).json({ error: 'Нет данных' });
-  await pool.query('UPDATE users SET avatar = $1 WHERE username = $2', [avatar, username]);
-  res.json({ success: true });
-});
-
-app.get('/api/avatar/:username', async (req, res) => {
-  const user = await pool.query('SELECT avatar FROM users WHERE username = $1', [req.params.username]);
-  if (user.rows.length === 0) return res.status(404).json({ error: 'Не найден' });
-  res.json({ avatar: user.rows[0].avatar });
 });
 
 // Участники
@@ -136,7 +149,7 @@ io.on('connection', (socket) => {
     socket.data.username = username;
     activeUsers.get('public').add(username);
     const messages = await pool.query(
-      `SELECT m.id, u.username AS sender, m.text, m.timestamp, u.avatar 
+      `SELECT m.id, u.username AS sender, m.text, m.timestamp, m.avatar_emoji, m.avatar_color 
        FROM messages m 
        JOIN users u ON m.user_id = u.id 
        WHERE m.room_id = 'public' 
@@ -148,27 +161,34 @@ io.on('connection', (socket) => {
 
   socket.on('sendMessage', async ({ roomId, username, text }) => {
     if (roomId !== 'public' || !username) return;
-    const user = await pool.query('SELECT id, avatar FROM users WHERE username = $1', [username]);
+    const user = await pool.query('SELECT id, avatar_emoji, avatar_color FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0) return;
     const userId = user.rows[0].id;
-    const avatar = user.rows[0].avatar || null;
+    const emoji = user.rows[0].avatar_emoji || '';
+    const color = user.rows[0].avatar_color || '';
     await pool.query(
-      'INSERT INTO messages (room_id, user_id, sender, avatar, text) VALUES ($1, $2, $3, $4, $5)',
-      ['public', userId, username, avatar, text]
+      'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text) VALUES ($1, $2, $3, $4, $5, $6)',
+      ['public', userId, username, emoji, color, text]
     );
 
-    // Ограничение 50 сообщений
-    const countResult = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
-    const count = parseInt(countResult.rows[0].count);
-    if (count > 50) {
+    // Ограничение 40 сообщений
+    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
+    const count = parseInt(countRows[0].count);
+    if (count > 40) {
       await pool.query(
         'DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE room_id = $1 ORDER BY timestamp ASC LIMIT $2)',
-        ['public', count - 50]
+        ['public', count - 40]
       );
     }
 
-    // Получаем последнее сообщение (id мы не знаем, но можем вернуть примерное)
-    const msg = { roomId: 'public', sender: username, avatar, text, timestamp: new Date().toISOString() };
+    const msg = {
+      roomId: 'public',
+      sender: username,
+      avatar_emoji: emoji,
+      avatar_color: color,
+      text,
+      timestamp: new Date().toISOString()
+    };
     io.to('public').emit('newMessage', msg);
   });
 
