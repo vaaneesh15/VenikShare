@@ -110,7 +110,15 @@
         .color-option.selected, .emoji-option.selected { border-color:var(--accent); }
         #media-view-modal .modal-content { background:transparent; backdrop-filter:none; box-shadow:none; display:flex; justify-content:center; align-items:center; padding:0; width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; position:relative; }
         #media-view-modal img, #media-view-modal video { max-width:90vw; max-height:80vh; border-radius:16px; object-fit:contain; cursor:default; }
-        #media-view-close-btn { position:absolute; top:max(env(safe-area-inset-top)+20px,60px); right:20px; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:50%; width:44px; height:44px; font-size:24px; cursor:pointer; z-index:10; display:flex; align-items:center; justify-content:center; }
+        /* Крестик в правом верхнем углу экрана */
+        #media-view-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%;
+            width: 44px; height: 44px; font-size: 24px; cursor: pointer; z-index: 10;
+            display: flex; align-items: center; justify-content: center;
+        }
         .loading-spinner { text-align:center; padding:20px; color:var(--text-muted); }
         .participant-list { list-style:none; max-height:300px; overflow-y:auto; margin-top:16px; }
         .participant-list li { padding:8px 0; border-bottom:1px solid var(--card-border); color:var(--text-primary); }
@@ -177,7 +185,10 @@
     </div>
 </div>
 <div id="media-view-modal" class="modal" style="display:none;">
-    <div class="modal-content"><button id="media-view-close-btn" onclick="document.getElementById('media-view-modal').style.display='none'"><i class="fas fa-times"></i></button><div id="media-view-container"></div></div>
+    <div class="modal-content">
+        <button id="media-view-close-btn" onclick="document.getElementById('media-view-modal').style.display='none'"><i class="fas fa-times"></i></button>
+        <div id="media-view-container"></div>
+    </div>
 </div>
 
 <script>
@@ -246,7 +257,6 @@
         setButtonsState(true);
         audioPanelTitle.textContent = name || 'Аудио';
         audioPanel.classList.add('active');
-        // обработчики панели
         audioPanelPlay.onclick = () => { if (currentAudio.paused) { currentAudio.play(); setButtonsState(true); } else { currentAudio.pause(); setButtonsState(false); } };
         audioPanelDownload.onclick = () => { if (currentAudioSrc) window.downloadMedia(currentAudioSrc); };
         audioPanelClose.onclick = () => stopCurrentAudio();
@@ -257,7 +267,6 @@
         currentAudioBtns.forEach(btn => btn.innerHTML = `<i class="fas ${icon}"></i>`);
     }
 
-    // Инициализация inline аудио (из placeholder)
     window.initCustomAudio = function(wrapper) {
         const src = wrapper.dataset.src;
         const name = wrapper.dataset.filename || 'Аудио';
@@ -270,7 +279,6 @@
         });
     };
 
-    // Загрузка медиа из placeholder (изображения, видео, аудио)
     window.loadMediaPlaceholder = function(placeholder) {
         const src = placeholder.dataset.src;
         const isAudio = src.startsWith('data:audio');
@@ -351,16 +359,13 @@
             isLoadingMore = false;
         });
         socket.on('newMessage', d => {
-            // заменяем временное сообщение или добавляем
+            // заменяем временное или добавляем
             const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
             if (tempIndex !== -1) {
                 publicMessagesCache[tempIndex] = { ...d, _temp: false };
-                // обновить элемент в DOM вместо перерисовки всего списка?
-                // Проще перерисовать, так как это временное сообщение, и мы хотим обновить его на серверное.
-                // Но чтобы не потерять загруженные медиа, перерисовываем только это одно сообщение?
-                // Можно удалить старый элемент и вставить новый на его место, но это сложно.
-                // Пока оставим полную перерисовку, загруженные медиа потеряются, но это редкий случай.
+                // перерисовываем весь список, чтобы обновить элемент (можно оптимизировать, но оставим так)
                 displayPublicMessages(false);
+                publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
             } else {
                 publicMessagesCache.push(d);
                 appendMessageElement(d);
@@ -371,7 +376,6 @@
         socket.on('typingUpdate', users => updateTypingIndicator(users));
         socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
 
-        // подгрузка старых при скролле вверх
         publicMessagesEl.addEventListener('scroll', () => {
             if (publicMessagesEl.scrollTop === 0 && !isLoadingMore && oldestTimestamp && socket) {
                 isLoadingMore = true;
@@ -462,7 +466,6 @@
                 <i class="fas fa-download"></i>
                 <span>Загрузить медиа</span>
             </div>`;
-            // кнопка загрузки убрана из аудио-сообщения (есть на панели)
         } else {
             content = `<div class="message-text">${escapeHtml(msg.text)}</div>`;
         }
