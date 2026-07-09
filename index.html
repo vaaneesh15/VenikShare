@@ -46,7 +46,7 @@
         .btn-primary { background:var(--accent); color:white; border:none; }
         .status { text-align:center; color:var(--text-muted); margin:8px 0; font-size:14px; }
         .flex-col { display:flex; flex-direction:column; gap:12px; }
-        #main-screen { flex:1; display:flex; flex-direction:column; background:transparent; overflow:hidden; }
+        #main-screen { flex:1; display:flex; flex-direction:column; background:transparent; overflow:hidden; position:relative; }
         .audio-panel { background:var(--panel-bg); backdrop-filter:blur(10px); border-bottom:1px solid var(--container-border); padding:8px 16px; display:none; align-items:center; gap:12px; flex-shrink:0; position:relative; }
         .audio-panel.active { display:flex; }
         .audio-panel .play-btn { width:36px; height:36px; border-radius:50%; background:var(--accent); color:white; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
@@ -55,13 +55,12 @@
         .audio-panel .progress { position:absolute; bottom:0; left:0; height:3px; background:var(--accent); width:0; }
         .chat-header { display:flex; align-items:center; justify-content:space-between; padding:max(env(safe-area-inset-top),12px) 16px 12px 16px; border-bottom:1px solid var(--container-border); background:var(--container-bg); backdrop-filter:blur(20px); flex-shrink:0; }
         .chat-header-left { display:flex; align-items:center; gap:12px; }
-        /* опускаем кнопки ещё на 2px */
         .profile-btn, .participant-count { margin-top:8px; }
         .profile-btn { background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
         .participant-count { background:var(--icon-bg); border-radius:30px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:var(--accent); border:1px solid var(--card-border); cursor:pointer; }
         .typing-indicator { font-size:13px; color:var(--text-muted); padding:4px 16px; background:var(--panel-bg); border-top:1px solid var(--container-border); display:none; flex-shrink:0; }
         .typing-indicator.active { display:block; }
-        .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
+        .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; position:relative; }
         .chat-input-area { display:flex; align-items:flex-end; gap:8px; padding:8px 16px 12px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
         .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:44px; max-height:120px; line-height:1.4; overflow-y:auto; }
         .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -72,11 +71,11 @@
 
         /* Кнопка новых сообщений */
         .new-messages-btn {
-            position: absolute; bottom: 80px; right: 20px;
+            position: sticky; bottom: 16px; left: 50%; transform: translateX(-50%);
             background: var(--accent); color: white; border: none; border-radius: 30px;
             padding: 10px 18px; font-size: 14px; font-weight: 600;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; z-index: 10;
-            display: none; align-items: center; gap: 6px;
+            display: none; align-items: center; gap: 6px; width: fit-content; margin: 0 auto;
         }
         .new-messages-btn.active { display: flex; }
 
@@ -87,11 +86,19 @@
         .message-content { max-width: calc(80% - 48px); display:flex; flex-direction:column; }
         .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px 16px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); position:relative; min-width:80px; }
         .message-bubble-own { background:var(--chat-own-bg); color:var(--chat-own-text); border-color:var(--accent-light); }
+        /* для аудио-сообщений увеличиваем ширину */
+        .message-bubble.audio-bubble { min-width: 220px; }
         .message-sender { font-size:13px; font-weight:600; margin-bottom:4px; color:var(--accent); }
         .message-text { font-size:15px; line-height:1.4; }
         .message-time { font-size:11px; opacity:0.7; margin-top:4px; text-align:right; }
         .message-media { max-width:100%; border-radius:16px; cursor:pointer; margin-bottom:30px; display:block; }
-        /* Аудио */
+        /* ленивая загрузка медиа: плейсхолдер */
+        .media-placeholder {
+            width: 200px; height: 150px; background: var(--input-bg); border-radius: 16px;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 30px;
+            cursor: pointer; color: var(--text-muted); font-size: 14px; flex-direction: column; gap: 8px;
+        }
+        .media-placeholder i { font-size: 32px; }
         .custom-audio { display:flex; align-items:center; gap:8px; margin-bottom:28px; }
         .custom-audio .play-btn { width:36px; height:36px; border-radius:50%; background:var(--accent); color:white; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
         .message-own .custom-audio .play-btn { background:white; color:var(--accent); }
@@ -99,7 +106,6 @@
         .message-own .custom-audio .progress-bar { background:rgba(255,255,255,0.3); }
         .custom-audio .progress-fill { height:100%; background:var(--accent); width:0; }
         .message-own .custom-audio .progress-fill { background:white; }
-        .audio-bubble { padding-bottom:28px !important; }
         .message-download-btn { position:absolute; bottom:4px; left:8px; background:rgba(0,0,0,0.5); color:white; border-radius:20px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; font-size:16px; z-index:2; }
         .date-separator { display:flex; justify-content:center; margin:12px 0; }
         .date-separator span { background:var(--panel-bg); backdrop-filter:blur(10px); padding:4px 16px; border-radius:30px; font-size:13px; color:var(--text-muted); border:1px solid var(--container-border); }
@@ -142,15 +148,14 @@
             <button class="close-btn" id="audio-panel-close"><i class="fas fa-times"></i></button>
             <div class="progress" id="audio-panel-progress"></div>
         </div>
-        <div class="chat-messages" id="public-messages">
-            <button class="new-messages-btn" id="new-messages-btn"><i class="fas fa-arrow-down"></i> <span id="new-count">0</span></button>
-        </div>
+        <div class="chat-messages" id="public-messages"></div>
         <div class="typing-indicator" id="typing-indicator"></div>
         <div class="chat-input-area">
             <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
             <button class="btn attach-btn" id="public-attach"><i class="fas fa-paperclip"></i></button>
             <button class="btn btn-primary" id="public-send"><i class="fas fa-paper-plane"></i><div class="cooldown-bar" id="cooldown-bar"></div></button>
         </div>
+        <button class="new-messages-btn" id="new-messages-btn"><i class="fas fa-arrow-down"></i> <span id="new-count">0</span> новых</button>
     </div>
 </div>
 
@@ -273,6 +278,37 @@
         });
     };
 
+    // Ленивая загрузка медиа
+    window.loadMediaPlaceholder = function(placeholder) {
+        const src = placeholder.dataset.src;
+        const isAudio = src.startsWith('data:audio');
+        const isVideo = src.startsWith('data:video');
+        const isImage = src.startsWith('data:image');
+
+        if (isAudio) {
+            const fileName = placeholder.dataset.filename || 'Аудио';
+            placeholder.innerHTML = `<div class="custom-audio" data-src="${src}" data-filename="${escapeHtml(fileName)}">
+                <button class="play-btn"><i class="fas fa-play"></i></button>
+                <div class="progress-bar"><div class="progress-fill"></div></div>
+            </div>`;
+            const audioWrapper = placeholder.querySelector('.custom-audio');
+            if (audioWrapper) window.initCustomAudio(audioWrapper);
+        } else if (isVideo) {
+            placeholder.innerHTML = `<video controls class="message-media" src="${src}"></video>`;
+        } else if (isImage) {
+            placeholder.innerHTML = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
+        }
+        placeholder.classList.remove('media-placeholder');
+        // добавляем кнопку скачивания, если её ещё нет
+        if (!placeholder.querySelector('.message-download-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'message-download-btn';
+            btn.innerHTML = '<i class="fas fa-download"></i>';
+            btn.onclick = (e) => { e.stopPropagation(); window.downloadMedia(src); };
+            placeholder.appendChild(btn);
+        }
+    };
+
     function populateAvatarPicker() {
         colorScroll.innerHTML = ''; COLORS.forEach(c => { const d = document.createElement('div'); d.className = 'color-option' + (c===selectedColor?' selected':''); d.style.backgroundColor = c; d.onclick = () => { selectedColor = c; updatePicker(); }; colorScroll.appendChild(d); });
         emojiScroll.innerHTML = ''; EMOJI_LIST.forEach(e => { const d = document.createElement('div'); d.className = 'emoji-option' + (e===selectedEmoji?' selected':''); d.textContent = e; d.onclick = () => { selectedEmoji = e; updatePicker(); }; emojiScroll.appendChild(d); });
@@ -312,11 +348,13 @@
         return publicMessagesEl.scrollTop + publicMessagesEl.clientHeight >= publicMessagesEl.scrollHeight - 50;
     }
 
-    function updateNewMessagesButton(count) {
-        newMessagesCount += count;
+    function updateNewMessagesButton(increment) {
+        newMessagesCount += increment;
         if (newMessagesCount > 0) {
             newMessagesBtn.classList.add('active');
             newCountSpan.textContent = newMessagesCount;
+        } else {
+            newMessagesBtn.classList.remove('active');
         }
     }
 
@@ -448,19 +486,15 @@
         const isMedia = msg.text?.startsWith('data:');
         let content = '', bubbleClass = '';
         if (isMedia) {
-            if (msg.text.startsWith('data:image')) {
-                content = `<img src="${msg.text}" class="message-media" onclick="window.openMedia('${msg.text}')">`;
-            } else if (msg.text.startsWith('data:video')) {
-                content = `<video controls class="message-media" src="${msg.text}"></video>`;
-            } else if (msg.text.startsWith('data:audio')) {
-                bubbleClass = 'audio-bubble';
-                const fileName = msg.fileName || 'Аудио';
-                content = `<div class="custom-audio" data-src="${msg.text}" data-filename="${escapeHtml(fileName)}">
-                    <button class="play-btn"><i class="fas fa-play"></i></button>
-                    <div class="progress-bar"><div class="progress-fill"></div></div>
-                </div>`;
-            }
-            content += `<button class="message-download-btn" onclick="event.stopPropagation(); window.downloadMedia('${msg.text}')"><i class="fas fa-download"></i></button>`;
+            bubbleClass = 'media-bubble';
+            const src = msg.text;
+            const fileName = msg.fileName || '';
+            // Плейсхолдер с кнопкой загрузки
+            content = `<div class="media-placeholder" data-src="${src}" data-filename="${escapeHtml(fileName)}" onclick="window.loadMediaPlaceholder(this)">
+                <i class="fas fa-download"></i>
+                <span>Загрузить медиа</span>
+            </div>`;
+            content += `<button class="message-download-btn" onclick="event.stopPropagation(); window.downloadMedia('${src}')"><i class="fas fa-download"></i></button>`;
         } else {
             content = `<div class="message-text">${escapeHtml(msg.text)}</div>`;
         }
@@ -484,16 +518,16 @@
         const content = document.createElement('div'); content.className = 'message-content';
         content.innerHTML = renderBubble(msg, own);
         div.appendChild(content); container.appendChild(div);
-        const audioWrapper = div.querySelector('.custom-audio');
-        if (audioWrapper) window.initCustomAudio(audioWrapper);
+        // для уже загруженных аудио (например, из новых сообщений) инициализируем сразу, но они будут плейсхолдерами, пока не кликнут
         return msgDate;
     }
 
     function displayPublicMessages(initial) {
         publicMessagesEl.innerHTML = '';
-        // оставляем кнопку новых сообщений, она абсолютная внутри контейнера
         let last = null;
         publicMessagesCache.forEach(m => last = addMessageWithDate(publicMessagesEl, m, last));
+        // Перемещаем кнопку новых сообщений в конец, если она существует
+        if (newMessagesBtn) publicMessagesEl.appendChild(newMessagesBtn);
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
 
