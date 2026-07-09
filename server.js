@@ -48,6 +48,7 @@ initDB();
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
 
+// ---------- API ----------
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -97,6 +98,7 @@ app.get('/api/rooms/participants/public', (req, res) => {
   res.json(users ? Array.from(users) : []);
 });
 
+// ---------- Сокеты ----------
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
   socket.on('joinRoom', async ({ roomId, username }) => {
@@ -116,7 +118,7 @@ io.on('connection', (socket) => {
     io.to('public').emit('userCount', { count: activeUsers.get('public').size });
   });
 
-  socket.on('sendMessage', async ({ roomId, username, text }) => {
+  socket.on('sendMessage', async ({ roomId, username, text, _tempId }) => {
     if (roomId !== 'public' || !username) return;
     const user = await pool.query('SELECT id, avatar_emoji, avatar_color FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0) return;
@@ -135,10 +137,12 @@ io.on('connection', (socket) => {
       avatar_emoji: emoji,
       avatar_color: color,
       text,
-      timestamp: newMsg.timestamp.toISOString()
+      timestamp: newMsg.timestamp.toISOString(),
+      _tempId   // пробрасываем обратно для замены временного сообщения
     };
     io.to('public').emit('newMessage', msg);
 
+    // Лимит 40 сообщений
     const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
     if (parseInt(countRows[0].count) > 40) {
       await pool.query(
