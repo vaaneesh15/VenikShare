@@ -19,10 +19,7 @@ const pool = new Pool({
 
 async function initDB() {
   try {
-    await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS messages CASCADE`);
-
-    await pool.query(`CREATE TABLE users (
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
       password VARCHAR(100) NOT NULL,
@@ -30,8 +27,7 @@ async function initDB() {
       avatar_color VARCHAR(7) DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
-
-    await pool.query(`CREATE TABLE messages (
+    await pool.query(`CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       room_id VARCHAR(50) NOT NULL DEFAULT 'public',
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -41,8 +37,7 @@ async function initDB() {
       text TEXT NOT NULL,
       timestamp TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
-
-    console.log('✅ БД пересоздана');
+    console.log('✅ БД готова');
   } catch (err) { console.error('❌ Ошибка БД:', err); }
 }
 initDB();
@@ -50,7 +45,6 @@ initDB();
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
 
-// ----- API (только нужное) -----
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -100,7 +94,6 @@ app.get('/api/rooms/participants/public', (req, res) => {
   res.json(users ? Array.from(users) : []);
 });
 
-// Сокеты
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
   socket.on('joinRoom', async ({ roomId, username }) => {
@@ -131,8 +124,6 @@ io.on('connection', (socket) => {
       'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text) VALUES ($1, $2, $3, $4, $5, $6)',
       ['public', userId, username, emoji, color, text]
     );
-
-    // Лимит 40 сообщений
     const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
     const count = parseInt(countRows[0].count);
     if (count > 40) {
@@ -141,7 +132,6 @@ io.on('connection', (socket) => {
         ['public', count - 40]
       );
     }
-
     const msg = {
       roomId: 'public',
       sender: username,
