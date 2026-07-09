@@ -19,8 +19,16 @@ const pool = new Pool({
 
 async function initDB() {
   try {
-    // 1. Создаём таблицу пользователей
-    await pool.query(`CREATE TABLE IF NOT EXISTS users (
+    // Полностью удаляем все таблицы, чтобы точно не осталось старой схемы
+    await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS messages CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS reactions CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS room_participants CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS rooms CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS user_settings CASCADE`);
+
+    // Создаём таблицу пользователей с id
+    await pool.query(`CREATE TABLE users (
       id SERIAL PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
       password VARCHAR(100) NOT NULL,
@@ -28,14 +36,7 @@ async function initDB() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
-    // 2. Удаляем старые таблицы сообщений и реакций (полный сброс)
-    await pool.query(`DROP TABLE IF EXISTS messages CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS reactions CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS room_participants CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS rooms CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS user_settings CASCADE`);
-
-    // 3. Создаём таблицу сообщений с правильной структурой (user_id)
+    // Создаём таблицу сообщений, связь через user_id
     await pool.query(`CREATE TABLE messages (
       id SERIAL PRIMARY KEY,
       room_id VARCHAR(50) NOT NULL,
@@ -46,15 +47,15 @@ async function initDB() {
       timestamp TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
-    console.log('✅ БД пересоздана (старые данные удалены)');
-  } catch (err) { console.error('❌ Ошибка БД:', err); }
+    console.log('✅ База данных полностью пересоздана');
+  } catch (err) { console.error('❌ Ошибка инициализации БД:', err); }
 }
 initDB();
 
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
 
-// ---------- API аккаунтов ----------
+// ----- API аккаунтов -----
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -132,7 +133,7 @@ app.get('/api/rooms/participants/public', (req, res) => {
   res.json(users ? Array.from(users) : []);
 });
 
-// Сокеты
+// ----- Сокеты -----
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
   socket.on('joinRoom', async ({ roomId, username }) => {
