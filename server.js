@@ -8,6 +8,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Раздача статических файлов (включая index.html, manifest.json, icon.svg, sw.js)
+app.use(express.static(__dirname));
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 
@@ -380,9 +383,6 @@ io.on('connection', (socket) => {
          ORDER BY m.timestamp ASC`,
         [roomId]
       );
-      // Загружаем реакции для этих сообщений (можно отдельно, но для простоты вернём сразу)
-      // Однако реакции лучше загружать отдельно, чтобы не усложнять. Но можно и так.
-      // Пока оставим как есть, а реакции будут запрашиваться при открытии контекстного меню.
       socket.emit('roomJoined', { roomId, messages: messages.rows, userCount: activeUsers.get(roomId).size });
       io.to(roomId).emit('userCount', { count: activeUsers.get(roomId).size });
     } catch (err) { console.error(err); socket.emit('roomError', { message: 'Ошибка сервера: ' + err.message }); }
@@ -424,6 +424,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// 404 для всех остальных маршрутов (должен быть после API и статики)
 app.use((req, res) => res.status(404).json({ error: 'Маршрут не найден' }));
 
 const PORT = process.env.PORT || 3000;
