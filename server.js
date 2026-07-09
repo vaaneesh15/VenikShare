@@ -7,8 +7,6 @@ const { Pool } = require('pg');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-
-// Раздача статики
 app.use(express.static(__dirname));
 
 const server = http.createServer(app);
@@ -19,47 +17,17 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Миграции
-async function migrateTables() {
-  try {
-    const avatarColumn = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='avatar'`);
-    if (avatarColumn.rows.length === 0) await pool.query('ALTER TABLE users ADD COLUMN avatar TEXT');
-
-    const msgAvatarColumn = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='messages' AND column_name='avatar'`);
-    if (msgAvatarColumn.rows.length === 0) await pool.query('ALTER TABLE messages ADD COLUMN avatar TEXT');
-
-    const usernameColumn = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='messages' AND column_name='username'`);
-    if (usernameColumn.rows.length === 0) await pool.query('ALTER TABLE messages ADD COLUMN username VARCHAR(50) REFERENCES users(username) ON DELETE SET NULL');
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS reactions (
-        id SERIAL PRIMARY KEY,
-        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
-        username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
-        emoji VARCHAR(10) NOT NULL,
-        UNIQUE(message_id, username)
-      )
-    `);
-    console.log('✅ Миграции выполнены');
-  } catch (err) { console.error('❌ Ошибка миграции:', err); }
-}
-
 async function initDB() {
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS users (username VARCHAR(50) PRIMARY KEY, password VARCHAR(100) NOT NULL, avatar TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW())`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS user_settings (username VARCHAR(50) PRIMARY KEY REFERENCES users(username) ON DELETE CASCADE, settings JSONB NOT NULL DEFAULT '{}')`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS rooms (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, password VARCHAR(100), type VARCHAR(20) NOT NULL DEFAULT 'private', created_at TIMESTAMP NOT NULL DEFAULT NOW())`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS room_participants (room_id VARCHAR(50) REFERENCES rooms(id) ON DELETE CASCADE, username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE, deleted BOOLEAN NOT NULL DEFAULT FALSE, joined_at TIMESTAMP NOT NULL DEFAULT NOW(), PRIMARY KEY (room_id, username))`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, room_id VARCHAR(50) REFERENCES rooms(id) ON DELETE CASCADE, username VARCHAR(50) REFERENCES users(username) ON DELETE SET NULL, sender VARCHAR(50) NOT NULL, avatar TEXT, text TEXT NOT NULL, timestamp TIMESTAMP NOT NULL DEFAULT NOW())`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, room_id VARCHAR(50) NOT NULL, username VARCHAR(50) REFERENCES users(username) ON DELETE SET NULL, sender VARCHAR(50) NOT NULL, avatar TEXT, text TEXT NOT NULL, timestamp TIMESTAMP NOT NULL DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS reactions (id SERIAL PRIMARY KEY, message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE, username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE, emoji VARCHAR(10) NOT NULL, UNIQUE(message_id, username))`);
-    await pool.query(`INSERT INTO rooms (id, name, password, type) VALUES ('public', 'Public Chat', NULL, 'public') ON CONFLICT (id) DO NOTHING`);
-    console.log('✅ База инициализирована');
-    await migrateTables();
-  } catch (err) { console.error('❌ Ошибка инициализации БД:', err); }
+    console.log('✅ База готова');
+  } catch (err) { console.error('❌ Ошибка БД:', err); }
 }
 initDB();
 
-const activeUsers = new Map();
+const activeUsers = new Map(); // только для public
 
 // API аккаунтов
 app.post('/api/register', async (req, res) => {
@@ -69,9 +37,8 @@ app.post('/api/register', async (req, res) => {
     const existing = await pool.query('SELECT username FROM users WHERE username = $1', [username]);
     if (existing.rows.length > 0) return res.status(409).json({ error: 'Пользователь уже существует' });
     await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, password]);
-    await pool.query('INSERT INTO user_settings (username, settings) VALUES ($1, $2)', [username, JSON.stringify({ requirePassword: false, passwordTimeout: 0 })]);
     res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -80,284 +47,114 @@ app.post('/api/login', async (req, res) => {
   try {
     const user = await pool.query('SELECT password, avatar FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0 || user.rows[0].password !== password) return res.status(401).json({ error: 'Неверное имя или пароль' });
-    res.json({ success: true, username, avatar: user.rows[0].avatar });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+    res.json({ success: true, avatar: user.rows[0].avatar });
+  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/change-password', async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
-  if (!username || !oldPassword || !newPassword) return res.status(400).json({ error: 'Не все поля заполнены' });
+  if (!username || !oldPassword || !newPassword) return res.status(400).json({ error: 'Не все поля' });
   try {
     const user = await pool.query('SELECT password FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0 || user.rows[0].password !== oldPassword) return res.status(401).json({ error: 'Неверный старый пароль' });
     await pool.query('UPDATE users SET password = $1 WHERE username = $2', [newPassword, username]);
     res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/delete-account', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Не все поля заполнены' });
+  if (!username || !password) return res.status(400).json({ error: 'Не все поля' });
   try {
     const user = await pool.query('SELECT password FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0 || user.rows[0].password !== password) return res.status(401).json({ error: 'Неверный пароль' });
     await pool.query('DELETE FROM users WHERE username = $1', [username]);
     res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
-// API аватарок
+// Аватар
 app.post('/api/upload-avatar', async (req, res) => {
   const { username, avatar } = req.body;
-  if (!username || !avatar) return res.status(400).json({ error: 'Не все поля заполнены' });
-  try {
-    await pool.query('UPDATE users SET avatar = $1 WHERE username = $2', [avatar, username]);
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+  if (!username || !avatar) return res.status(400).json({ error: 'Нет данных' });
+  await pool.query('UPDATE users SET avatar = $1 WHERE username = $2', [avatar, username]);
+  res.json({ success: true });
 });
 
 app.get('/api/avatar/:username', async (req, res) => {
-  const { username } = req.params;
-  try {
-    const user = await pool.query('SELECT avatar FROM users WHERE username = $1', [username]);
-    if (user.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-    res.json({ avatar: user.rows[0].avatar });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+  const user = await pool.query('SELECT avatar FROM users WHERE username = $1', [req.params.username]);
+  if (user.rows.length === 0) return res.status(404).json({ error: 'Не найден' });
+  res.json({ avatar: user.rows[0].avatar });
 });
 
-// API настроек
-app.get('/api/user-settings', async (req, res) => {
-  const { username } = req.query;
-  if (!username) return res.status(400).json({ error: 'Не указан пользователь' });
+// Реакции
+app.get('/api/messages/:messageId/reactions', async (req, res) => {
+  const reactions = await pool.query('SELECT username, emoji FROM reactions WHERE message_id = $1', [req.params.messageId]);
+  res.json(reactions.rows);
+});
+
+app.post('/api/messages/:messageId/react', async (req, res) => {
+  const { username, emoji } = req.body;
+  const { messageId } = req.params;
+  if (!username || !emoji) return res.status(400).json({ error: 'Missing fields' });
   try {
-    let settings = await pool.query('SELECT settings FROM user_settings WHERE username = $1', [username]);
-    if (settings.rows.length === 0) {
-      const defaultSettings = { requirePassword: false, passwordTimeout: 0 };
-      await pool.query('INSERT INTO user_settings (username, settings) VALUES ($1, $2)', [username, JSON.stringify(defaultSettings)]);
-      return res.json(defaultSettings);
+    const existing = await pool.query('SELECT id FROM reactions WHERE message_id = $1 AND username = $2', [messageId, username]);
+    if (existing.rows.length > 0) {
+      await pool.query('DELETE FROM reactions WHERE message_id = $1 AND username = $2', [messageId, username]);
+      res.json({ action: 'removed' });
+    } else {
+      await pool.query('INSERT INTO reactions (message_id, username, emoji) VALUES ($1, $2, $3)', [messageId, username, emoji]);
+      res.json({ action: 'added' });
     }
-    res.json(settings.rows[0].settings);
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-app.post('/api/user-settings', async (req, res) => {
-  const { username, settings } = req.body;
-  if (!username || !settings) return res.status(400).json({ error: 'Не все поля заполнены' });
-  try {
-    await pool.query('INSERT INTO user_settings (username, settings) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET settings = $2', [username, JSON.stringify(settings)]);
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-// API комнат
-app.post('/api/rooms/create', async (req, res) => {
-  const { roomId, roomName, password, creator } = req.body;
-  if (!roomId || !roomName || !password || !creator) return res.status(400).json({ error: 'Не все поля заполнены' });
-  try {
-    const existing = await pool.query('SELECT id FROM rooms WHERE id = $1', [roomId]);
-    if (existing.rows.length > 0) return res.status(409).json({ error: 'Комната с таким ID уже существует' });
-    await pool.query('INSERT INTO rooms (id, name, password, type) VALUES ($1, $2, $3, $4)', [roomId, roomName, password, 'private']);
-    await pool.query('INSERT INTO room_participants (room_id, username, deleted) VALUES ($1, $2, false)', [roomId, creator]);
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/rooms/check-password', async (req, res) => {
-  const { roomId, password } = req.body;
-  try {
-    const room = await pool.query('SELECT password FROM rooms WHERE id = $1 AND type = $2', [roomId, 'private']);
-    if (room.rows.length === 0) return res.status(404).json({ error: 'Комната не найдена' });
-    if (room.rows[0].password !== password) return res.status(401).json({ error: 'Неверный пароль' });
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/rooms/join', async (req, res) => {
-  const { roomId, username } = req.body;
-  try {
-    await pool.query('INSERT INTO room_participants (room_id, username, deleted) VALUES ($1, $2, false) ON CONFLICT (room_id, username) DO UPDATE SET deleted = false', [roomId, username]);
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/rooms/rename', async (req, res) => {
-  const { roomId, username, newName } = req.body;
-  if (!roomId || !username || !newName) return res.status(400).json({ error: 'Не все поля заполнены' });
-  try {
-    const participant = await pool.query('SELECT * FROM room_participants WHERE room_id = $1 AND username = $2', [roomId, username]);
-    if (participant.rows.length === 0) return res.status(403).json({ error: 'Вы не участник' });
-    await pool.query('UPDATE rooms SET name = $1 WHERE id = $2', [newName, roomId]);
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/rooms/delete', async (req, res) => {
-  const { roomId, username } = req.body;
-  try {
-    await pool.query('UPDATE room_participants SET deleted = true WHERE room_id = $1 AND username = $2', [roomId, username]);
-    const remaining = await pool.query('SELECT COUNT(*) FROM room_participants WHERE room_id = $1 AND deleted = false', [roomId]);
-    if (parseInt(remaining.rows[0].count) === 0) await pool.query('DELETE FROM rooms WHERE id = $1', [roomId]);
-    res.json({ success: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.get('/api/rooms/list/:username', async (req, res) => {
-  const { username } = req.params;
-  try {
-    const rooms = await pool.query(`SELECT r.id, r.name, r.type FROM rooms r JOIN room_participants p ON r.id = p.room_id WHERE p.username = $1 AND p.deleted = false AND r.type = 'private'`, [username]);
-    res.json(rooms.rows);
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.get('/api/rooms/info/:roomId', async (req, res) => {
-  const { roomId } = req.params;
-  try {
-    const room = await pool.query('SELECT id, name, password FROM rooms WHERE id = $1', [roomId]);
-    if (room.rows.length === 0) return res.status(404).json({ error: 'Комната не найдена' });
-    res.json(room.rows[0]);
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.get('/api/rooms/:roomId/messages', async (req, res) => {
-  const { roomId } = req.params;
-  const { username } = req.query;
-  if (!username) return res.status(400).json({ error: 'Username required' });
-  try {
-    const room = await pool.query('SELECT type FROM rooms WHERE id = $1', [roomId]);
-    if (room.rows.length === 0) return res.status(404).json({ error: 'Room not found' });
-    if (room.rows[0].type === 'private') {
-      const participant = await pool.query('SELECT * FROM room_participants WHERE room_id = $1 AND username = $2', [roomId, username]);
-      if (participant.rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
-    }
-    const messages = await pool.query(
-      `SELECT m.id, m.sender, m.text, m.timestamp, u.avatar 
-       FROM messages m
-       LEFT JOIN users u ON m.username = u.username
-       WHERE m.room_id = $1 
-       ORDER BY m.timestamp ASC`,
-      [roomId]
-    );
-    res.json(messages.rows);
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
-});
-
-app.get('/api/rooms/participants/:roomId', (req, res) => {
-  const users = activeUsers.get(req.params.roomId);
-  res.json(users ? Array.from(users) : []);
-});
-
+// Участники публичного чата
 app.get('/api/rooms/participants/public', (req, res) => {
   const users = activeUsers.get('public');
   res.json(users ? Array.from(users) : []);
 });
 
-// API реакций
-app.get('/api/messages/:messageId/reactions', async (req, res) => {
-  const { messageId } = req.params;
-  try {
-    const reactions = await pool.query(
-      'SELECT username, emoji FROM reactions WHERE message_id = $1',
-      [messageId]
-    );
-    res.json(reactions.rows);
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
-});
-
-app.post('/api/messages/:messageId/react', async (req, res) => {
-  const { messageId } = req.params;
-  const { username, emoji } = req.body;
-  if (!username || !emoji) return res.status(400).json({ error: 'Missing fields' });
-  try {
-    const existing = await pool.query(
-      'SELECT id FROM reactions WHERE message_id = $1 AND username = $2',
-      [messageId, username]
-    );
-    if (existing.rows.length > 0) {
-      await pool.query('DELETE FROM reactions WHERE message_id = $1 AND username = $2', [messageId, username]);
-      res.json({ action: 'removed' });
-    } else {
-      await pool.query(
-        'INSERT INTO reactions (message_id, username, emoji) VALUES ($1, $2, $3)',
-        [messageId, username, emoji]
-      );
-      res.json({ action: 'added' });
-    }
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
-});
-
-app.get('/api/messages/:messageId/reactions/:emoji/users', async (req, res) => {
-  const { messageId, emoji } = req.params;
-  try {
-    const users = await pool.query(
-      'SELECT username FROM reactions WHERE message_id = $1 AND emoji = $2',
-      [messageId, emoji]
-    );
-    res.json(users.rows.map(r => r.username));
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
-});
-
 // Socket.IO
 io.on('connection', (socket) => {
-  console.log('🔗 Клиент подключился:', socket.id);
+  console.log('🔗', socket.id);
 
   socket.on('joinRoom', async ({ roomId, username }) => {
-    try {
-      const room = await pool.query('SELECT id, type FROM rooms WHERE id = $1', [roomId]);
-      if (room.rows.length === 0) { socket.emit('roomError', { message: 'Комната не существует' }); return; }
-      if (room.rows[0].type === 'private') {
-        const participant = await pool.query('SELECT * FROM room_participants WHERE room_id = $1 AND username = $2', [roomId, username]);
-        if (participant.rows.length === 0) { socket.emit('roomError', { message: 'Вы не участник' }); return; }
-      }
-      socket.join(roomId);
-      socket.data.roomId = roomId;
-      socket.data.username = username;
-      if (!activeUsers.has(roomId)) activeUsers.set(roomId, new Set());
-      activeUsers.get(roomId).add(username);
-      const messages = await pool.query(
-        `SELECT m.id, m.sender, m.text, m.timestamp, u.avatar 
-         FROM messages m
-         LEFT JOIN users u ON m.username = u.username
-         WHERE m.room_id = $1 
-         ORDER BY m.timestamp ASC`,
-        [roomId]
-      );
-      socket.emit('roomJoined', { roomId, messages: messages.rows, userCount: activeUsers.get(roomId).size });
-      io.to(roomId).emit('userCount', { count: activeUsers.get(roomId).size });
-    } catch (err) { console.error(err); socket.emit('roomError', { message: 'Ошибка сервера: ' + err.message }); }
+    if (roomId !== 'public') { socket.emit('roomError', { message: 'Комната не существует' }); return; }
+    socket.join('public');
+    socket.data.roomId = 'public';
+    socket.data.username = username;
+    if (!activeUsers.has('public')) activeUsers.set('public', new Set());
+    activeUsers.get('public').add(username);
+    const messages = await pool.query(
+      `SELECT m.id, m.sender, m.text, m.timestamp, u.avatar FROM messages m LEFT JOIN users u ON m.username = u.username WHERE m.room_id = 'public' ORDER BY m.timestamp ASC`
+    );
+    socket.emit('roomJoined', { roomId: 'public', messages: messages.rows, userCount: activeUsers.get('public').size });
+    io.to('public').emit('userCount', { count: activeUsers.get('public').size });
   });
 
   socket.on('sendMessage', async ({ roomId, sender, text }) => {
-    try {
-      const user = await pool.query('SELECT avatar FROM users WHERE username = $1', [sender]);
-      const avatar = user.rows[0]?.avatar || null;
-      const result = await pool.query('INSERT INTO messages (room_id, username, sender, avatar, text) VALUES ($1, $2, $3, $4, $5) RETURNING id', [roomId, sender, sender, avatar, text]);
-      const messageId = result.rows[0].id;
-      const newMessage = { id: messageId, roomId, sender, avatar, text, timestamp: new Date().toISOString() };
-      io.to(roomId).emit('newMessage', newMessage);
-    } catch (err) { console.error(err); }
+    if (roomId !== 'public' || !sender) return;
+    const user = await pool.query('SELECT avatar FROM users WHERE username = $1', [sender]);
+    const avatar = user.rows[0]?.avatar || null;
+    const result = await pool.query('INSERT INTO messages (room_id, username, sender, avatar, text) VALUES ($1, $2, $3, $4, $5) RETURNING id', ['public', sender, sender, avatar, text]);
+    const msg = { id: result.rows[0].id, roomId: 'public', sender, avatar, text, timestamp: new Date().toISOString() };
+    io.to('public').emit('newMessage', msg);
   });
 
   socket.on('leaveRoom', ({ roomId }) => {
-    if (roomId && socket.data.username) {
-      const roomUsers = activeUsers.get(roomId);
-      if (roomUsers) {
-        roomUsers.delete(socket.data.username);
-        if (roomUsers.size === 0) activeUsers.delete(roomId);
-        else io.to(roomId).emit('userCount', { count: roomUsers.size });
-      }
-      socket.leave(roomId);
+    if (roomId === 'public' && socket.data.username) {
+      const users = activeUsers.get('public');
+      if (users) { users.delete(socket.data.username); if (users.size === 0) activeUsers.delete('public'); else io.to('public').emit('userCount', { count: users.size }); }
+      socket.leave('public');
     }
   });
 
   socket.on('disconnect', () => {
     const { roomId, username } = socket.data;
-    if (roomId && username) {
-      const roomUsers = activeUsers.get(roomId);
-      if (roomUsers) {
-        roomUsers.delete(username);
-        if (roomUsers.size === 0) activeUsers.delete(roomId);
-        else io.to(roomId).emit('userCount', { count: roomUsers.size });
-      }
+    if (roomId === 'public' && username) {
+      const users = activeUsers.get('public');
+      if (users) { users.delete(username); if (users.size === 0) activeUsers.delete('public'); else io.to('public').emit('userCount', { count: users.size }); }
     }
   });
 });
@@ -365,4 +162,4 @@ io.on('connection', (socket) => {
 app.use((req, res) => res.status(404).json({ error: 'Маршрут не найден' }));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Сервер запущен на порту ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Порт ${PORT}`));
