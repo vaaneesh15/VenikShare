@@ -50,7 +50,7 @@ initDB();
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
 
-// ----- API аккаунтов -----
+// ----- API -----
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -108,7 +108,14 @@ app.post('/api/update-avatar', async (req, res) => {
   const { username, emoji, color } = req.body;
   if (!username || !emoji || !color) return res.status(400).json({ error: 'Не все поля' });
   try {
+    // Обновляем аватар пользователя
     await pool.query('UPDATE users SET avatar_emoji = $1, avatar_color = $2 WHERE username = $3', [emoji, color, username]);
+    // Обновляем аватары во всех его сообщениях
+    await pool.query(
+      `UPDATE messages SET avatar_emoji = $1, avatar_color = $2 
+       WHERE user_id = (SELECT id FROM users WHERE username = $3)`,
+      [emoji, color, username]
+    );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
@@ -133,13 +140,12 @@ app.post('/api/delete-account', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
-// Участники
 app.get('/api/rooms/participants/public', (req, res) => {
   const users = activeUsers.get('public');
   res.json(users ? Array.from(users) : []);
 });
 
-// ----- Сокеты -----
+// Сокеты
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
   socket.on('joinRoom', async ({ roomId, username }) => {
@@ -171,7 +177,7 @@ io.on('connection', (socket) => {
       ['public', userId, username, emoji, color, text]
     );
 
-    // Ограничение 40 сообщений
+    // Лимит 40 сообщений
     const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
     const count = parseInt(countRows[0].count);
     if (count > 40) {
