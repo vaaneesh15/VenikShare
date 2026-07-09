@@ -148,7 +148,6 @@
     </div>
 </div>
 
-<!-- Модальные окна (без изменений) -->
 <div id="profile-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <h3 style="color:var(--text-primary); margin-bottom:16px;">Профиль</h3>
@@ -475,7 +474,11 @@
     function appendMessageElement(msg, isOwnMedia = false) {
         const lastMsg = publicMessagesCache.length >= 2 ? publicMessagesCache[publicMessagesCache.length-2] : null;
         const prevDate = lastMsg ? new Date(lastMsg.timestamp).toDateString() : null;
-        addMessageWithDate(publicMessagesEl, msg, prevDate, isOwnMedia);
+        const msgDiv = addMessageWithDate(publicMessagesEl, msg, prevDate, isOwnMedia);
+        if (msg.sender === currentUser?.username && msg.text?.startsWith('data:audio')) {
+            const audioWrapper = msgDiv.querySelector('.custom-audio');
+            if (audioWrapper) window.initCustomAudio(audioWrapper);
+        }
     }
 
     publicInput.addEventListener('input', () => {
@@ -515,7 +518,7 @@
     function attachMediaHandler() {
         const inp = document.createElement('input');
         inp.type = 'file';
-        inp.accept = 'image/*,audio/*'; // видео исключено
+        inp.accept = 'image/*,audio/*';
         inp.onchange = e => {
             const f = e.target.files[0]; if (!f) return;
             if (f.size > 25*1024*1024) { alert('Файл не должен превышать 25 МБ'); return; }
@@ -550,7 +553,6 @@
             bubbleClass = 'media-bubble';
             const src = msg.text;
             const fileName = msg.fileName || '';
-            // Видео не поддерживается – показываем заглушку
             if (src.startsWith('data:video')) {
                 content = `<div class="media-placeholder" style="cursor:default;"><i class="fas fa-video-slash"></i><span>Видео недоступно</span></div>`;
             } else if (own || skipPlaceholder) {
@@ -561,7 +563,6 @@
                 } else if (src.startsWith('data:image')) {
                     content = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
                 }
-                // Кнопка скачивания для изображений
                 if (src.startsWith('data:image')) {
                     content += `<button class="message-download-btn" onclick="event.stopPropagation(); window.downloadMedia('${src}')"><i class="fas fa-download"></i></button>`;
                 }
@@ -591,14 +592,17 @@
         if (!own) div.innerHTML = renderAvatar(msg.avatar_emoji, msg.avatar_color, msg.sender);
         const content = document.createElement('div'); content.className = 'message-content';
         content.innerHTML = renderBubble(msg, own, skipPlaceholder || own);
-        div.appendChild(content); container.appendChild(div);
-        return msgDate;
+        div.appendChild(content);
+        container.appendChild(div);
+        return div;
     }
 
     function displayPublicMessages(initial) {
         publicMessagesEl.innerHTML = '';
         let last = null;
         publicMessagesCache.forEach(m => last = addMessageWithDate(publicMessagesEl, m, last, false));
+        // Инициализация всех аудио-плееров (для своих и загруженных ранее)
+        document.querySelectorAll('.custom-audio').forEach(w => window.initCustomAudio(w));
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
 
