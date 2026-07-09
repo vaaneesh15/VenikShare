@@ -12,13 +12,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+
         html, body {
-            width:100%; height:100%; overflow:hidden;
-            background: linear-gradient(145deg, #e9e9f0, #dadde8);
+            width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(145deg, #e9e9f0, #dadde8) fixed;
         }
-        body.dark {
-            background: linear-gradient(145deg, #000000, #121212);
-        }
+        body.dark { background: linear-gradient(145deg, #000000, #121212) fixed; }
+
         body {
             --bg-gradient-start:#e9e9f0;
             --bg-gradient-end:#dadde8;
@@ -80,12 +80,11 @@
         .flex-col { display:flex; flex-direction:column; gap:12px; }
 
         #main-screen {
-            display:flex; flex-direction:column; height:100dvh; background:transparent;
+            display:flex; flex-direction:column; height:100%; background:transparent;
         }
-        /* Шапка – выше (20px отступ сверху + безопасная зона) */
         .chat-header {
             display:flex; align-items:center; justify-content:space-between;
-            padding: max(20px, env(safe-area-inset-top)) 16px 12px 16px;
+            padding: max(44px, env(safe-area-inset-top)) 16px 12px 16px;
             border-bottom:1px solid var(--container-border);
             background:var(--container-bg);
             backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
@@ -99,9 +98,8 @@
             flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px;
             -webkit-overflow-scrolling:touch;
         }
-        /* Панель ввода – прижата к самому низу */
         .chat-input-area {
-            display:flex; align-items:flex-end; gap:8px; padding:8px 16px 0px 16px;
+            display:flex; align-items:flex-end; gap:8px; padding:8px 16px 0 16px;
             border-top:1px solid var(--container-border);
             background:var(--panel-bg);
             backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
