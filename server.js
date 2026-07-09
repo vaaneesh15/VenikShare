@@ -6,13 +6,13 @@ const { Pool } = require('pg');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
 app.use(express.static(__dirname));
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 1e7 // 10 MB
+  maxHttpBufferSize: 2.5e7 // 25 MB
 });
 
 const pool = new Pool({
@@ -47,6 +47,7 @@ initDB();
 
 const activeUsers = new Map();
 activeUsers.set('public', new Set());
+const typingUsers = new Map(); // roomId -> Set of usernames
 
 // ---------- API ----------
 app.post('/api/register', async (req, res) => {
@@ -138,7 +139,7 @@ io.on('connection', (socket) => {
       avatar_color: color,
       text,
       timestamp: newMsg.timestamp.toISOString(),
-      _tempId   // пробрасываем обратно для замены временного сообщения
+      _tempId
     };
     io.to('public').emit('newMessage', msg);
 
@@ -152,9 +153,26 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('typingStart', ({ roomId, username }) => {
+    if (roomId !== 'public') return;
+    if (!typingUsers.has(roomId)) typingUsers.set(roomId, new Set());
+    typingUsers.get(roomId).add(username);
+    io.to(roomId).emit('typingUpdate', Array.from(typingUsers.get(roomId)));
+  });
+  socket.on('typingStop', ({ roomId, username }) => {
+    if (roomId !== 'public') return;
+    const users = typingUsers.get(roomId);
+    if (users) {
+      users.delete(username);
+      io.to(roomId).emit('typingUpdate', Array.from(users));
+    }
+  });
+
   socket.on('leaveRoom', ({ roomId }) => {
     if (roomId === 'public' && socket.data.username) {
       activeUsers.get('public').delete(socket.data.username);
+      const users = typingUsers.get('public');
+      if (users) { users.delete(socket.data.username); io.to('public').emit('typingUpdate', Array.from(users)); }
       io.to('public').emit('userCount', { count: activeUsers.get('public').size });
       socket.leave('public');
     }
@@ -163,6 +181,8 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (socket.data.roomId === 'public' && socket.data.username) {
       activeUsers.get('public').delete(socket.data.username);
+      const users = typingUsers.get('public');
+      if (users) { users.delete(socket.data.username); io.to('public').emit('typingUpdate', Array.from(users)); }
       io.to('public').emit('userCount', { count: activeUsers.get('public').size });
     }
   });
