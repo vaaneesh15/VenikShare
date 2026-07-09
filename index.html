@@ -114,7 +114,6 @@
         .attach-btn,
         .message-bubble,
         .avatar-upload-btn,
-        .mail-delete-btn,
         .copy-btn,
         .reaction-btn,
         .modal-close-btn,
@@ -146,7 +145,6 @@
         .attach-btn:active,
         .message-bubble:active,
         .avatar-upload-btn:active,
-        .mail-delete-btn:active,
         .copy-btn:active,
         .reaction-btn:active,
         .modal-close-btn:active,
@@ -961,53 +959,6 @@
             gap: 8px;
         }
 
-        .mail-item {
-            display: flex;
-            flex-direction: column;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--card-border);
-            color: var(--text-primary);
-            gap: 4px;
-        }
-
-        .mail-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-        }
-
-        .mail-from {
-            font-weight: bold;
-            color: var(--accent);
-        }
-
-        .mail-time {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .mail-text {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 14px;
-            margin: 4px 0;
-        }
-
-        .mail-delete-btn {
-            background: none;
-            border: none;
-            color: #ff6b6b;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 4px;
-            align-self: flex-end;
-        }
-
-        .mail-delete-btn:hover {
-            opacity: 0.7;
-        }
-
         #media-view-modal .modal-content {
             background: transparent;
             backdrop-filter: none;
@@ -1058,43 +1009,6 @@
             gap: 16px;
         }
 
-        .mail-icon {
-            position: relative;
-            cursor: pointer;
-            color: var(--accent);
-            font-size: 24px;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--icon-bg);
-            border-radius: 30px;
-            border: 1px solid var(--container-border);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        .mail-icon .badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ff4444;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid var(--icon-bg);
-            font-weight: bold;
-        }
-
-        body.dark .mail-icon .badge {
-            border-color: var(--icon-bg);
-        }
-
         .profile-avatar {
             display: flex;
             align-items: center;
@@ -1142,24 +1056,6 @@
             display: flex;
             gap: 8px;
             margin-top: 8px;
-        }
-
-        #compose-mail-modal .modal-content textarea {
-            width: 100%;
-            padding: 12px;
-            border-radius: 30px;
-            border: 1px solid var(--card-border);
-            background: var(--input-bg);
-            color: var(--text-primary);
-            resize: none;
-            min-height: 80px;
-            max-height: 200px;
-            font-size: 16px;
-            line-height: 1.4;
-        }
-
-        #compose-mail-modal .modal-content textarea:focus {
-            outline: none;
         }
 
         /* Контекстное меню сообщения */
@@ -1328,10 +1224,6 @@
                 <div class="page-header">
                     <h2>Профиль</h2>
                     <div class="profile-header">
-                        <div class="mail-icon" id="mail-icon">
-                            <i class="fas fa-envelope"></i>
-                            <span class="badge" id="mail-badge" style="display: none;">0</span>
-                        </div>
                         <div class="theme-toggle" id="profile-theme-toggle">
                             <i class="fas fa-sun"></i>
                         </div>
@@ -1560,32 +1452,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно писем -->
-    <div id="mail-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <button class="modal-close-btn" onclick="this.closest('.modal').style.display='none'"><i class="fas fa-times"></i></button>
-            <h3 style="color: var(--text-primary); margin-bottom: 16px;">Письма</h3>
-            <div id="mail-list" class="participant-list" style="max-height: 300px;"></div>
-            <div class="modal-buttons">
-                <button class="btn" id="mail-close">Закрыть</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно отправки письма -->
-    <div id="compose-mail-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <button class="modal-close-btn" onclick="this.closest('.modal').style.display='none'"><i class="fas fa-times"></i></button>
-            <h3 style="color: var(--text-primary); margin-bottom: 16px;">Новое письмо для <span id="compose-recipient"></span></h3>
-            <textarea id="compose-text" rows="4" placeholder="Текст письма..." style="width: 100%; padding: 12px; border-radius: 30px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text-primary); margin-bottom: 12px;"></textarea>
-            <div id="compose-error" style="color: #ff6b6b; margin-bottom: 8px;"></div>
-            <div class="modal-buttons">
-                <button class="btn" id="compose-cancel">Отмена</button>
-                <button class="btn btn-primary" id="compose-send">Отправить</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Модальное окно профиля пользователя -->
     <div id="user-profile-modal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -1596,7 +1462,6 @@
                 <div><strong>Ник:</strong> <span id="user-profile-name"></span></div>
             </div>
             <div class="modal-buttons">
-                <button class="btn" id="user-profile-mail">Написать</button>
                 <button class="btn" id="user-profile-close">Закрыть</button>
             </div>
         </div>
@@ -1610,18 +1475,6 @@
             <div class="modal-buttons">
                 <button class="btn" id="delete-message-no">Нет</button>
                 <button class="btn btn-primary" id="delete-message-yes">Да</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно подтверждения удаления письма -->
-    <div id="delete-mail-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <button class="modal-close-btn" onclick="this.closest('.modal').style.display='none'"><i class="fas fa-times"></i></button>
-            <h3 style="color: var(--text-primary); margin-bottom: 16px;">Удалить письмо?</h3>
-            <div class="modal-buttons">
-                <button class="btn" id="delete-mail-no">Нет</button>
-                <button class="btn btn-primary" id="delete-mail-yes">Да</button>
             </div>
         </div>
     </div>
@@ -1645,7 +1498,6 @@
 
 <script>
 (function() {
-    // Адрес сервера (замените на ваш, если нужно)
     const API_BASE = '';
 
     // Глобальные переменные состояния
@@ -1659,12 +1511,10 @@
     let localMessages = [];
     let roomMessagesCache = {};
     let userSettings = { requirePassword: false, passwordTimeout: 0 };
-    let mails = [];
     let messageToDelete = null;
     let messageRoomId = null;
-    let mailToDelete = null;
-    let currentContextMessage = null; // сообщение для контекстного меню
-    let currentContextReactions = []; // массив реакций для текущего сообщения
+    let currentContextMessage = null;
+    let currentContextReactions = [];
 
     // Массив из 50 эмодзи (полный список по запросу)
     const EMOJI_LIST = [
@@ -1803,28 +1653,13 @@
     const mediaViewModal = document.getElementById('media-view-modal');
     const mediaViewContainer = document.getElementById('media-view-container');
     const mediaViewClose = document.getElementById('media-view-close');
-    const mailModal = document.getElementById('mail-modal');
-    const mailList = document.getElementById('mail-list');
-    const mailClose = document.getElementById('mail-close');
-    const mailIcon = document.getElementById('mail-icon');
-    const mailBadge = document.getElementById('mail-badge');
-    const composeModal = document.getElementById('compose-mail-modal');
-    const composeRecipient = document.getElementById('compose-recipient');
-    const composeText = document.getElementById('compose-text');
-    const composeError = document.getElementById('compose-error');
-    const composeCancel = document.getElementById('compose-cancel');
-    const composeSend = document.getElementById('compose-send');
     const userProfileModal = document.getElementById('user-profile-modal');
     const userProfileName = document.getElementById('user-profile-name');
     const userProfileAvatar = document.getElementById('user-profile-avatar');
-    const userProfileMail = document.getElementById('user-profile-mail');
     const userProfileClose = document.getElementById('user-profile-close');
     const deleteMessageModal = document.getElementById('delete-message-modal');
     const deleteMessageNo = document.getElementById('delete-message-no');
     const deleteMessageYes = document.getElementById('delete-message-yes');
-    const deleteMailModal = document.getElementById('delete-mail-modal');
-    const deleteMailNo = document.getElementById('delete-mail-no');
-    const deleteMailYes = document.getElementById('delete-mail-yes');
     const messageContextModal = document.getElementById('message-context-modal');
     const contextMessageContent = document.getElementById('context-message-content');
     const reactionPickerModal = document.getElementById('reaction-picker-modal');
@@ -2012,7 +1847,6 @@
             profileUsername.textContent = username;
             connectSocket();
             loadUserSettings();
-            await loadMails();
             await loadPrivateRooms();
             await loadAllRoomMessages();
             showInnerScreen('profile-screen');
@@ -2056,7 +1890,6 @@
         profileUsername.textContent = currentUser.username;
         connectSocket();
         loadUserSettings();
-        loadMails();
         loadPrivateRooms().then(() => loadAllRoomMessages());
         showInnerScreen('profile-screen');
     } else {
@@ -2088,8 +1921,6 @@
                             } else {
                                 delete unreadCounts[room.id];
                             }
-                        } else {
-                            // Если никогда не заходили, не считаем непрочитанными
                         }
                         saveUnread();
                         updatePrivateNavBadge();
@@ -2152,93 +1983,6 @@
         }
     });
 
-    // Письма
-    async function loadMails() {
-        if (!currentUser) return;
-        try {
-            const res = await fetch(API_BASE + '/api/mails?username=' + currentUser.username);
-            mails = await res.json();
-            updateMailBadge();
-        } catch (err) { console.error('Ошибка загрузки писем', err); }
-    }
-    function updateMailBadge() {
-        const unread = mails.filter(m => !m.is_read).length;
-        if (unread > 0) { mailBadge.style.display = 'flex'; mailBadge.textContent = unread; }
-        else mailBadge.style.display = 'none';
-    }
-    async function markMailsAsRead(ids) {
-        if (!ids.length) return;
-        try {
-            await fetch(API_BASE + '/api/mails/mark-read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser.username, ids })
-            });
-            mails.forEach(m => { if (ids.includes(m.id)) m.is_read = true; });
-            updateMailBadge();
-        } catch (err) { console.error('Ошибка отметки', err); }
-    }
-    mailIcon.addEventListener('click', async () => {
-        await loadMails();
-        renderMailList();
-        mailModal.style.display = 'flex';
-        const unreadIds = mails.filter(m => !m.is_read).map(m => m.id);
-        if (unreadIds.length) await markMailsAsRead(unreadIds);
-    });
-    function renderMailList() {
-        mailList.innerHTML = mails.map(m => `
-            <div class="mail-item">
-                <div class="mail-header">
-                    <span class="mail-from">${escapeHtml(m.from_user)}</span>
-                    <span class="mail-time">${new Date(m.timestamp).toLocaleString()}</span>
-                </div>
-                <div class="mail-text">${escapeHtml(m.text).replace(/\n/g, '<br>')}</div>
-                <button class="mail-delete-btn" data-id="${m.id}"><i class="fas fa-trash"></i> Удалить</button>
-            </div>
-        `).join('');
-        document.querySelectorAll('.mail-delete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                mailToDelete = btn.dataset.id;
-                deleteMailModal.style.display = 'flex';
-            });
-        });
-    }
-    mailClose.addEventListener('click', () => mailModal.style.display = 'none');
-    deleteMailNo.addEventListener('click', () => { deleteMailModal.style.display = 'none'; mailToDelete = null; });
-    deleteMailYes.addEventListener('click', async () => {
-        if (!mailToDelete) return;
-        try {
-            const res = await fetch(API_BASE + '/api/mails/' + mailToDelete + '?username=' + currentUser.username, { method: 'DELETE' });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-            mails = mails.filter(m => m.id != mailToDelete);
-            updateMailBadge();
-            renderMailList();
-            deleteMailModal.style.display = 'none';
-            mailToDelete = null;
-        } catch (err) { alert(err.message); deleteMailModal.style.display = 'none'; }
-    });
-
-    // Отправка письма
-    composeSend.addEventListener('click', async () => {
-        const to = composeRecipient.textContent;
-        const text = composeText.value.trim();
-        if (!text) { composeError.textContent = 'Введите текст'; return; }
-        try {
-            const res = await fetch(API_BASE + '/api/mails/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from: currentUser.username, to, text })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-            composeModal.style.display = 'none';
-            alert('Письмо отправлено');
-        } catch (err) { composeError.textContent = err.message; }
-    });
-    composeCancel.addEventListener('click', () => composeModal.style.display = 'none');
-
     // Профиль пользователя (клик по нику или аватарке)
     document.addEventListener('click', (e) => {
         const senderDiv = e.target.closest('.message-sender');
@@ -2258,13 +2002,6 @@
             .catch(() => userProfileAvatar.src = '');
         userProfileModal.style.display = 'flex';
     }
-    userProfileMail.addEventListener('click', () => {
-        composeRecipient.textContent = userProfileName.textContent;
-        composeText.value = '';
-        composeError.textContent = '';
-        composeModal.style.display = 'flex';
-        userProfileModal.style.display = 'none';
-    });
     userProfileClose.addEventListener('click', () => userProfileModal.style.display = 'none');
 
     // Локальное хранилище
@@ -2287,7 +2024,7 @@
     // Socket
     function connectSocket() {
         if (socket) socket.close();
-        socket = io(API_BASE, { reconnectionAttempts: 5, timeout: 10000 });
+        socket = io({ reconnectionAttempts: 5, timeout: 10000 });
         socket.on('connect', () => console.log('✅ Socket connected'));
         socket.on('roomError', d => alert(d.message));
         socket.on('roomJoined', d => {
@@ -2320,10 +2057,6 @@
             if (currentRoom === 'public') publicParticipantCount.textContent = d.count;
             else if (currentRoom === currentPrivateRoom?.id) privateChatParticipantCount.textContent = d.count;
         });
-        socket.on('newMail', (mail) => {
-            mails.unshift({ id: mail.id, from_user: mail.from_user, text: mail.text, timestamp: mail.timestamp, is_read: false });
-            updateMailBadge();
-        });
     }
 
     function joinRoom(id, name) {
@@ -2338,7 +2071,6 @@
         if (id === 'public') return;
         currentPrivateRoom = { id, name: name || id };
         privateChatTitle.textContent = name || id;
-        // Сохраняем время входа для подсчёта непрочитанных и обнуляем счётчик
         localStorage.setItem('lastRead_' + id, new Date().toISOString());
         if (unreadCounts[id]) {
             delete unreadCounts[id];
@@ -2402,7 +2134,6 @@
         contentDiv.className = 'message-content';
         contentDiv.innerHTML = renderMessageBubble(msg, own);
         messageDiv.appendChild(contentDiv);
-        // Добавляем обработчик контекстного меню (долгое нажатие/ПКМ)
         attachContextMenu(messageDiv, msg);
         container.appendChild(messageDiv);
         return msgDate;
@@ -2423,7 +2154,6 @@
         });
     }
 
-    // Показать контекстное меню
     async function showContextMenu(msg) {
         currentContextMessage = msg;
         try {
@@ -2509,7 +2239,7 @@
 
     window.showReactionUsers = function(emoji, users) {
         const userList = users.map(u => `<div class="reaction-user-item">${escapeHtml(u)}</div>`).join('');
-        alert(userList); // можно заменить на модальное окно
+        alert(userList);
     };
 
     window.deleteCurrentMessage = function() {
@@ -2551,7 +2281,6 @@
     loadUnreadFromStorage();
 
     function updatePrivateNavBadge() {
-        // Считаем количество комнат с непрочитанными
         let count = 0;
         for (let roomId in unreadCounts) {
             if (unreadCounts[roomId] > 0) count++;
