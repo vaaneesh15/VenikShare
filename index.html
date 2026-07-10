@@ -12,33 +12,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
-        html, body { width:100%; height:100vh; overflow:hidden; background: linear-gradient(145deg, #e9e9f0, #dadde8); }
-        body.dark { background: linear-gradient(145deg, #000000, #121212); }
+        html, body { width:100%; height:100vh; overflow:hidden; background: #000; }
         body {
-            --bg-gradient-start:#e9e9f0; --bg-gradient-end:#dadde8;
-            --container-bg:rgba(240,240,245,0.7); --container-border:rgba(255,255,255,0.5);
-            --text-primary:#1a1a2e; --text-secondary:#2c3e50; --text-muted:#6b6b80;
-            --accent:#4a3aff; --accent-light:#7a6aff;
-            --card-bg:rgba(255,255,255,0.6); --card-border:rgba(255,255,255,0.6);
-            --shadow:0 25px 50px -12px rgba(0,0,0,0.2); --icon-bg:white;
-            --panel-bg:rgba(255,255,255,0.7); --input-bg:rgba(255,255,255,0.5);
-            --chat-own-bg:var(--accent); --chat-other-bg:#e0e0f0;
-            --chat-own-text:white; --chat-other-text:#1a1a2e;
-            transition: background 0.2s, color 0.2s;
-        }
-        /* Более контрастная светлая тема */
-        body {
-            --bg-gradient-start:#e5e5f0; --bg-gradient-end:#d0d0e0;
-        }
-        body.dark {
-            --bg-gradient-start:#000000; --bg-gradient-end:#121212;
+            --bg-gradient-start:#000; --bg-gradient-end:#121212;
             --container-bg:rgba(0,0,0,0.8); --container-border:rgba(255,255,255,0.15);
             --text-primary:#f0f0ff; --text-secondary:#ecf0f1; --text-muted:#8a8aa0;
             --accent:#6d5fff; --accent-light:#9a8cff;
             --card-bg:rgba(20,20,30,0.7); --card-border:rgba(255,255,255,0.1);
             --shadow:0 25px 50px -12px rgba(0,0,0,0.6); --icon-bg:#1e1e2a;
             --panel-bg:rgba(0,0,0,0.8); --input-bg:rgba(20,20,30,0.6);
-            --chat-other-bg:#2a2a3a; --chat-other-text:#ffffff;
+            --chat-own-bg:var(--accent); --chat-other-bg:#2a2a3a;
+            --chat-own-text:#fff; --chat-other-text:#fff;
         }
         .app-container { width:100%; height:100vh; display:flex; flex-direction:column; background:inherit; }
         #auth-screen { position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:inherit; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:16px; }
@@ -46,7 +30,8 @@
         .auth-panel { background:var(--panel-bg); backdrop-filter:blur(10px); border-radius:36px; padding:24px 20px; border:1px solid var(--container-border); box-shadow:var(--shadow); width:100%; max-width:360px; }
         .input-group { display:flex; gap:8px; margin-bottom:12px; }
         .input-group input { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:40px; padding:14px 18px; font-size:16px; color:var(--text-primary); outline:none; }
-        .btn { background:var(--icon-bg); border:1px solid var(--card-border); border-radius:40px; padding:14px 24px; font-size:16px; font-weight:600; color:var(--accent); cursor:pointer; width:100%; text-align:center; }
+        .btn { background:var(--icon-bg); border:1px solid var(--card-border); border-radius:40px; padding:14px 24px; font-size:16px; font-weight:600; color:var(--accent); cursor:pointer; width:100%; text-align:center; margin-bottom:8px; }
+        .btn:last-child { margin-bottom:0; }
         .btn-primary { background:var(--accent); color:white; border:none; }
         .status { text-align:center; color:var(--text-muted); margin:8px 0; font-size:14px; }
         .flex-col { display:flex; flex-direction:column; gap:12px; }
@@ -55,7 +40,7 @@
         .chat-header-left { display:flex; align-items:center; gap:12px; }
         .profile-btn { margin-top:8px; background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
         .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
-        .chat-input-area { display:flex; align-items:flex-end; gap:8px; padding:8px 16px 12px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
+        .chat-input-area { display:flex; align-items:flex-end; gap:8px; padding:12px 16px 14px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
         .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:44px; max-height:120px; line-height:1.4; overflow-y:auto; }
         .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); }
@@ -67,15 +52,14 @@
         .message-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; cursor:pointer; color:#fff; background:#ccc; }
         .message-own .message-avatar { display:none; }
         .message-content { max-width:calc(80% - 48px); display:flex; flex-direction:column; }
-        .message-sender { font-size:13px; font-weight:600; margin-bottom:2px; color:var(--accent); margin-left:12px; }
+        .message-sender { font-size:13px; font-weight:600; margin-bottom:2px; color:var(--accent); margin-left:4px; background:var(--chat-other-bg); padding:2px 10px; border-radius:12px; display:inline-block; align-self:flex-start; }
         .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); }
         .message-bubble-own { background:var(--chat-own-bg); color:var(--chat-own-text); border-color:var(--accent-light); }
         .message-text { font-size:15px; line-height:1.4; }
         .emoji-only { font-size:48px; line-height:1; display:inline-block; }
-        .message-media { max-width:100%; border-radius:16px; cursor:pointer; display:block; }
+        .message-media { max-width:200px; max-height:200px; border-radius:16px; cursor:pointer; display:block; object-fit:cover; }
         .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center; z-index:1000; }
         .modal-content { background:var(--panel-bg); backdrop-filter:blur(20px); border-radius:36px; padding:24px; max-width:90%; width:400px; border:1px solid var(--container-border); position:relative; }
-        .modal-buttons { display:flex; gap:12px; margin-top:20px; }
         .profile-avatar { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
         .avatar-circle { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px; color:#fff; background:#ccc; flex-shrink:0; }
         .horizontal-scroll { display:flex; gap:8px; overflow-x:auto; padding:8px 0; -webkit-overflow-scrolling:touch; }
@@ -83,10 +67,9 @@
         .color-option, .emoji-option { flex-shrink:0; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid transparent; font-size:24px; }
         .color-option.selected, .emoji-option.selected { border-color:var(--accent); }
         #media-view-modal .modal-content { background:transparent; backdrop-filter:none; box-shadow:none; display:flex; justify-content:center; align-items:center; padding:0; width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; position:relative; }
-        #media-view-modal img, #media-view-modal video { max-width:90vw; max-height:80vh; border-radius:16px; object-fit:contain; cursor:default; }
-        .media-modal-actions { position: absolute; top: 20px; right: 20px; display: flex; gap: 12px; z-index: 10; }
+        #media-view-modal img, #media-view-modal video { max-width:90vw; max-height:70vh; border-radius:16px; object-fit:contain; cursor:default; }
+        .media-modal-actions { position: absolute; top: calc(env(safe-area-inset-top) + 60px); right: 20px; display: flex; gap: 12px; z-index: 10; }
         .media-modal-actions button { background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        /* Стили для обоев */
         .wallpaper-preview { max-width: 100%; max-height: 60vh; border-radius: 16px; display: block; margin: 0 auto 16px; }
     </style>
 </head>
@@ -106,8 +89,8 @@
         </div>
         <div class="chat-messages" id="public-messages"></div>
         <div class="chat-input-area">
-            <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
             <button class="btn attach-btn" id="public-attach"><i class="fas fa-paperclip"></i></button>
+            <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
             <button class="btn btn-primary" id="public-send"><i class="fas fa-paper-plane"></i><div class="cooldown-bar" id="cooldown-bar"></div></button>
         </div>
     </div>
@@ -117,25 +100,22 @@
 <div id="profile-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="color:var(--text-primary);" id="profile-nickname-title"></h3>
-            <button class="btn" id="theme-toggle-btn" style="width:auto; padding:8px 16px;">Авто</button>
+            <h3 style="color:var(--accent);" id="profile-nickname-title"></h3>
         </div>
         <div class="profile-avatar">
             <div class="avatar-circle" id="profile-avatar-circle"></div>
             <button class="btn" id="change-avatar-btn" style="width:auto; padding:12px 20px;">Изменить</button>
         </div>
-        <!-- Кнопки обоев -->
         <div style="margin: 16px 0;">
-            <button class="btn" id="set-wallpaper-btn" style="margin-bottom:8px;">Загрузить обои</button>
+            <button class="btn" id="set-wallpaper-btn">Загрузить обои</button>
             <button class="btn" id="reset-wallpaper-btn">Сбросить обои</button>
             <input type="file" id="wallpaper-file-input" accept="image/*" style="display:none;">
         </div>
-        <button class="btn" id="logout-btn" style="margin-top:16px;">Выйти</button>
-        <div class="modal-buttons"><button class="btn" id="profile-close-btn">Закрыть</button></div>
+        <button class="btn" id="logout-btn">Выйти</button>
+        <div style="margin-top:8px;"><button class="btn" id="profile-close-btn">Закрыть</button></div>
     </div>
 </div>
 
-<!-- Модалка предпросмотра обоев -->
 <div id="wallpaper-preview-modal" class="modal" style="display:none;">
     <div class="modal-content" style="width:auto; max-width:90vw;">
         <h3 style="color:var(--text-primary); margin-bottom:16px;">Предпросмотр обоев</h3>
@@ -172,16 +152,14 @@
     let isLoadingMore = false, oldestTimestamp = null;
     const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
     const COLORS = ['#E57373','#F06292','#BA68C8','#9575CD','#7986CB','#64B5F6','#4FC3F7','#4DD0E1','#4DB6AC','#81C784','#AED581','#DCE775','#FFD54F','#FFB74D','#FF8A65','#A1887F','#E0E0E0','#90A4AE'];
-    let selectedEmoji = '', selectedColor = '#ccc', currentTheme = localStorage.getItem('chatxTheme') || 'system';
+    let selectedEmoji = '', selectedColor = '#ccc';
     let currentMediaSrc = null;
 
     const publicSend = document.getElementById('public-send');
     const publicAttach = document.getElementById('public-attach');
     const publicInput = document.getElementById('public-input');
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
     const profileNicknameTitle = document.getElementById('profile-nickname-title');
 
-    // Обои
     const setWallpaperBtn = document.getElementById('set-wallpaper-btn');
     const resetWallpaperBtn = document.getElementById('reset-wallpaper-btn');
     const wallpaperFileInput = document.getElementById('wallpaper-file-input');
@@ -198,28 +176,22 @@
         document.body.style.backgroundAttachment = 'fixed';
         localStorage.setItem('chatxWallpaper', dataUrl);
     }
-
     function removeWallpaper() {
         document.body.style.backgroundImage = '';
         document.body.style.backgroundSize = '';
         document.body.style.backgroundAttachment = '';
         localStorage.removeItem('chatxWallpaper');
     }
-
-    function loadWallpaper() {
+    (function loadWallpaper() {
         const saved = localStorage.getItem('chatxWallpaper');
         if (saved) {
             document.body.style.backgroundImage = `url(${saved})`;
             document.body.style.backgroundSize = 'cover';
             document.body.style.backgroundAttachment = 'fixed';
         }
-    }
-    loadWallpaper();
+    })();
 
-    setWallpaperBtn.addEventListener('click', () => {
-        wallpaperFileInput.click();
-    });
-
+    setWallpaperBtn.addEventListener('click', () => wallpaperFileInput.click());
     wallpaperFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -232,31 +204,15 @@
         reader.readAsDataURL(file);
         wallpaperFileInput.value = '';
     });
-
-    wallpaperCancelBtn.addEventListener('click', () => {
-        wallpaperPreviewModal.style.display = 'none';
-        pendingWallpaperDataUrl = null;
-    });
-
+    wallpaperCancelBtn.addEventListener('click', () => { wallpaperPreviewModal.style.display = 'none'; pendingWallpaperDataUrl = null; });
     wallpaperApplyBtn.addEventListener('click', () => {
-        if (pendingWallpaperDataUrl) {
-            applyWallpaper(pendingWallpaperDataUrl);
-        }
+        if (pendingWallpaperDataUrl) applyWallpaper(pendingWallpaperDataUrl);
         wallpaperPreviewModal.style.display = 'none';
         pendingWallpaperDataUrl = null;
     });
+    resetWallpaperBtn.addEventListener('click', removeWallpaper);
 
-    resetWallpaperBtn.addEventListener('click', () => {
-        removeWallpaper();
-    });
-
-    function applyTheme() {
-        const isDark = currentTheme === 'dark' || (currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        document.body.classList.toggle('dark', isDark);
-        document.getElementById('theme-color-meta').setAttribute('content', isDark ? '#000000' : '#4a3aff');
-    }
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
-    applyTheme();
+    document.getElementById('theme-color-meta').setAttribute('content', '#000000');
 
     const $ = id => document.getElementById(id);
     const authScreen = $('auth-screen'), mainScreen = $('main-screen'),
@@ -365,8 +321,12 @@
         });
     }
 
+    let lastSenderId = null;
     function appendMessageElement(msg, isOwnMedia = false) {
-        addMessageWithDate(publicMessagesEl, msg, null, isOwnMedia);
+        const prevMsg = publicMessagesCache.length >= 2 ? publicMessagesCache[publicMessagesCache.length-2] : null;
+        const sameBatch = !isOwnMedia && prevMsg && prevMsg.sender === msg.sender && (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < 300000;
+        addMessageWithDate(publicMessagesEl, msg, sameBatch, isOwnMedia);
+        if (!isOwnMedia && !sameBatch) lastSenderId = msg.sender;
     }
 
     function isSingleEmoji(text) {
@@ -421,15 +381,18 @@
 
     function escapeHtml(t) { return t.replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
 
-    function renderMessage(msg, own, skipPlaceholder = false) {
+    function renderMessage(msg, own, sameBatch = false) {
         const text = msg.text || '';
         const isMedia = text.startsWith('data:');
         let html = '';
 
-        if (!own) {
+        if (!own && !sameBatch) {
             html += `<div class="message-avatar" style="background:${msg.avatar_color||'#ccc'};">${msg.avatar_emoji || (msg.sender?.[0]?.toUpperCase()||'?')}</div>`;
             html += `<div class="message-content">`;
             html += `<div class="message-sender">${escapeHtml(msg.sender)}</div>`;
+        } else if (!own && sameBatch) {
+            html += `<div style="width:40px; flex-shrink:0;"></div>`;
+            html += `<div class="message-content">`;
         } else {
             html += `<div class="message-content" style="align-items:flex-end;">`;
         }
@@ -440,10 +403,8 @@
             const src = text;
             if (src.startsWith('data:image')) {
                 html += `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
-            } else if (src.startsWith('data:video')) {
-                html += `<div style="padding:10px;background:var(--input-bg);border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);"><i class="fas fa-video-slash"></i> Видео недоступно</div>`;
             } else {
-                html += `<div class="media-placeholder" style="cursor:default;"><i class="fas fa-file"></i> Неподдерживаемый файл</div>`;
+                html += `<div style="padding:10px;background:var(--input-bg);border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);"><i class="fas fa-file"></i> Неподдерживаемый файл</div>`;
             }
         } else {
             html += `<div class="message-bubble ${own ? 'message-bubble-own' : ''}"><div class="message-text">${escapeHtml(text)}</div></div>`;
@@ -453,18 +414,23 @@
         return html;
     }
 
-    function addMessageWithDate(container, msg, prevDate, skipPlaceholder = false) {
+    function addMessageWithDate(container, msg, sameBatch, skipPlaceholder = false) {
         const own = msg.sender === currentUser?.username;
         const div = document.createElement('div');
         div.className = `message ${own ? 'message-own' : ''}`;
-        div.innerHTML = renderMessage(msg, own, skipPlaceholder);
+        if (sameBatch) div.style.marginTop = '0';
+        div.innerHTML = renderMessage(msg, own, sameBatch);
         container.appendChild(div);
         return div;
     }
 
     function displayPublicMessages(initial) {
         publicMessagesEl.innerHTML = '';
-        publicMessagesCache.forEach(m => addMessageWithDate(publicMessagesEl, m, null, false));
+        publicMessagesCache.forEach((m,i) => {
+            const prev = i > 0 ? publicMessagesCache[i-1] : null;
+            const sameBatch = !(m.sender === currentUser?.username) && prev && prev.sender === m.sender && (new Date(m.timestamp) - new Date(prev.timestamp)) < 300000;
+            addMessageWithDate(publicMessagesEl, m, sameBatch, false);
+        });
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
 
@@ -480,12 +446,6 @@
         avatarPickerModal.style.display = 'none';
     };
 
-    themeToggleBtn.textContent = currentTheme === 'light' ? 'Светлая' : (currentTheme === 'dark' ? 'Тёмная' : 'Авто');
-    themeToggleBtn.onclick = () => {
-        currentTheme = currentTheme === 'light' ? 'dark' : (currentTheme === 'dark' ? 'system' : 'light');
-        localStorage.setItem('chatxTheme', currentTheme); applyTheme();
-        themeToggleBtn.textContent = currentTheme === 'light' ? 'Светлая' : (currentTheme === 'dark' ? 'Тёмная' : 'Авто');
-    };
     logoutBtn.onclick = () => { if (socket) socket.close(); localStorage.removeItem('chatxUser'); currentUser = null; profileModal.style.display = 'none'; showAuth(); };
 
     window.openMedia = src => {
