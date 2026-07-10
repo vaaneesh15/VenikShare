@@ -41,18 +41,15 @@ async function initDB() {
       file_name VARCHAR(255) DEFAULT '',
       timestamp TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
-    // Добавляем колонку file_name, если её нет (для существующих таблиц)
-    await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT ''`);
     console.log('✅ БД готова');
   } catch (err) { console.error('❌ Ошибка БД:', err); }
 }
 initDB();
 
-const activeUsers = new Map();
-activeUsers.set('public', new Set());
-const typingUsers = new Map();
+const onlineUsers = new Set();   // все пользователи на сайте
+const typingUsers = new Map();   // roomId -> Set of usernames
 
-// API
+// ---------- API ----------
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
@@ -97,32 +94,33 @@ app.get('/api/avatar/:username', async (req, res) => {
   res.json({ emoji: user.rows[0].avatar_emoji, color: user.rows[0].avatar_color });
 });
 
-app.get('/api/rooms/participants/public', (req, res) => {
-  const users = activeUsers.get('public');
-  res.json(users ? Array.from(users) : []);
+// Онлайн пользователи
+app.get('/api/online/users', (req, res) => {
+  res.json(Array.from(onlineUsers));
 });
 
-// Сокеты
+// ---------- Сокеты ----------
 io.on('connection', (socket) => {
   console.log('🔗', socket.id);
+
   socket.on('joinRoom', async ({ roomId, username }) => {
     if (roomId !== 'public') return socket.emit('roomError', { message: 'Нет такой комнаты' });
     socket.join('public');
     socket.data.roomId = 'public';
     socket.data.username = username;
-    activeUsers.get('public').add(username);
+
+    onlineUsers.add(username);
+    io.emit('onlineCount', onlineUsers.size);
+
     const messages = await pool.query(
-      `SELECT m.id, u.username AS sender, m.text, m.file_name, m.timestamp, m.avatar_emoji, m.avatar_color 
+      `SELECT m.id, u.username AS sender, m.text, m.timestamp, m.avatar_emoji, m.avatar_color 
        FROM messages m 
        JOIN users u ON m.user_id = u.id 
        WHERE m.room_id = 'public' 
        ORDER BY m.timestamp DESC 
        LIMIT 15`
     );
-    // Разворачиваем, чтобы последние были внизу
-    const rows = messages.rows.reverse();
-    socket.emit('roomJoined', { roomId: 'public', messages: rows, userCount: activeUsers.get('public').size });
-    io.to('public').emit('userCount', { count: activeUsers.get('public').size });
+    socket.emit('roomJoined', { roomId: 'public', messages: messages.rows.reverse(), userCount: onlineUsers.size });
   });
 
   socket.on('loadOlderMessages', async ({ roomId, beforeTimestamp }) => {
@@ -133,7 +131,7 @@ io.on('connection', (socket) => {
        JOIN users u ON m.user_id = u.id 
        WHERE m.room_id = 'public' AND m.timestamp < $1 
        ORDER BY m.timestamp DESC 
-       LIMIT 15`,
+       LIMIT 20`,
       [beforeTimestamp]
     );
     socket.emit('olderMessages', { messages: messages.rows.reverse() });
@@ -189,22 +187,19 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('leaveRoom', ({ roomId }) => {
-    if (roomId === 'public' && socket.data.username) {
-      activeUsers.get('public').delete(socket.data.username);
-      const users = typingUsers.get('public');
-      if (users) { users.delete(socket.data.username); io.to('public').emit('typingUpdate', Array.from(users)); }
-      io.to('public').emit('userCount', { count: activeUsers.get('public').size });
-      socket.leave('public');
-    }
-  });
-
   socket.on('disconnect', () => {
-    if (socket.data.roomId === 'public' && socket.data.username) {
-      activeUsers.get('public').delete(socket.data.username);
-      const users = typingUsers.get('public');
-      if (users) { users.delete(socket.data.username); io.to('public').emit('typingUpdate', Array.from(users)); }
-      io.to('public').emit('userCount', { count: activeUsers.get('public').size });
+    if (socket.data.username) {
+      onlineUsers.delete(socket.data.username);
+      io.emit('onlineCount', onlineUsers.size);
+
+      const roomId = socket.data.roomId;
+      if (roomId === 'public') {
+        const users = typingUsers.get('public');
+        if (users) {
+          users.delete(socket.data.username);
+          io.to('public').emit('typingUpdate', Array.from(users));
+        }
+      }
     }
   });
 });
