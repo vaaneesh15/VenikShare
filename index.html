@@ -58,9 +58,10 @@
         .audio-panel .progress { position:absolute; bottom:0; left:0; height:3px; background:var(--accent); width:0; }
         .chat-header { display:flex; align-items:center; justify-content:space-between; padding:max(env(safe-area-inset-top),12px) 16px 12px 16px; border-bottom:1px solid var(--container-border); background:var(--container-bg); backdrop-filter:blur(20px); flex-shrink:0; }
         .chat-header-left { display:flex; align-items:center; gap:12px; }
-        .profile-btn, .participant-count { margin-top:8px; transition: transform 0.15s ease; }
-        .profile-btn:active, .participant-count:active { transform: scale(0.92); }
+        .profile-btn, .refresh-btn, .participant-count { margin-top:8px; transition: transform 0.15s ease; }
+        .profile-btn:active, .refresh-btn:active, .participant-count:active { transform: scale(0.92); }
         .profile-btn { background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
+        .refresh-btn { background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:18px; margin-right: 8px; }
         .participant-count { background:var(--icon-bg); border-radius:30px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:var(--accent); border:1px solid var(--card-border); cursor:pointer; }
         .typing-indicator { font-size:13px; color:var(--text-muted); padding:4px 16px; background:var(--panel-bg); border-top:1px solid var(--container-border); display:none; flex-shrink:0; }
         .typing-indicator.active { display:block; }
@@ -128,7 +129,10 @@
     <div id="main-screen" style="display:none;">
         <div class="chat-header">
             <div class="chat-header-left"><div class="profile-btn" id="profile-btn"><i class="fas fa-user"></i></div></div>
-            <div class="participant-count" id="public-participant-count" title="Участники онлайн">0</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div class="refresh-btn" id="refresh-btn" title="Обновить"><i class="fas fa-sync-alt"></i></div>
+                <div class="participant-count" id="online-count" title="Онлайн">0</div>
+            </div>
         </div>
         <div class="audio-panel" id="audio-panel">
             <button class="play-btn" id="audio-panel-play"><i class="fas fa-play"></i></button>
@@ -148,6 +152,7 @@
     </div>
 </div>
 
+<!-- Модальные окна -->
 <div id="profile-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <h3 style="color:var(--text-primary); margin-bottom:16px;">Профиль</h3>
@@ -166,12 +171,12 @@
         <div class="modal-buttons"><button class="btn" id="avatar-cancel-btn">Отмена</button><button class="btn btn-primary" id="avatar-save-btn">Сохранить</button></div>
     </div>
 </div>
-<div id="participants-modal" class="modal" style="display:none;">
+<div id="online-modal" class="modal" style="display:none;">
     <div class="modal-content">
-        <h3 style="color:var(--text-primary); margin-bottom:16px;">Участники онлайн</h3>
-        <div id="participants-loading" class="loading-spinner" style="display:none;">Загрузка...</div>
-        <ul id="participants-list" class="participant-list"></ul>
-        <div class="modal-buttons"><button class="btn" id="participants-close-btn">Закрыть</button></div>
+        <h3 style="color:var(--text-primary); margin-bottom:16px;">Онлайн</h3>
+        <div id="online-loading" class="loading-spinner" style="display:none;">Загрузка...</div>
+        <ul id="online-list" class="participant-list"></ul>
+        <div class="modal-buttons"><button class="btn" id="online-close-btn">Закрыть</button></div>
     </div>
 </div>
 <div id="media-view-modal" class="modal" style="display:none;">
@@ -191,11 +196,20 @@
     let selectedEmoji = '', selectedColor = '#ccc', currentTheme = localStorage.getItem('chatxTheme') || 'system';
     let currentAudio = null, currentAudioSrc = null, currentAudioBtns = [], currentAudioFills = [];
 
+    // Запись голоса
     let mediaRecorder = null, audioChunks = [], recordingState = 'idle';
     const voiceBtn = document.getElementById('voice-btn');
     const publicSend = document.getElementById('public-send');
     const publicAttach = document.getElementById('public-attach');
     const publicInput = document.getElementById('public-input');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const onlineCountEl = document.getElementById('online-count');
+    const onlineModal = document.getElementById('online-modal');
+    const onlineList = document.getElementById('online-list');
+    const onlineLoading = document.getElementById('online-loading');
+    const onlineCloseBtn = document.getElementById('online-close-btn');
+
+    refreshBtn.addEventListener('click', () => location.reload());
 
     function updateVoiceButton() {
         const icon = voiceBtn.querySelector('i');
@@ -305,13 +319,12 @@
     const authScreen = $('auth-screen'), mainScreen = $('main-screen'),
           authUsername = $('auth-username'), authPassword = $('auth-password'), authStatus = $('auth-status'),
           authLogin = $('auth-login'), authRegister = $('auth-register'),
-          publicMessagesEl = $('public-messages'), publicParticipantCount = $('public-participant-count'),
+          publicMessagesEl = $('public-messages'),
           profileBtn = $('profile-btn'), profileModal = $('profile-modal'), profileAvatarCircle = $('profile-avatar-circle'),
           changeAvatarBtn = $('change-avatar-btn'), avatarPickerModal = $('avatar-picker-modal'), colorScroll = $('color-scroll'),
           emojiScroll = $('emoji-scroll'), avatarCancelBtn = $('avatar-cancel-btn'), avatarSaveBtn = $('avatar-save-btn'),
           profileUsernameDisplay = $('profile-username-display'), themeToggleBtn = $('theme-toggle-btn'), logoutBtn = $('logout-btn'),
-          profileCloseBtn = $('profile-close-btn'), participantsModal = $('participants-modal'), participantsList = $('participants-list'),
-          participantsLoading = $('participants-loading'), participantsCloseBtn = $('participants-close-btn'),
+          profileCloseBtn = $('profile-close-btn'),
           mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'), cooldownBar = $('cooldown-bar'),
           audioPanel = $('audio-panel'), audioPanelPlay = $('audio-panel-play'), audioPanelTitle = $('audio-panel-title'),
           audioPanelDownload = $('audio-panel-download'), audioPanelClose = $('audio-panel-close'), audioPanelProgress = $('audio-panel-progress'),
@@ -430,7 +443,7 @@
             if (d.messages.length > 0) oldestTimestamp = d.messages[0].timestamp;
             else oldestTimestamp = null;
             displayPublicMessages(true);
-            publicParticipantCount.textContent = d.userCount;
+            onlineCountEl.textContent = d.userCount;
         });
         socket.on('olderMessages', d => {
             if (d.messages.length > 0) {
@@ -454,7 +467,10 @@
                 if (isScrolledToBottom()) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
             }
         });
-        socket.on('userCount', d => { publicParticipantCount.textContent = d.count; });
+        socket.on('onlineCount', count => {
+            onlineCountEl.textContent = count;
+        });
+        socket.on('userCount', d => { onlineCountEl.textContent = d.count; }); // оставлено для совместимости, но теперь не используется
         socket.on('typingUpdate', users => updateTypingIndicator(users));
         socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
 
@@ -517,11 +533,11 @@
     function attachMediaHandler() {
         const inp = document.createElement('input');
         inp.type = 'file';
-        inp.accept = 'image/*,audio/*';
+        inp.accept = 'image/*';   // только изображения, видео/аудио файлы исключены
         inp.onchange = e => {
             const f = e.target.files[0]; if (!f) return;
-            if (f.type.startsWith('video/')) {
-                alert('Видео не поддерживается');
+            if (f.type.startsWith('video/') || f.type.startsWith('audio/')) {
+                alert('Видео и аудио файлы не поддерживаются');
                 return;
             }
             if (f.size > 25*1024*1024) { alert('Файл не должен превышать 25 МБ'); return; }
@@ -626,13 +642,20 @@
         themeToggleBtn.textContent = currentTheme === 'light' ? 'Светлая' : (currentTheme === 'dark' ? 'Тёмная' : 'Авто');
     };
     logoutBtn.onclick = () => { if (socket) socket.close(); localStorage.removeItem('chatxUser'); currentUser = null; profileModal.style.display = 'none'; showAuth(); };
-    publicParticipantCount.onclick = async () => {
-        participantsModal.style.display = 'flex'; participantsList.innerHTML = ''; participantsLoading.style.display = 'block';
-        try { const res = await fetch(API_BASE + '/api/rooms/participants/public'); const users = await res.json(); participantsList.innerHTML = users.map(u => `<li>${escapeHtml(u)}</li>`).join(''); }
-        catch { participantsList.innerHTML = '<li style="color:#ff6b6b;">Ошибка</li>'; }
-        finally { participantsLoading.style.display = 'none'; }
-    };
-    participantsCloseBtn.onclick = () => participantsModal.style.display = 'none';
+
+    onlineCountEl.addEventListener('click', async () => {
+        onlineModal.style.display = 'flex';
+        onlineList.innerHTML = '';
+        onlineLoading.style.display = 'block';
+        try {
+            const res = await fetch(API_BASE + '/api/online/users');
+            const users = await res.json();
+            onlineList.innerHTML = users.map(u => `<li>${escapeHtml(u)}</li>`).join('');
+        } catch { onlineList.innerHTML = '<li style="color:#ff6b6b;">Ошибка</li>'; }
+        finally { onlineLoading.style.display = 'none'; }
+    });
+    onlineCloseBtn.addEventListener('click', () => onlineModal.style.display = 'none');
+
     window.openMedia = src => { mediaViewContainer.innerHTML = src.startsWith('data:video') ? `<video controls src="${src}"></video>` : `<img src="${src}">`; mediaViewModal.style.display = 'flex'; };
     window.downloadMedia = src => { const a = document.createElement('a'); a.href = src; a.download = 'media_'+Date.now(); document.body.appendChild(a); a.click(); document.body.removeChild(a); };
     function autoResize(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; ta.style.overflowY = ta.scrollHeight > 120 ? 'auto' : 'hidden'; }
