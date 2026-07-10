@@ -46,8 +46,7 @@ async function initDB() {
 }
 initDB();
 
-const onlineUsers = new Set();   // все пользователи на сайте
-const typingUsers = new Map();   // roomId -> Set of usernames
+const onlineUsers = new Set();
 
 // ---------- API ----------
 app.post('/api/register', async (req, res) => {
@@ -94,7 +93,6 @@ app.get('/api/avatar/:username', async (req, res) => {
   res.json({ emoji: user.rows[0].avatar_emoji, color: user.rows[0].avatar_color });
 });
 
-// Онлайн пользователи
 app.get('/api/online/users', (req, res) => {
   res.json(Array.from(onlineUsers));
 });
@@ -113,7 +111,7 @@ io.on('connection', (socket) => {
     io.emit('onlineCount', onlineUsers.size);
 
     const messages = await pool.query(
-      `SELECT m.id, u.username AS sender, m.text, m.timestamp, m.avatar_emoji, m.avatar_color 
+      `SELECT m.id, u.username AS sender, m.text, m.file_name, m.timestamp, m.avatar_emoji, m.avatar_color 
        FROM messages m 
        JOIN users u ON m.user_id = u.id 
        WHERE m.room_id = 'public' 
@@ -172,34 +170,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('typingStart', ({ roomId, username }) => {
-    if (roomId !== 'public') return;
-    if (!typingUsers.has(roomId)) typingUsers.set(roomId, new Set());
-    typingUsers.get(roomId).add(username);
-    io.to(roomId).emit('typingUpdate', Array.from(typingUsers.get(roomId)));
-  });
-  socket.on('typingStop', ({ roomId, username }) => {
-    if (roomId !== 'public') return;
-    const users = typingUsers.get(roomId);
-    if (users) {
-      users.delete(username);
-      io.to(roomId).emit('typingUpdate', Array.from(users));
-    }
-  });
-
   socket.on('disconnect', () => {
     if (socket.data.username) {
       onlineUsers.delete(socket.data.username);
       io.emit('onlineCount', onlineUsers.size);
-
-      const roomId = socket.data.roomId;
-      if (roomId === 'public') {
-        const users = typingUsers.get('public');
-        if (users) {
-          users.delete(socket.data.username);
-          io.to('public').emit('typingUpdate', Array.from(users));
-        }
-      }
     }
   });
 });
