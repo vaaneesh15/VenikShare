@@ -23,6 +23,11 @@
             --panel-bg:rgba(0,0,0,0.8); --input-bg:rgba(20,20,30,0.6);
             --chat-own-bg:var(--accent); --chat-other-bg:#2a2a3a;
             --chat-own-text:#fff; --chat-other-text:#fff;
+            /* Фоновый паттерн как в мессенджерах */
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
         .app-container { width:100%; height:100vh; display:flex; flex-direction:column; background:inherit; }
         #auth-screen { position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:inherit; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:16px; }
@@ -39,8 +44,8 @@
         .chat-header { display:flex; align-items:center; justify-content:space-between; padding:max(env(safe-area-inset-top),12px) 16px 12px 16px; border-bottom:1px solid var(--container-border); background:var(--container-bg); backdrop-filter:blur(20px); flex-shrink:0; }
         .chat-header-left { display:flex; align-items:center; gap:12px; }
         .profile-btn { margin-top:8px; background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
-        .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
-        .chat-input-area { display:flex; align-items:flex-end; gap:8px; padding:12px 16px 14px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
+        .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:0; -webkit-overflow-scrolling:touch; }
+        .chat-input-area { display:flex; align-items:center; gap:8px; padding:8px 16px 14px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
         .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:44px; max-height:120px; line-height:1.4; overflow-y:auto; }
         .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); }
@@ -66,37 +71,16 @@
         .horizontal-scroll::-webkit-scrollbar { display:none; }
         .color-option, .emoji-option { flex-shrink:0; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid transparent; font-size:24px; }
         .color-option.selected, .emoji-option.selected { border-color:var(--accent); }
-        #media-view-modal .modal-content { background:transparent; backdrop-filter:none; box-shadow:none; display:flex; justify-content:center; align-items:center; padding:0; width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; position:relative; }
+        #media-view-modal .modal-content {
+            background:transparent; backdrop-filter:none; box-shadow:none; display:flex; justify-content:center; align-items:center; padding:0;
+            width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; position:relative;
+        }
         #media-view-modal img, #media-view-modal video { max-width:90vw; max-height:70vh; border-radius:16px; object-fit:contain; cursor:default; }
-        .media-modal-actions { position: absolute; top: calc(env(safe-area-inset-top) + 60px); right: 20px; display: flex; gap: 12px; z-index: 10; }
+        .media-modal-actions {
+            position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 10px;
+            display: flex; gap: 12px; z-index: 1001;
+        }
         .media-modal-actions button { background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        /* Предпросмотр обоев с перетаскиванием */
-        .wallpaper-preview-container {
-            position: relative;
-            width: 300px;
-            height: 500px;
-            margin: 0 auto 16px;
-            border: 1px solid var(--accent);
-            border-radius: 12px;
-            overflow: hidden;
-            cursor: grab;
-        }
-        .wallpaper-preview-container.dragging {
-            cursor: grabbing;
-        }
-        .wallpaper-preview-img {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            pointer-events: none;
-        }
-        .wallpaper-zoom-slider {
-            width: 100%;
-            margin-bottom: 16px;
-        }
     </style>
 </head>
 <body>
@@ -125,38 +109,15 @@
 <!-- Модальные окна -->
 <div id="profile-modal" class="modal" style="display:none;">
     <div class="modal-content">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="color:var(--accent);" id="profile-nickname-title"></h3>
-        </div>
+        <h3 style="color:var(--accent); margin-bottom:16px;" id="profile-nickname-title"></h3>
         <div class="profile-avatar">
             <div class="avatar-circle" id="profile-avatar-circle"></div>
             <button class="btn" id="change-avatar-btn" style="width:auto; padding:12px 20px;">Изменить</button>
         </div>
-        <div style="margin: 16px 0;">
-            <button class="btn" id="set-wallpaper-btn">Загрузить обои</button>
-            <button class="btn" id="reset-wallpaper-btn">Сбросить обои</button>
-            <input type="file" id="wallpaper-file-input" accept="image/*" style="display:none;">
-        </div>
         <button class="btn" id="logout-btn">Выйти</button>
-        <div style="margin-top:8px;"><button class="btn" id="profile-close-btn">Закрыть</button></div>
+        <button class="btn" id="profile-close-btn" style="margin-top:8px;">Закрыть</button>
     </div>
 </div>
-
-<!-- Модалка предпросмотра/позиционирования обоев -->
-<div id="wallpaper-preview-modal" class="modal" style="display:none;">
-    <div class="modal-content" style="width:auto; max-width:90vw; padding:16px;">
-        <h3 style="color:var(--text-primary); margin-bottom:12px;">Выберите область</h3>
-        <div class="wallpaper-preview-container" id="wallpaper-preview-container">
-            <img id="wallpaper-preview-img" class="wallpaper-preview-img" src="" alt="Wallpaper preview">
-        </div>
-        <input type="range" id="wallpaper-zoom-slider" class="wallpaper-zoom-slider" min="0.5" max="3" step="0.1" value="1">
-        <div class="modal-buttons">
-            <button class="btn" id="wallpaper-cancel-btn">Отмена</button>
-            <button class="btn btn-primary" id="wallpaper-apply-btn">Установить</button>
-        </div>
-    </div>
-</div>
-
 <div id="avatar-picker-modal" class="modal" style="display:none;">
     <div class="modal-content" style="max-width:95%; width:auto;">
         <h3 style="color:var(--text-primary); margin-bottom:16px;">Изменить аватар</h3>
@@ -166,12 +127,12 @@
     </div>
 </div>
 <div id="media-view-modal" class="modal" style="display:none;">
-    <div class="modal-content">
-        <div class="media-modal-actions">
-            <button id="media-view-download-btn" title="Скачать"><i class="fas fa-download"></i></button>
-            <button id="media-view-close-btn"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="media-view-container"></div>
+    <div class="media-modal-actions">
+        <button id="media-view-download-btn" title="Скачать"><i class="fas fa-download"></i></button>
+        <button id="media-view-close-btn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-content" style="background:transparent; backdrop-filter:none; box-shadow:none; max-width:100%; max-height:100%; width:100%; height:100%; border-radius:0;">
+        <div id="media-view-container" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>
     </div>
 </div>
 
@@ -189,135 +150,6 @@
     const publicAttach = document.getElementById('public-attach');
     const publicInput = document.getElementById('public-input');
     const profileNicknameTitle = document.getElementById('profile-nickname-title');
-
-    // Обои с позиционированием
-    const setWallpaperBtn = document.getElementById('set-wallpaper-btn');
-    const resetWallpaperBtn = document.getElementById('reset-wallpaper-btn');
-    const wallpaperFileInput = document.getElementById('wallpaper-file-input');
-    const wallpaperPreviewModal = document.getElementById('wallpaper-preview-modal');
-    const wallpaperPreviewContainer = document.getElementById('wallpaper-preview-container');
-    const wallpaperPreviewImg = document.getElementById('wallpaper-preview-img');
-    const wallpaperZoomSlider = document.getElementById('wallpaper-zoom-slider');
-    const wallpaperCancelBtn = document.getElementById('wallpaper-cancel-btn');
-    const wallpaperApplyBtn = document.getElementById('wallpaper-apply-btn');
-
-    let pendingWallpaperDataUrl = null;
-    let currentScale = 1;
-    let isDragging = false;
-    let startX, startY, imgLeft = 0, imgTop = 0;
-
-    function updateWallpaperPreview() {
-        wallpaperPreviewImg.style.transform = `translate(${imgLeft}px, ${imgTop}px) scale(${currentScale})`;
-        wallpaperPreviewImg.style.objectFit = 'none';
-        wallpaperPreviewImg.style.width = '100%';
-        wallpaperPreviewImg.style.height = '100%';
-    }
-
-    wallpaperZoomSlider.addEventListener('input', () => {
-        currentScale = parseFloat(wallpaperZoomSlider.value);
-        updateWallpaperPreview();
-    });
-
-    // Drag events
-    wallpaperPreviewContainer.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        startX = e.clientX - imgLeft;
-        startY = e.clientY - imgTop;
-        wallpaperPreviewContainer.classList.add('dragging');
-        e.preventDefault();
-    });
-    window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        imgLeft = e.clientX - startX;
-        imgTop = e.clientY - startY;
-        updateWallpaperPreview();
-    });
-    window.addEventListener('mouseup', () => {
-        isDragging = false;
-        wallpaperPreviewContainer.classList.remove('dragging');
-    });
-    // Touch events
-    wallpaperPreviewContainer.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-            isDragging = true;
-            const touch = e.touches[0];
-            startX = touch.clientX - imgLeft;
-            startY = touch.clientY - imgTop;
-            wallpaperPreviewContainer.classList.add('dragging');
-        }
-    }, {passive: false});
-    window.addEventListener('touchmove', (e) => {
-        if (!isDragging || e.touches.length !== 1) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        imgLeft = touch.clientX - startX;
-        imgTop = touch.clientY - startY;
-        updateWallpaperPreview();
-    }, {passive: false});
-    window.addEventListener('touchend', () => {
-        isDragging = false;
-        wallpaperPreviewContainer.classList.remove('dragging');
-    });
-
-    function applyWallpaper(dataUrl) {
-        // Сбросим фон и поставим новый
-        document.body.style.backgroundImage = `url(${dataUrl})`;
-        document.body.style.backgroundSize = 'cover';
-        document.body.style.backgroundAttachment = 'fixed';
-        document.body.style.backgroundPosition = 'center';
-        // Сохраним только URL, без позиции
-        localStorage.setItem('chatxWallpaper', dataUrl);
-    }
-    function removeWallpaper() {
-        document.body.style.backgroundImage = '';
-        document.body.style.backgroundSize = '';
-        document.body.style.backgroundAttachment = '';
-        document.body.style.backgroundPosition = '';
-        localStorage.removeItem('chatxWallpaper');
-    }
-    (function loadWallpaper() {
-        const saved = localStorage.getItem('chatxWallpaper');
-        if (saved) {
-            document.body.style.backgroundImage = `url(${saved})`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundAttachment = 'fixed';
-            document.body.style.backgroundPosition = 'center';
-        }
-    })();
-
-    setWallpaperBtn.addEventListener('click', () => wallpaperFileInput.click());
-    wallpaperFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            pendingWallpaperDataUrl = ev.target.result;
-            wallpaperPreviewImg.src = pendingWallpaperDataUrl;
-            // Сброс позиции и масштаба
-            imgLeft = 0; imgTop = 0; currentScale = 1;
-            wallpaperZoomSlider.value = 1;
-            updateWallpaperPreview();
-            wallpaperPreviewModal.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-        wallpaperFileInput.value = '';
-    });
-    wallpaperCancelBtn.addEventListener('click', () => {
-        wallpaperPreviewModal.style.display = 'none';
-        pendingWallpaperDataUrl = null;
-        imgLeft = 0; imgTop = 0; currentScale = 1;
-        updateWallpaperPreview();
-    });
-    wallpaperApplyBtn.addEventListener('click', () => {
-        if (pendingWallpaperDataUrl) {
-            applyWallpaper(pendingWallpaperDataUrl);
-        }
-        wallpaperPreviewModal.style.display = 'none';
-        pendingWallpaperDataUrl = null;
-        imgLeft = 0; imgTop = 0; currentScale = 1;
-        updateWallpaperPreview();
-    });
-    resetWallpaperBtn.addEventListener('click', removeWallpaper);
 
     document.getElementById('theme-color-meta').setAttribute('content', '#000000');
 
@@ -428,12 +260,10 @@
         });
     }
 
-    let lastSenderId = null;
     function appendMessageElement(msg, isOwnMedia = false) {
         const prevMsg = publicMessagesCache.length >= 2 ? publicMessagesCache[publicMessagesCache.length-2] : null;
         const sameBatch = !isOwnMedia && prevMsg && prevMsg.sender === msg.sender && (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < 300000;
         addMessageWithDate(publicMessagesEl, msg, sameBatch, isOwnMedia);
-        if (!isOwnMedia && !sameBatch) lastSenderId = msg.sender;
     }
 
     function isSingleEmoji(text) {
@@ -525,7 +355,7 @@
         const own = msg.sender === currentUser?.username;
         const div = document.createElement('div');
         div.className = `message ${own ? 'message-own' : ''}`;
-        if (sameBatch) div.style.marginTop = '0';
+        if (sameBatch) { div.style.marginTop = '-2px'; div.style.marginBottom = '0'; }
         div.innerHTML = renderMessage(msg, own, sameBatch);
         container.appendChild(div);
         return div;
