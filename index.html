@@ -72,6 +72,8 @@
         .chat-input-area button:active { transform: scale(0.92); }
         .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); }
         #voice-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); font-size:22px; }
+        #cancel-recording-btn { position:absolute; top:-12px; right:-12px; width:28px; height:28px; border-radius:50%; background:var(--accent); color:white; border:none; display:none; align-items:center; justify-content:center; cursor:pointer; font-size:14px; z-index:5; }
+        #cancel-recording-btn.visible { display:flex; }
         #public-send { background:var(--accent); color:white; border:none; overflow:hidden; position:relative; }
         #public-send .cooldown-bar { position:absolute; bottom:0; left:0; height:100%; width:0; background:rgba(255,255,255,0.3); transition:width 3s linear; pointer-events:none; }
         #public-send.disabled { pointer-events:none; opacity:0.7; }
@@ -88,6 +90,7 @@
         .message-text { font-size:15px; line-height:1.4; }
         .message-time { font-size:11px; opacity:0.7; margin-top:4px; text-align:right; }
         .message-media { max-width:100%; border-radius:16px; cursor:pointer; margin-bottom:30px; display:block; }
+        .sticker-image { max-width: 120px; max-height: 120px; display:block; border-radius:12px; cursor:pointer; }
         .media-placeholder { width:200px; height:150px; background:var(--input-bg); border-radius:16px; display:flex; align-items:center; justify-content:center; margin-bottom:30px; cursor:pointer; color:var(--text-muted); font-size:14px; flex-direction:column; gap:8px; }
         .media-placeholder i { font-size:32px; }
         .custom-audio { display:flex; align-items:center; gap:8px; margin-bottom:28px; }
@@ -148,6 +151,7 @@
             <button class="btn" id="voice-btn" title="Голосовое сообщение"><i class="fas fa-microphone"></i></button>
             <button class="btn attach-btn" id="public-attach"><i class="fas fa-paperclip"></i></button>
             <button class="btn btn-primary" id="public-send"><i class="fas fa-paper-plane"></i><div class="cooldown-bar" id="cooldown-bar"></div></button>
+            <button class="btn" id="cancel-recording-btn"><i class="fas fa-times"></i></button>
         </div>
     </div>
 </div>
@@ -189,6 +193,7 @@
 <script>
 (function() {
     const API_BASE = '';
+    const CACHE_KEY = 'chatx_messages_cache';
     let currentUser = null, socket = null, publicMessagesCache = [], canSend = true, cooldownTimer;
     let isLoadingMore = false, oldestTimestamp = null;
     const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
@@ -202,6 +207,7 @@
     const publicSend = document.getElementById('public-send');
     const publicAttach = document.getElementById('public-attach');
     const publicInput = document.getElementById('public-input');
+    const cancelRecordingBtn = document.getElementById('cancel-recording-btn');
     const refreshBtn = document.getElementById('refresh-btn');
     const onlineCountEl = document.getElementById('online-count');
     const onlineModal = document.getElementById('online-modal');
@@ -209,19 +215,20 @@
     const onlineLoading = document.getElementById('online-loading');
     const onlineCloseBtn = document.getElementById('online-close-btn');
 
-    refreshBtn.addEventListener('click', () => location.reload());
-
     function updateVoiceButton() {
         const icon = voiceBtn.querySelector('i');
         if (recordingState === 'idle') {
             icon.className = 'fas fa-microphone';
             voiceBtn.classList.remove('recording-active');
+            cancelRecordingBtn.classList.remove('visible');
         } else if (recordingState === 'recording') {
             icon.className = 'fas fa-pause';
             voiceBtn.classList.add('recording-active');
+            cancelRecordingBtn.classList.remove('visible');
         } else if (recordingState === 'paused') {
             icon.className = 'fas fa-play';
             voiceBtn.classList.remove('recording-active');
+            cancelRecordingBtn.classList.add('visible');
         }
         const disableOthers = (recordingState === 'recording');
         publicSend.disabled = disableOthers;
@@ -257,6 +264,16 @@
         if (mediaRecorder && recordingState === 'paused') {
             mediaRecorder.resume();
             recordingState = 'recording';
+            updateVoiceButton();
+        }
+    }
+
+    function cancelRecording() {
+        if (mediaRecorder) {
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            mediaRecorder = null;
+            audioChunks = [];
+            recordingState = 'idle';
             updateVoiceButton();
         }
     }
@@ -302,6 +319,10 @@
         else if (recordingState === 'paused') resumeRecording();
     });
 
+    cancelRecordingBtn.addEventListener('click', () => {
+        if (recordingState === 'paused') cancelRecording();
+    });
+
     publicSend.addEventListener('click', () => {
         if (recordingState === 'paused') { stopRecordingAndSend(); return; }
         sendMessage();
@@ -336,7 +357,7 @@
     function stopCurrentAudio() {
         if (currentAudio) { currentAudio.pause(); currentAudio.remove(); }
         currentAudio = null; currentAudioSrc = null;
-        currentAudioBtns.forEach(btn => btn.innerHTML = '<i class="fas fa-play"></i>');
+        currentAudioBtns.forEach(btn => btn.innerHTML = '<i class="fas fa-microphone"></i>');
         currentAudioBtns = []; currentAudioFills.forEach(fill => fill.style.width = '0'); currentAudioFills = [];
         audioPanel.classList.remove('active'); audioPanelProgress.style.width = '0';
     }
@@ -354,7 +375,12 @@
             audioPanelProgress.style.width = pct + '%';
             fills.forEach(fill => fill.style.width = pct + '%');
         });
-        audio.addEventListener('ended', () => stopCurrentAudio());
+        audio.addEventListener('ended', () => {
+            stopCurrentAudio();
+            if (currentAudioSrc === src) {
+                currentAudioBtns.forEach(btn => btn.innerHTML = '<i class="fas fa-microphone"></i>');
+            }
+        });
         audio.play();
         currentAudio = audio; currentAudioSrc = src; currentAudioBtns = btns; currentAudioFills = fills;
         setButtonsState(true);
@@ -362,11 +388,11 @@
         audioPanel.classList.add('active');
         audioPanelPlay.onclick = () => { if (currentAudio.paused) { currentAudio.play(); setButtonsState(true); } else { currentAudio.pause(); setButtonsState(false); } };
         audioPanelDownload.onclick = () => { if (currentAudioSrc) window.downloadMedia(currentAudioSrc); };
-        audioPanelClose.onclick = () => stopCurrentAudio();
+        audioPanelClose.onclick = () => { stopCurrentAudio(); currentAudioBtns.forEach(btn => btn.innerHTML = '<i class="fas fa-microphone"></i>'); };
     }
 
     function setButtonsState(playing) {
-        const icon = playing ? 'fa-pause' : 'fa-play';
+        const icon = playing ? 'fa-pause' : 'fa-microphone';
         currentAudioBtns.forEach(btn => btn.innerHTML = `<i class="fas ${icon}"></i>`);
     }
 
@@ -393,7 +419,11 @@
             const audioWrapper = placeholder.querySelector('.custom-audio');
             if (audioWrapper) window.initCustomAudio(audioWrapper);
         } else if (isImage) {
-            placeholder.innerHTML = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
+            if (src.includes('sticker') || placeholder.dataset.filename?.toLowerCase().endsWith('.webp')) {
+                placeholder.innerHTML = `<img src="${src}" class="sticker-image" onclick="window.openMedia('${src}')">`;
+            } else {
+                placeholder.innerHTML = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
+            }
         }
         placeholder.classList.remove('media-placeholder');
     };
@@ -433,6 +463,22 @@
         else showAuth();
     })();
 
+    // Кэширование сообщений
+    function loadCache() {
+        try {
+            const cached = localStorage.getItem(CACHE_KEY);
+            if (cached) {
+                publicMessagesCache = JSON.parse(cached);
+                displayPublicMessages(true);
+            }
+        } catch (e) { publicMessagesCache = []; }
+    }
+    function saveCache() {
+        try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(publicMessagesCache.slice(-40))); // храним последние 40
+        } catch (e) {}
+    }
+
     function connectSocket() {
         if (socket) socket.close();
         socket = io({ reconnectionAttempts: 5, timeout: 10000 });
@@ -444,6 +490,7 @@
             else oldestTimestamp = null;
             displayPublicMessages(true);
             onlineCountEl.textContent = d.userCount;
+            saveCache();
         });
         socket.on('olderMessages', d => {
             if (d.messages.length > 0) {
@@ -466,11 +513,11 @@
                 appendMessageElement(d, false);
                 if (isScrolledToBottom()) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
             }
+            saveCache();
         });
         socket.on('onlineCount', count => {
             onlineCountEl.textContent = count;
         });
-        socket.on('userCount', d => { onlineCountEl.textContent = d.count; }); // оставлено для совместимости, но теперь не используется
         socket.on('typingUpdate', users => updateTypingIndicator(users));
         socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
 
@@ -493,6 +540,10 @@
         if (msg.sender === currentUser?.username && msg.text?.startsWith('data:audio')) {
             const audioWrapper = msgDiv.querySelector('.custom-audio');
             if (audioWrapper) window.initCustomAudio(audioWrapper);
+        }
+        // автоскролл
+        if (isScrolledToBottom()) {
+            publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
         }
     }
 
@@ -533,7 +584,7 @@
     function attachMediaHandler() {
         const inp = document.createElement('input');
         inp.type = 'file';
-        inp.accept = 'image/*';   // только изображения, видео/аудио файлы исключены
+        inp.accept = 'image/*';
         inp.onchange = e => {
             const f = e.target.files[0]; if (!f) return;
             if (f.type.startsWith('video/') || f.type.startsWith('audio/')) {
@@ -545,11 +596,12 @@
             const reader = new FileReader();
             reader.onload = ev => {
                 const tempId = 'temp_' + Date.now() + Math.random();
-                const optimisticMsg = { id: tempId, _temp: true, _tempId: tempId, roomId: 'public', sender: currentUser.username, avatar_emoji: currentUser.avatar_emoji || '', avatar_color: currentUser.avatar_color || '', text: ev.target.result, fileName: f.name, timestamp: new Date().toISOString() };
+                const isSticker = f.name.toLowerCase().includes('sticker') || f.name.toLowerCase().endsWith('.webp');
+                const optimisticMsg = { id: tempId, _temp: true, _tempId: tempId, roomId: 'public', sender: currentUser.username, avatar_emoji: currentUser.avatar_emoji || '', avatar_color: currentUser.avatar_color || '', text: ev.target.result, fileName: f.name, timestamp: new Date().toISOString(), sticker: isSticker };
                 publicMessagesCache.push(optimisticMsg);
                 appendMessageElement(optimisticMsg, true);
                 publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
-                socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text: ev.target.result, fileName: f.name, _tempId: tempId });
+                socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text: ev.target.result, fileName: f.name, sticker: isSticker, _tempId: tempId });
                 canSend = false; publicSend.classList.add('disabled');
                 cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0';
                 requestAnimationFrame(() => { cooldownBar.style.transition = 'width 3s linear'; cooldownBar.style.width = '100%'; });
@@ -568,6 +620,10 @@
         const time = new Date(msg.timestamp).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
         const isMedia = msg.text?.startsWith('data:');
         let content = '', bubbleClass = '';
+        if (msg.sticker) {
+            // Стикер без пузыря и времени
+            return `<img src="${msg.text}" class="sticker-image" onclick="window.openMedia('${msg.text}')">`;
+        }
         if (isMedia) {
             bubbleClass = 'media-bubble';
             const src = msg.text;
@@ -580,9 +636,13 @@
                         <button class="voice-btn"><i class="fas fa-microphone"></i></button>
                     </div>`;
                 } else if (src.startsWith('data:image')) {
-                    content = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
+                    if (fileName.includes('sticker') || fileName.endsWith('.webp')) {
+                        content = `<img src="${src}" class="sticker-image" onclick="window.openMedia('${src}')">`;
+                    } else {
+                        content = `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
+                    }
                 }
-                if (src.startsWith('data:image')) {
+                if (src.startsWith('data:image') && !fileName.includes('sticker') && !fileName.endsWith('.webp')) {
                     content += `<button class="message-download-btn" onclick="event.stopPropagation(); window.downloadMedia('${src}')"><i class="fas fa-download"></i></button>`;
                 }
             } else {
@@ -608,8 +668,13 @@
         }
         const own = msg.sender === currentUser?.username;
         const div = document.createElement('div'); div.className = `message ${own ? 'message-own' : ''}`;
-        if (!own) div.innerHTML = renderAvatar(msg.avatar_emoji, msg.avatar_color, msg.sender);
-        const content = document.createElement('div'); content.className = 'message-content';
+        if (!msg.sticker && !own) div.innerHTML = renderAvatar(msg.avatar_emoji, msg.avatar_color, msg.sender);
+        const content = document.createElement('div');
+        if (msg.sticker) {
+            content.className = 'sticker-container';
+        } else {
+            content.className = 'message-content';
+        }
         content.innerHTML = renderBubble(msg, own, skipPlaceholder || own);
         div.appendChild(content);
         container.appendChild(div);
@@ -623,6 +688,15 @@
         document.querySelectorAll('.custom-audio').forEach(w => window.initCustomAudio(w));
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
+
+    // Загружаем кэш при старте
+    loadCache();
+
+    refreshBtn.addEventListener('click', () => {
+        // Очищаем кэш и перезагружаем страницу
+        localStorage.removeItem(CACHE_KEY);
+        location.reload();
+    });
 
     profileBtn.onclick = () => { updateAvatarPreview(); profileUsernameDisplay.textContent = currentUser.username; profileModal.style.display = 'flex'; };
     profileCloseBtn.onclick = () => profileModal.style.display = 'none';
@@ -641,7 +715,7 @@
         localStorage.setItem('chatxTheme', currentTheme); applyTheme();
         themeToggleBtn.textContent = currentTheme === 'light' ? 'Светлая' : (currentTheme === 'dark' ? 'Тёмная' : 'Авто');
     };
-    logoutBtn.onclick = () => { if (socket) socket.close(); localStorage.removeItem('chatxUser'); currentUser = null; profileModal.style.display = 'none'; showAuth(); };
+    logoutBtn.onclick = () => { if (socket) socket.close(); localStorage.removeItem('chatxUser'); localStorage.removeItem(CACHE_KEY); currentUser = null; profileModal.style.display = 'none'; showAuth(); };
 
     onlineCountEl.addEventListener('click', async () => {
         onlineModal.style.display = 'flex';
