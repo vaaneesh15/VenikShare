@@ -70,7 +70,33 @@
         #media-view-modal img, #media-view-modal video { max-width:90vw; max-height:70vh; border-radius:16px; object-fit:contain; cursor:default; }
         .media-modal-actions { position: absolute; top: calc(env(safe-area-inset-top) + 60px); right: 20px; display: flex; gap: 12px; z-index: 10; }
         .media-modal-actions button { background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .wallpaper-preview { max-width: 100%; max-height: 60vh; border-radius: 16px; display: block; margin: 0 auto 16px; }
+        /* Предпросмотр обоев с перетаскиванием */
+        .wallpaper-preview-container {
+            position: relative;
+            width: 300px;
+            height: 500px;
+            margin: 0 auto 16px;
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: grab;
+        }
+        .wallpaper-preview-container.dragging {
+            cursor: grabbing;
+        }
+        .wallpaper-preview-img {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+        .wallpaper-zoom-slider {
+            width: 100%;
+            margin-bottom: 16px;
+        }
     </style>
 </head>
 <body>
@@ -116,10 +142,14 @@
     </div>
 </div>
 
+<!-- Модалка предпросмотра/позиционирования обоев -->
 <div id="wallpaper-preview-modal" class="modal" style="display:none;">
-    <div class="modal-content" style="width:auto; max-width:90vw;">
-        <h3 style="color:var(--text-primary); margin-bottom:16px;">Предпросмотр обоев</h3>
-        <img id="wallpaper-preview-img" class="wallpaper-preview" src="" alt="Wallpaper preview">
+    <div class="modal-content" style="width:auto; max-width:90vw; padding:16px;">
+        <h3 style="color:var(--text-primary); margin-bottom:12px;">Выберите область</h3>
+        <div class="wallpaper-preview-container" id="wallpaper-preview-container">
+            <img id="wallpaper-preview-img" class="wallpaper-preview-img" src="" alt="Wallpaper preview">
+        </div>
+        <input type="range" id="wallpaper-zoom-slider" class="wallpaper-zoom-slider" min="0.5" max="3" step="0.1" value="1">
         <div class="modal-buttons">
             <button class="btn" id="wallpaper-cancel-btn">Отмена</button>
             <button class="btn btn-primary" id="wallpaper-apply-btn">Установить</button>
@@ -160,26 +190,89 @@
     const publicInput = document.getElementById('public-input');
     const profileNicknameTitle = document.getElementById('profile-nickname-title');
 
+    // Обои с позиционированием
     const setWallpaperBtn = document.getElementById('set-wallpaper-btn');
     const resetWallpaperBtn = document.getElementById('reset-wallpaper-btn');
     const wallpaperFileInput = document.getElementById('wallpaper-file-input');
     const wallpaperPreviewModal = document.getElementById('wallpaper-preview-modal');
+    const wallpaperPreviewContainer = document.getElementById('wallpaper-preview-container');
     const wallpaperPreviewImg = document.getElementById('wallpaper-preview-img');
+    const wallpaperZoomSlider = document.getElementById('wallpaper-zoom-slider');
     const wallpaperCancelBtn = document.getElementById('wallpaper-cancel-btn');
     const wallpaperApplyBtn = document.getElementById('wallpaper-apply-btn');
 
     let pendingWallpaperDataUrl = null;
+    let currentScale = 1;
+    let isDragging = false;
+    let startX, startY, imgLeft = 0, imgTop = 0;
+
+    function updateWallpaperPreview() {
+        wallpaperPreviewImg.style.transform = `translate(${imgLeft}px, ${imgTop}px) scale(${currentScale})`;
+        wallpaperPreviewImg.style.objectFit = 'none';
+        wallpaperPreviewImg.style.width = '100%';
+        wallpaperPreviewImg.style.height = '100%';
+    }
+
+    wallpaperZoomSlider.addEventListener('input', () => {
+        currentScale = parseFloat(wallpaperZoomSlider.value);
+        updateWallpaperPreview();
+    });
+
+    // Drag events
+    wallpaperPreviewContainer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX - imgLeft;
+        startY = e.clientY - imgTop;
+        wallpaperPreviewContainer.classList.add('dragging');
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        imgLeft = e.clientX - startX;
+        imgTop = e.clientY - startY;
+        updateWallpaperPreview();
+    });
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+        wallpaperPreviewContainer.classList.remove('dragging');
+    });
+    // Touch events
+    wallpaperPreviewContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            isDragging = true;
+            const touch = e.touches[0];
+            startX = touch.clientX - imgLeft;
+            startY = touch.clientY - imgTop;
+            wallpaperPreviewContainer.classList.add('dragging');
+        }
+    }, {passive: false});
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        imgLeft = touch.clientX - startX;
+        imgTop = touch.clientY - startY;
+        updateWallpaperPreview();
+    }, {passive: false});
+    window.addEventListener('touchend', () => {
+        isDragging = false;
+        wallpaperPreviewContainer.classList.remove('dragging');
+    });
 
     function applyWallpaper(dataUrl) {
+        // Сбросим фон и поставим новый
         document.body.style.backgroundImage = `url(${dataUrl})`;
         document.body.style.backgroundSize = 'cover';
         document.body.style.backgroundAttachment = 'fixed';
+        document.body.style.backgroundPosition = 'center';
+        // Сохраним только URL, без позиции
         localStorage.setItem('chatxWallpaper', dataUrl);
     }
     function removeWallpaper() {
         document.body.style.backgroundImage = '';
         document.body.style.backgroundSize = '';
         document.body.style.backgroundAttachment = '';
+        document.body.style.backgroundPosition = '';
         localStorage.removeItem('chatxWallpaper');
     }
     (function loadWallpaper() {
@@ -188,6 +281,7 @@
             document.body.style.backgroundImage = `url(${saved})`;
             document.body.style.backgroundSize = 'cover';
             document.body.style.backgroundAttachment = 'fixed';
+            document.body.style.backgroundPosition = 'center';
         }
     })();
 
@@ -199,16 +293,29 @@
         reader.onload = (ev) => {
             pendingWallpaperDataUrl = ev.target.result;
             wallpaperPreviewImg.src = pendingWallpaperDataUrl;
+            // Сброс позиции и масштаба
+            imgLeft = 0; imgTop = 0; currentScale = 1;
+            wallpaperZoomSlider.value = 1;
+            updateWallpaperPreview();
             wallpaperPreviewModal.style.display = 'flex';
         };
         reader.readAsDataURL(file);
         wallpaperFileInput.value = '';
     });
-    wallpaperCancelBtn.addEventListener('click', () => { wallpaperPreviewModal.style.display = 'none'; pendingWallpaperDataUrl = null; });
-    wallpaperApplyBtn.addEventListener('click', () => {
-        if (pendingWallpaperDataUrl) applyWallpaper(pendingWallpaperDataUrl);
+    wallpaperCancelBtn.addEventListener('click', () => {
         wallpaperPreviewModal.style.display = 'none';
         pendingWallpaperDataUrl = null;
+        imgLeft = 0; imgTop = 0; currentScale = 1;
+        updateWallpaperPreview();
+    });
+    wallpaperApplyBtn.addEventListener('click', () => {
+        if (pendingWallpaperDataUrl) {
+            applyWallpaper(pendingWallpaperDataUrl);
+        }
+        wallpaperPreviewModal.style.display = 'none';
+        pendingWallpaperDataUrl = null;
+        imgLeft = 0; imgTop = 0; currentScale = 1;
+        updateWallpaperPreview();
     });
     resetWallpaperBtn.addEventListener('click', removeWallpaper);
 
