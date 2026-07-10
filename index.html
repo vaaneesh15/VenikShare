@@ -44,9 +44,8 @@
         .chat-header-left { display:flex; align-items:center; gap:12px; }
         .profile-btn { margin-top:8px; background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
         .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
-        /* Панель ввода: элементы выровнены по центру */
         .chat-input-area { display:flex; align-items:center; gap:8px; padding:8px 16px 14px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
-        .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:44px; max-height:120px; line-height:1.4; overflow-y:auto; }
+        .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:48px; max-height:120px; line-height:1.4; overflow-y:auto; }
         .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); }
         #public-send { background:var(--accent); color:white; border:none; overflow:hidden; position:relative; }
@@ -58,7 +57,7 @@
         .message-own .message-avatar { display:none; }
         .message-content { max-width:calc(80% - 48px); display:flex; flex-direction:column; }
         .message-sender { font-size:13px; font-weight:600; margin-bottom:2px; color:var(--accent); margin-left:4px; background:var(--chat-other-bg); padding:2px 10px; border-radius:12px; display:inline-block; align-self:flex-start; white-space:nowrap; }
-        .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); }
+        .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); display:inline-block; max-width:100%; }
         .message-bubble-own { background:var(--chat-own-bg); color:var(--chat-own-text); border-color:var(--accent-light); }
         .message-text { font-size:15px; line-height:1.4; }
         .emoji-only { font-size:72px; line-height:1; display:inline-block; }
@@ -140,7 +139,6 @@
 (function() {
     const API_BASE = '';
     let currentUser = null, socket = null, publicMessagesCache = [], canSend = true, cooldownTimer;
-    let isLoadingMore = false, oldestTimestamp = null;
     const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
     const COLORS = ['#E57373','#F06292','#BA68C8','#9575CD','#7986CB','#64B5F6','#4FC3F7','#4DD0E1','#4DB6AC','#81C784','#AED581','#DCE775','#FFD54F','#FFB74D','#FF8A65','#A1887F','#E0E0E0','#90A4AE'];
     let selectedEmoji = '', selectedColor = '#ccc';
@@ -225,19 +223,7 @@
         socket.on('roomError', d => alert(d.message));
         socket.on('roomJoined', d => {
             publicMessagesCache = d.messages;
-            if (d.messages.length > 0) oldestTimestamp = d.messages[0].timestamp;
-            else oldestTimestamp = null;
             displayPublicMessages(true);
-        });
-        socket.on('olderMessages', d => {
-            if (d.messages.length > 0) {
-                publicMessagesCache = d.messages.concat(publicMessagesCache);
-                oldestTimestamp = d.messages[0].timestamp;
-                const prevScrollHeight = publicMessagesEl.scrollHeight;
-                displayPublicMessages(false);
-                publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight - prevScrollHeight;
-            }
-            isLoadingMore = false;
         });
         socket.on('newMessage', d => {
             const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
@@ -251,16 +237,8 @@
             publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
         });
         socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
-
-        publicMessagesEl.addEventListener('scroll', () => {
-            if (publicMessagesEl.scrollTop === 0 && !isLoadingMore && oldestTimestamp && socket) {
-                isLoadingMore = true;
-                socket.emit('loadOlderMessages', { roomId: 'public', beforeTimestamp: oldestTimestamp, limit: 20 });
-            }
-        });
     }
 
-    // Пачка сообщений: аватар и ник только у первого
     function appendMessageElement(msg, isOwnMedia = false) {
         const prevMsg = publicMessagesCache.length >= 2 ? publicMessagesCache[publicMessagesCache.length-2] : null;
         const sameBatch = !isOwnMedia && prevMsg && prevMsg.sender === msg.sender && (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < 300000;
