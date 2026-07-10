@@ -44,11 +44,11 @@
         .chat-header-left { display:flex; align-items:center; gap:12px; }
         .profile-btn { margin-top:8px; background:var(--icon-bg); width:40px; height:40px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--container-border); color:var(--accent); font-size:20px; }
         .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
-        /* Выровняли все кнопки по центру, добавив align-self: center для кнопки прикрепления */
+        /* Панель ввода: элементы выровнены по центру */
         .chat-input-area { display:flex; align-items:center; gap:8px; padding:8px 16px 14px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
         .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:44px; max-height:120px; line-height:1.4; overflow-y:auto; }
         .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); align-self:center; }
+        .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); }
         #public-send { background:var(--accent); color:white; border:none; overflow:hidden; position:relative; }
         #public-send .cooldown-bar { position:absolute; bottom:0; left:0; height:100%; width:0; background:rgba(255,255,255,0.3); transition:width 3s linear; pointer-events:none; }
         #public-send.disabled { pointer-events:none; opacity:0.7; }
@@ -99,8 +99,8 @@
         </div>
         <div class="chat-messages" id="public-messages"></div>
         <div class="chat-input-area">
-            <button class="btn attach-btn" id="public-attach"><i class="fas fa-paperclip"></i></button>
             <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
+            <button class="btn attach-btn" id="public-attach"><i class="fas fa-paperclip"></i></button>
             <button class="btn btn-primary" id="public-send"><i class="fas fa-paper-plane"></i><div class="cooldown-bar" id="cooldown-bar"></div></button>
         </div>
     </div>
@@ -260,7 +260,7 @@
         });
     }
 
-    // Пачки сообщений: аватар и ник показываем только у первого сообщения в пачке
+    // Пачка сообщений: аватар и ник только у первого
     function appendMessageElement(msg, isOwnMedia = false) {
         const prevMsg = publicMessagesCache.length >= 2 ? publicMessagesCache[publicMessagesCache.length-2] : null;
         const sameBatch = !isOwnMedia && prevMsg && prevMsg.sender === msg.sender && (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < 300000;
@@ -319,13 +319,13 @@
 
     function escapeHtml(t) { return t.replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
 
-    function renderMessage(msg, own, showAvatarAndName = true) {
+    function renderMessage(msg, own, showSender) {
         const text = msg.text || '';
         const isMedia = text.startsWith('data:');
         let html = '';
 
         if (!own) {
-            if (showAvatarAndName) {
+            if (showSender) {
                 html += `<div class="message-avatar" style="background:${msg.avatar_color||'#ccc'};">${msg.avatar_emoji || (msg.sender?.[0]?.toUpperCase()||'?')}</div>`;
                 html += `<div class="message-content">`;
                 html += `<div class="message-sender">${escapeHtml(msg.sender)}</div>`;
@@ -354,12 +354,11 @@
         return html;
     }
 
-    function addMessageWithDate(container, msg, sameBatch, skipPlaceholder = false) {
+    function addMessageWithDate(container, msg, showSender) {
         const own = msg.sender === currentUser?.username;
         const div = document.createElement('div');
         div.className = `message ${own ? 'message-own' : ''}`;
-        // Для пачки (sameBatch) не показываем аватар и ник
-        div.innerHTML = renderMessage(msg, own, !sameBatch);
+        div.innerHTML = renderMessage(msg, own, showSender);
         container.appendChild(div);
         return div;
     }
@@ -369,7 +368,7 @@
         publicMessagesCache.forEach((m,i) => {
             const prev = i > 0 ? publicMessagesCache[i-1] : null;
             const sameBatch = !(m.sender === currentUser?.username) && prev && prev.sender === m.sender && (new Date(m.timestamp) - new Date(prev.timestamp)) < 300000;
-            addMessageWithDate(publicMessagesEl, m, sameBatch, false);
+            addMessageWithDate(publicMessagesEl, m, !sameBatch);
         });
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
