@@ -64,12 +64,14 @@
         .message-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; cursor:pointer; color:#fff; background:#ccc; }
         .message-own .message-avatar { display:none; }
         .message-content { max-width:calc(80% - 48px); display:flex; flex-direction:column; }
-        .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px 16px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); position:relative; min-width:80px; }
+        .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); position:relative; }
         .message-bubble-own { background:var(--chat-own-bg); color:var(--chat-own-text); border-color:var(--accent-light); }
         .message-sender { font-size:13px; font-weight:600; margin-bottom:4px; color:var(--accent); }
         .message-text { font-size:15px; line-height:1.4; }
+        /* стили для одиночного эмодзи */
+        .emoji-only { font-size:48px; line-height:1; display:inline-block; }
         .message-media { max-width:100%; border-radius:16px; cursor:pointer; display:block; }
-        .media-placeholder { width:200px; height:150px; background:var(--input-bg); border-radius:16px; display:flex; align-items:center; justify-content:center; margin-bottom:0; cursor:pointer; color:var(--text-muted); font-size:14px; flex-direction:column; gap:8px; }
+        .media-placeholder { width:200px; height:150px; background:var(--input-bg); border-radius:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-muted); font-size:14px; flex-direction:column; gap:8px; margin:0; }
         .media-placeholder i { font-size:32px; }
         .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center; z-index:1000; }
         .modal-content { background:var(--panel-bg); backdrop-filter:blur(20px); border-radius:36px; padding:24px; max-width:90%; width:400px; border:1px solid var(--container-border); position:relative; }
@@ -113,11 +115,10 @@
 <div id="profile-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="color:var(--text-primary);">Профиль</h3>
+            <h3 style="color:var(--text-primary);" id="profile-nickname-title"></h3>
             <button class="btn" id="theme-toggle-btn" style="width:auto; padding:8px 16px;">Авто</button>
         </div>
         <div class="profile-avatar"><div class="avatar-circle" id="profile-avatar-circle"></div><button class="btn" id="change-avatar-btn" style="width:auto; padding:12px 20px;">Изменить</button></div>
-        <div style="margin-bottom:20px;"><div style="color:var(--text-primary); font-size:18px; margin-bottom:8px;">Имя пользователя</div><span style="color:var(--accent); font-size:24px; font-weight:600;" id="profile-username-display"></span></div>
         <button class="btn" id="logout-btn" style="margin-top:16px;">Выйти</button>
         <div class="modal-buttons"><button class="btn" id="profile-close-btn">Закрыть</button></div>
     </div>
@@ -154,6 +155,7 @@
     const publicAttach = document.getElementById('public-attach');
     const publicInput = document.getElementById('public-input');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const profileNicknameTitle = document.getElementById('profile-nickname-title');
 
     function applyTheme() {
         const isDark = currentTheme === 'dark' || (currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -171,8 +173,7 @@
           profileBtn = $('profile-btn'), profileModal = $('profile-modal'), profileAvatarCircle = $('profile-avatar-circle'),
           changeAvatarBtn = $('change-avatar-btn'), avatarPickerModal = $('avatar-picker-modal'), colorScroll = $('color-scroll'),
           emojiScroll = $('emoji-scroll'), avatarCancelBtn = $('avatar-cancel-btn'), avatarSaveBtn = $('avatar-save-btn'),
-          profileUsernameDisplay = $('profile-username-display'), logoutBtn = $('logout-btn'),
-          profileCloseBtn = $('profile-close-btn'),
+          logoutBtn = $('logout-btn'), profileCloseBtn = $('profile-close-btn'),
           mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'),
           mediaViewDownloadBtn = $('media-view-download-btn'), mediaViewCloseBtn = $('media-view-close-btn'),
           cooldownBar = $('cooldown-bar');
@@ -187,6 +188,13 @@
     }
     function updateAvatarPreview() { profileAvatarCircle.textContent = selectedEmoji || (currentUser ? currentUser.username[0].toUpperCase() : '?'); profileAvatarCircle.style.backgroundColor = selectedColor; }
 
+    function updateProfileModal() {
+        if (currentUser) {
+            profileNicknameTitle.textContent = currentUser.username;
+            updateAvatarPreview();
+        }
+    }
+
     async function login(username, password) {
         try {
             const res = await fetch(API_BASE + '/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
@@ -194,7 +202,7 @@
             currentUser = { username: data.username, avatar_emoji: data.avatar_emoji || '', avatar_color: data.avatar_color || '' };
             selectedEmoji = currentUser.avatar_emoji; selectedColor = currentUser.avatar_color || '#ccc';
             localStorage.setItem('chatxUser', JSON.stringify(currentUser));
-            updateAvatarPreview(); showMain(); profileUsernameDisplay.textContent = currentUser.username;
+            updateAvatarPreview(); showMain(); updateProfileModal();
             connectSocket();
         } catch (err) { authStatus.textContent = err.message; }
     }
@@ -211,8 +219,15 @@
 
     (function restoreSession() {
         const saved = localStorage.getItem('chatxUser');
-        if (saved) { currentUser = JSON.parse(saved); selectedEmoji = currentUser.avatar_emoji || ''; selectedColor = currentUser.avatar_color || '#ccc'; updateAvatarPreview(); fetch(API_BASE+'/api/avatar/'+currentUser.username).then(r=>r.json()).then(d=>{ if(d.emoji!==undefined){ currentUser.avatar_emoji=d.emoji||''; currentUser.avatar_color=d.color||''; selectedEmoji=currentUser.avatar_emoji; selectedColor=currentUser.avatar_color||'#ccc'; updateAvatarPreview(); }}).catch(()=>{}); showMain(); profileUsernameDisplay.textContent=currentUser.username; connectSocket(); }
-        else showAuth();
+        if (saved) {
+            currentUser = JSON.parse(saved);
+            selectedEmoji = currentUser.avatar_emoji || ''; selectedColor = currentUser.avatar_color || '#ccc';
+            updateAvatarPreview();
+            fetch(API_BASE+'/api/avatar/'+currentUser.username).then(r=>r.json()).then(d=>{ if(d.emoji!==undefined){ currentUser.avatar_emoji=d.emoji||''; currentUser.avatar_color=d.color||''; selectedEmoji=currentUser.avatar_emoji; selectedColor=currentUser.avatar_color||'#ccc'; updateAvatarPreview(); }}).catch(()=>{});
+            showMain();
+            updateProfileModal();
+            connectSocket();
+        } else showAuth();
     })();
 
     function connectSocket() {
@@ -259,6 +274,12 @@
 
     function appendMessageElement(msg, isOwnMedia = false) {
         addMessageWithDate(publicMessagesEl, msg, null, isOwnMedia);
+    }
+
+    // Проверка на одиночный эмодзи
+    function isSingleEmoji(text) {
+        const emojiRegex = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)$/u;
+        return emojiRegex.test(text);
     }
 
     function sendMessage() {
@@ -309,10 +330,17 @@
     function escapeHtml(t) { return t.replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
 
     function renderBubble(msg, own, skipPlaceholder = false) {
-        const isMedia = msg.text?.startsWith('data:');
+        const text = msg.text || '';
+        const isMedia = text.startsWith('data:');
         let content = '';
+
+        if (!isMedia && isSingleEmoji(text)) {
+            // Одиночный эмодзи без пузыря
+            return `<span class="emoji-only">${text}</span>`;
+        }
+
         if (isMedia) {
-            const src = msg.text;
+            const src = text;
             if (src.startsWith('data:video')) {
                 content = `<div class="media-placeholder" style="cursor:default;"><i class="fas fa-video-slash"></i><span>Видео недоступно</span></div>`;
             } else if (own || skipPlaceholder) {
@@ -323,10 +351,11 @@
                 content = `<div class="media-placeholder" data-src="${src}" onclick="window.loadMediaPlaceholder(this)">
                     <i class="fas fa-download"></i><span>Загрузить медиа</span></div>`;
             }
+            return `<div class="message-bubble ${own ? 'message-bubble-own' : ''}">${content}</div>`;
         } else {
-            content = `<div class="message-text">${escapeHtml(msg.text)}</div>`;
+            // Обычное текстовое сообщение
+            return `<div class="message-bubble ${own ? 'message-bubble-own' : ''}">${own ? '' : `<div class="message-sender">${escapeHtml(msg.sender)}</div>`}<div class="message-text">${escapeHtml(text)}</div></div>`;
         }
-        return `<div class="message-bubble ${own ? 'message-bubble-own' : ''}">${own ? '' : `<div class="message-sender">${escapeHtml(msg.sender)}</div>`}${content}</div>`;
     }
 
     function renderAvatar(emoji, color, username) {
@@ -336,7 +365,9 @@
     function addMessageWithDate(container, msg, prevDate, skipPlaceholder = false) {
         const own = msg.sender === currentUser?.username;
         const div = document.createElement('div'); div.className = `message ${own ? 'message-own' : ''}`;
-        if (!own) div.innerHTML = renderAvatar(msg.avatar_emoji, msg.avatar_color, msg.sender);
+        if (!own && !isSingleEmoji(msg.text)) {
+            div.innerHTML = renderAvatar(msg.avatar_emoji, msg.avatar_color, msg.sender);
+        }
         const content = document.createElement('div'); content.className = 'message-content';
         content.innerHTML = renderBubble(msg, own, skipPlaceholder || own);
         div.appendChild(content);
@@ -356,7 +387,7 @@
         if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
     }
 
-    profileBtn.onclick = () => { updateAvatarPreview(); profileUsernameDisplay.textContent = currentUser.username; profileModal.style.display = 'flex'; };
+    profileBtn.onclick = () => { updateProfileModal(); profileModal.style.display = 'flex'; };
     profileCloseBtn.onclick = () => profileModal.style.display = 'none';
     changeAvatarBtn.onclick = () => { populateAvatarPicker(); avatarPickerModal.style.display = 'flex'; };
     avatarCancelBtn.onclick = () => avatarPickerModal.style.display = 'none';
