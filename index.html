@@ -37,20 +37,34 @@
       border-radius: 12px;
       font-weight: 500;
       transition: background 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
     }
     nav a.active {
       background: #3a3152;
       color: #e3d9ff;
     }
     nav a:hover:not(.active) { background: #252232; }
-    #refreshBtn {
-      margin-left: auto;
-      background: #252232;
-      color: #c5bfd4;
-      border: 1px solid #363145;
-      font-weight: 500;
+
+    .nav-icon {
+      width: 20px; height: 20px;
+      fill: none; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
     }
-    #refreshBtn:hover { background: #302b3d; }
+    #refreshBtn, #discordBtn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #refreshBtn { margin-left: auto; }
+    #refreshBtn:hover, #discordBtn:hover { background: #252232; }
 
     .container { max-width: 720px; margin: 0 auto; padding: 0 20px 40px; }
 
@@ -61,6 +75,7 @@
       margin-bottom: 12px;
       border: 1px solid #2a2536;
       transition: border 0.2s;
+      position: relative;
     }
     .card:hover { border-color: #4a3f62; }
 
@@ -147,7 +162,6 @@
     .admin-btn.reject:hover { background: #853b48; }
     .admin-btn.accept:hover { background: #5c4990; }
 
-    /* Стиль кнопки отзыва как у админских */
     .withdraw-btn {
       width: 100%;
       margin-top: 16px;
@@ -174,7 +188,19 @@
   <nav>
     <a href="#" id="feedTab" class="active">Лента анкет</a>
     <a href="#" id="myTab">Моя анкета</a>
-    <button id="refreshBtn">Обновить</button>
+    <button id="refreshBtn" title="Обновить">
+      <svg class="nav-icon" viewBox="0 0 24 24">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+    </button>
+    <a href="https://discord.gg/S2H95jMtFr" target="_blank" id="discordBtn" title="Discord сервер">
+      <svg class="nav-icon" viewBox="0 0 24 24">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+      </svg>
+    </a>
   </nav>
 
   <div class="container">
@@ -188,7 +214,7 @@
         <h2 style="margin-bottom:16px;">Новая анкета</h2>
         <div class="form-group"><label>Ник</label><input id="nickname" type="text" placeholder="Ваш игровой ник"></div>
         <div class="form-group"><label>Описание</label><textarea id="description" minlength="20" maxlength="350" placeholder="Например, откуда узнали о сервере, чем планируете заниматься, соглашаетесь ли Вы не гриферить и не читерить и так далее… (от 20 до 350 символов)"></textarea></div>
-        <div class="form-group"><label>Возраст</label><input id="age" type="number" min="1" placeholder="Возраст"></div>
+        <div class="form-group"><label>Возраст</label><input id="age" type="number" min="1" max="99" placeholder="Возраст"></div>
         <div class="form-group">
           <label>Пол</label>
           <select id="gender">
@@ -244,6 +270,17 @@
     </div>
   </div>
 
+  <!-- Удаление анкеты админом -->
+  <div id="adminDeleteModal" class="modal">
+    <div class="modal-content">
+      <p style="margin-bottom:16px;">Вы уверены, что хотите удалить анкету? Это действие необратимо.</p>
+      <div class="buttons">
+        <button id="adminDeleteCancel" class="btn-secondary">Отмена</button>
+        <button id="adminDeleteConfirm" class="btn-danger">Удалить</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Отзыв анкеты -->
   <div id="withdrawModal" class="modal">
     <div class="modal-content">
@@ -265,7 +302,7 @@
 
     if (adminToken) isAdmin = true;
 
-    // Навигация (без автоматической загрузки)
+    // Навигация
     document.getElementById('feedTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('feed'); });
     document.getElementById('myTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('my'); });
     document.getElementById('refreshBtn').addEventListener('click', () => {
@@ -319,7 +356,7 @@
         isAdmin = true;
         localStorage.setItem('adminToken', adminToken);
         adminModal.style.display = 'none';
-        refreshFeed(); // после входа обновим ленту
+        refreshFeed();
       } catch(e) {
         alert('Ошибка входа: ' + e.message);
       }
@@ -343,7 +380,7 @@
     const adminActionModal = document.getElementById('adminActionModal');
     const adminActionText = document.getElementById('adminActionText');
     const adminActionConfirm = document.getElementById('adminActionConfirm');
-    let pendingAdminAction = null; // { appId, action }
+    let pendingAdminAction = null;
 
     function showAdminActionModal(appId, action) {
       pendingAdminAction = { appId, action };
@@ -376,6 +413,56 @@
       }
     });
 
+    // Удаление анкеты админом (тройной клик + модалка)
+    const adminDeleteModal = document.getElementById('adminDeleteModal');
+    const adminDeleteConfirm = document.getElementById('adminDeleteConfirm');
+    let deleteTargetId = null;
+
+    function showAdminDeleteModal(appId) {
+      deleteTargetId = appId;
+      adminDeleteModal.style.display = 'flex';
+    }
+
+    document.getElementById('adminDeleteCancel').addEventListener('click', () => {
+      adminDeleteModal.style.display = 'none';
+      deleteTargetId = null;
+    });
+
+    adminDeleteConfirm.addEventListener('click', async () => {
+      if (!deleteTargetId) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/applications/${deleteTargetId}`, {
+          method: 'DELETE',
+          headers: { 'X-Admin-Token': adminToken }
+        });
+        if (!res.ok) throw new Error('Ошибка');
+        adminDeleteModal.style.display = 'none';
+        deleteTargetId = null;
+        refreshFeed();
+      } catch(e) {
+        alert('Не удалось удалить анкету');
+      }
+    });
+
+    // Тройной клик по карточке для админа
+    let cardClickTimers = {};
+    function handleCardTripleClick(appId) {
+      if (!isAdmin) return;
+      if (!cardClickTimers[appId]) {
+        cardClickTimers[appId] = { count: 0, timer: null };
+      }
+      const tracker = cardClickTimers[appId];
+      tracker.count++;
+      if (tracker.count >= 3) {
+        clearTimeout(tracker.timer);
+        tracker.count = 0;
+        showAdminDeleteModal(appId);
+      } else {
+        clearTimeout(tracker.timer);
+        tracker.timer = setTimeout(() => { tracker.count = 0; }, 2000);
+      }
+    }
+
     // Лента анкет
     async function refreshFeed() {
       const feedList = document.getElementById('feedList');
@@ -396,7 +483,8 @@
         'Актуально': { bg: '#3e2e5c', color: '#cbbef0' },
         'Принято': { bg: '#1e3b2f', color: '#a0d9b4' },
         'Отклонено': { bg: '#4a2632', color: '#f5a3b3' },
-        'Отозвано': { bg: '#2a2533', color: '#8e8a9e' }
+        'Отозвано': { bg: '#2a2533', color: '#8e8a9e' },
+        'Отозвано после отказа': { bg: '#3d2a2e', color: '#e5989b' }
       };
       const style = colorMap[status] || { bg: '#2a2533', color: '#8e8a9e' };
       return `<span class="status" style="background:${style.bg}; color:${style.color}">${status}</span>`;
@@ -420,7 +508,7 @@
         const descriptionRow = (isAdmin && app.description)
           ? `<div class="app-field"><strong>Описание:</strong> ${app.description}</div>`
           : '';
-        return `<div class="card">
+        return `<div class="card" data-app-id="${app.id}">
           <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
           ${descriptionRow}
           <div class="app-field"><strong>Пол:</strong> ${app.gender}</div>
@@ -431,11 +519,28 @@
         </div>`;
       }).join('');
 
+      // Обработчики на админские кнопки
       document.querySelectorAll('.admin-btn.accept').forEach(btn => {
-        btn.addEventListener('click', (e) => showAdminActionModal(e.target.dataset.id, 'accept'));
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showAdminActionModal(e.target.dataset.id, 'accept');
+        });
       });
       document.querySelectorAll('.admin-btn.reject').forEach(btn => {
-        btn.addEventListener('click', (e) => showAdminActionModal(e.target.dataset.id, 'reject'));
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showAdminActionModal(e.target.dataset.id, 'reject');
+        });
+      });
+
+      // Тройной клик по карточке
+      document.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          // Не обрабатываем клики по кнопкам внутри
+          if (e.target.tagName === 'BUTTON') return;
+          const appId = card.dataset.appId;
+          if (appId) handleCardTripleClick(appId);
+        });
       });
     }
 
@@ -479,7 +584,7 @@
       const block = document.getElementById('myApplicationBlock');
       block.classList.remove('hidden');
       let withdrawBtn = '';
-      if (app.status !== 'Принято' && app.status !== 'Отозвано') {
+      if (app.status !== 'Принято' && app.status !== 'Отозвано' && app.status !== 'Отозвано после отказа') {
         withdrawBtn = `<button id="withdrawBtn" class="withdraw-btn">Отозвать анкету</button>`;
       }
       block.innerHTML = `<div class="card">
@@ -501,15 +606,17 @@
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const nickname = document.getElementById('nickname').value.trim();
       const description = document.getElementById('description').value.trim();
-      const age = document.getElementById('age').value;
+      const age = document.getElementById('age').value.trim();
       const gender = document.getElementById('gender').value;
       if (!nickname || !description || !age || !gender) return alert('Заполните все поля');
       if (description.length < 20 || description.length > 350) return alert('Описание должно быть от 20 до 350 символов');
+      const ageNum = parseInt(age, 10);
+      if (isNaN(ageNum) || ageNum < 1 || ageNum > 99) return alert('Возраст должен быть от 1 до 99');
       try {
         const res = await fetch(API_BASE + '/api/applications', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nickname, description, age, gender })
+          body: JSON.stringify({ nickname, description, age: ageNum, gender })
         });
         if (!res.ok) {
           const err = await res.json();
@@ -548,18 +655,26 @@
           const err = await res.json();
           alert(err.error);
         } else {
-          localStorage.removeItem('myApplicationId');
-          myAppData = null;
-          withdrawModal.style.display = 'none';
-          showForm();
-          if (currentTab === 'feed') refreshFeed();
+          const updated = await res.json();
+          if (updated.status === 'Отозвано' || updated.status === 'Отозвано после отказа') {
+            localStorage.removeItem('myApplicationId');
+            myAppData = null;
+            withdrawModal.style.display = 'none';
+            showForm();
+            if (currentTab === 'feed') refreshFeed();
+          } else {
+            // на случай, если статус не поменялся
+            myAppData = updated;
+            showMyApplication();
+            withdrawModal.style.display = 'none';
+          }
         }
       } catch(e) {
         alert('Ошибка');
       }
     });
 
-    // Первоначальная загрузка данных
+    // Первоначальная загрузка
     refreshFeed();
     loadMyApplication();
   </script>
