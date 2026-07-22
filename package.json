@@ -1,7 +1,7 @@
 {
-  "name": "mc-survival-applications",
+  "name": "dvexland-site",
   "version": "1.0.0",
-  "description": "Анкеты для ванильного выживания",
+  "description": "Анкеты для проходки на Майнкрафт сервер Dvexland",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
