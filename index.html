@@ -1,379 +1,339 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ChatX</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="ChatX">
-    <meta name="theme-color" id="theme-color-meta" content="#000000">
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
-        html, body { width:100%; height:100vh; overflow:hidden; background: #000; }
-        body {
-            --bg-gradient-start:#000; --bg-gradient-end:#121212;
-            --container-bg:rgba(0,0,0,0.8); --container-border:rgba(255,255,255,0.15);
-            --text-primary:#f0f0ff; --text-secondary:#ecf0f1; --text-muted:#8a8aa0;
-            --accent:#6d5fff; --accent-light:#9a8cff;
-            --card-bg:rgba(20,20,30,0.7); --card-border:rgba(255,255,255,0.1);
-            --shadow:0 25px 50px -12px rgba(0,0,0,0.6); --icon-bg:#1e1e2a;
-            --panel-bg:rgba(0,0,0,0.8); --input-bg:rgba(20,20,30,0.6);
-            --chat-own-bg:var(--accent); --chat-other-bg:#2a2a3a;
-            --chat-own-text:#fff; --chat-other-text:#fff;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-        .app-container { width:100%; height:100vh; display:flex; flex-direction:column; background:inherit; }
-        #auth-screen { position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:inherit; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:16px; }
-        #auth-screen.hidden { display:none; }
-        .auth-panel { background:var(--panel-bg); backdrop-filter:blur(10px); border-radius:36px; padding:24px 20px; border:1px solid var(--container-border); box-shadow:var(--shadow); width:100%; max-width:360px; }
-        .input-group { display:flex; gap:8px; margin-bottom:12px; }
-        .input-group input { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:40px; padding:14px 18px; font-size:16px; color:var(--text-primary); outline:none; }
-        .btn { background:var(--icon-bg); border:1px solid var(--card-border); border-radius:40px; padding:14px 24px; font-size:16px; font-weight:600; color:var(--accent); cursor:pointer; width:100%; text-align:center; margin-bottom:8px; }
-        .btn:last-child { margin-bottom:0; }
-        .btn-primary { background:var(--accent); color:white; border:none; }
-        .status { text-align:center; color:var(--text-muted); margin:8px 0; font-size:14px; }
-        .flex-col { display:flex; flex-direction:column; gap:12px; }
-        #main-screen { flex:1; display:flex; flex-direction:column; background:transparent; overflow:hidden; }
-        .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:4px; -webkit-overflow-scrolling:touch; }
-        /* Панель ввода с кнопкой профиля */
-        .chat-input-area { display:flex; align-items:center; gap:8px; padding:8px 16px 14px 16px; border-top:1px solid var(--container-border); background:var(--panel-bg); backdrop-filter:blur(10px); flex-shrink:0; }
-        .profile-btn { background:var(--icon-bg); width:48px; height:48px; border-radius:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--card-border); color:var(--accent); font-size:20px; flex-shrink:0; }
-        .chat-input-area textarea { flex:1; background:var(--input-bg); border:1px solid var(--card-border); border-radius:30px; padding:12px 18px; font-size:16px; color:var(--text-primary); outline:none; resize:none; min-height:48px; max-height:120px; line-height:1.4; overflow-y:auto; }
-        .chat-input-area button { width:48px; height:48px; border-radius:30px; padding:0; font-size:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .attach-btn { background:var(--icon-bg); border:1px solid var(--card-border); color:var(--accent); margin-top: 8px; }
-        #public-send { background:var(--accent); color:white; border:none; overflow:hidden; position:relative; }
-        #public-send .cooldown-bar { position:absolute; bottom:0; left:0; height:100%; width:0; background:rgba(255,255,255,0.3); transition:width 3s linear; pointer-events:none; }
-        #public-send.disabled { pointer-events:none; opacity:0.7; }
-        .message { display:flex; margin-bottom:4px; align-items:flex-start; gap:8px; }
-        .message-own { justify-content:flex-end; }
-        .message-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; cursor:pointer; color:#fff; background:#ccc; }
-        .message-own .message-avatar { display:none; }
-        .message-content { max-width:calc(80% - 48px); display:flex; flex-direction:column; }
-        .message-sender { font-size:13px; font-weight:600; margin-bottom:2px; color:var(--accent); margin-left:4px; background:var(--chat-other-bg); padding:2px 10px; border-radius:12px; display:inline-block; align-self:flex-start; white-space:nowrap; }
-        .message-bubble { background:var(--chat-other-bg); border-radius:24px; padding:10px; border:1px solid var(--card-border); word-break:break-word; color:var(--chat-other-text); display:inline-block; max-width:100%; }
-        .message-bubble-own { background:var(--chat-own-bg); color:var(--chat-own-text); border-color:var(--accent-light); }
-        .message-text { font-size:15px; line-height:1.4; }
-        .emoji-only { font-size:72px; line-height:1; display:inline-block; }
-        .message-media { max-width:200px; max-height:200px; border-radius:16px; cursor:pointer; display:block; object-fit:cover; }
-        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center; z-index:1000; }
-        .modal-content { background:var(--panel-bg); backdrop-filter:blur(20px); border-radius:36px; padding:24px; max-width:90%; width:400px; border:1px solid var(--container-border); position:relative; }
-        .profile-avatar { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
-        .avatar-circle { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px; color:#fff; background:#ccc; flex-shrink:0; }
-        .horizontal-scroll { display:flex; gap:8px; overflow-x:auto; padding:8px 0; -webkit-overflow-scrolling:touch; }
-        .horizontal-scroll::-webkit-scrollbar { display:none; }
-        .color-option, .emoji-option { flex-shrink:0; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid transparent; font-size:24px; }
-        .color-option.selected, .emoji-option.selected { border-color:var(--accent); }
-        #media-view-modal .modal-content {
-            background:transparent; backdrop-filter:none; box-shadow:none; display:flex; justify-content:center; align-items:center; padding:0;
-            width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; position:relative;
-        }
-        #media-view-modal img, #media-view-modal video { max-width:90vw; max-height:70vh; border-radius:16px; object-fit:contain; cursor:default; }
-        .media-modal-actions {
-            position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 10px;
-            display: flex; gap: 12px; z-index: 1001;
-        }
-        .media-modal-actions button { background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анкеты сервера</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f5; color: #333; }
+    nav {
+      display: flex; align-items: center; gap: 20px; background: #2c3e50; padding: 10px 20px;
+    }
+    nav a, nav button {
+      color: white; text-decoration: none; cursor: pointer; background: none; border: none; font-size: 16px;
+      padding: 8px 12px; border-radius: 4px; transition: background 0.2s;
+    }
+    nav a.active, nav button:hover { background: #34495e; }
+    .container { max-width: 700px; margin: 20px auto; padding: 0 15px; }
+    .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-weight: bold; }
+    input, select, textarea, button { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    textarea { resize: vertical; }
+    .buttons { display: flex; gap: 10px; }
+    .buttons button { flex: 1; }
+    .status { font-weight: bold; text-transform: uppercase; font-size: 13px; }
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 300px; }
+    .admin-btn { display: inline-block; margin-left: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 4px 10px; }
+    .admin-btn.reject { background: #e74c3c; }
+    #refreshBtn { background: #7f8c8d; }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
-<div class="app-container">
-    <div id="auth-screen">
-        <div class="auth-panel">
-            <div class="input-group"><input type="text" id="auth-username" placeholder="Имя пользователя"></div>
-            <div class="input-group"><input type="password" id="auth-password" placeholder="Пароль"></div>
-            <div class="flex-col"><button class="btn btn-primary" id="auth-login">Войти</button><button class="btn" id="auth-register">Зарегистрироваться</button></div>
-            <div id="auth-status" class="status"></div>
-        </div>
-    </div>
-    <div id="main-screen" style="display:none;">
-        <div class="chat-messages" id="public-messages"></div>
-        <div class="chat-input-area">
-            <div class="profile-btn" id="profile-btn"><i class="fas fa-user"></i></div>
-            <textarea id="public-input" rows="1" placeholder="Написать..."></textarea>
-            <button class="btn attach-btn" id="public-attach"><i class="fas fa-paperclip"></i></button>
-            <button class="btn btn-primary" id="public-send"><i class="fas fa-paper-plane"></i><div class="cooldown-bar" id="cooldown-bar"></div></button>
-        </div>
-    </div>
-</div>
+  <nav>
+    <a href="#" id="feedTab" class="active">Анкеты</a>
+    <a href="#" id="myTab">Моя анкета</a>
+    <button id="refreshBtn" style="margin-left: auto;">Обновить</button>
+  </nav>
 
-<!-- Модальные окна -->
-<div id="profile-modal" class="modal" style="display:none;">
+  <div class="container">
+    <div id="feedSection">
+      <h2>Лента анкет</h2>
+      <div id="feedList"></div>
+    </div>
+
+    <div id="mySection" class="hidden">
+      <div id="myFormBlock">
+        <h2>Создание анкеты</h2>
+        <div class="form-group"><label>Ник</label><input id="nickname" type="text"></div>
+        <div class="form-group"><label>Описание</label><textarea id="description" minlength="20" maxlength="350" placeholder="Например, откуда узнали о сервере..."></textarea></div>
+        <div class="form-group"><label>Возраст</label><input id="age" type="number" min="1"></div>
+        <div class="form-group">
+          <label>Пол</label>
+          <select id="gender">
+            <option value="">--</option>
+            <option>Мужской</option>
+            <option>Женский</option>
+            <option>Не важно</option>
+          </select>
+        </div>
+        <div class="buttons">
+          <button id="resetBtn">Сброс анкеты</button>
+          <button id="submitBtn">Отправить</button>
+        </div>
+      </div>
+      <div id="myApplicationBlock" class="hidden">
+      </div>
+    </div>
+  </div>
+
+  <div id="adminModal" class="modal">
     <div class="modal-content">
-        <h3 style="color:var(--accent); margin-bottom:16px;" id="profile-nickname-title"></h3>
-        <div class="profile-avatar">
-            <div class="avatar-circle" id="profile-avatar-circle"></div>
-            <button class="btn" id="change-avatar-btn" style="width:auto; padding:12px 20px;">Изменить</button>
-        </div>
-        <button class="btn" id="logout-btn">Выйти</button>
-        <button class="btn" id="profile-close-btn" style="margin-top:8px;">Закрыть</button>
+      <h3>Вход администратора</h3>
+      <div class="form-group"><label>Ник</label><input id="adminUsername" type="text"></div>
+      <div class="form-group"><label>Пароль</label><input id="adminPassword" type="password"></div>
+      <div class="buttons">
+        <button id="adminCancel">Отмена</button>
+        <button id="adminLogin">Войти</button>
+      </div>
     </div>
-</div>
-<div id="avatar-picker-modal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width:95%; width:auto;">
-        <h3 style="color:var(--text-primary); margin-bottom:16px;">Изменить аватар</h3>
-        <div style="margin-bottom:16px;"><div style="color:var(--text-primary); margin-bottom:8px;">Фон</div><div class="horizontal-scroll" id="color-scroll"></div></div>
-        <div style="margin-bottom:16px;"><div style="color:var(--text-primary); margin-bottom:8px;">Эмодзи</div><div class="horizontal-scroll" id="emoji-scroll"></div></div>
-        <div class="modal-buttons"><button class="btn" id="avatar-cancel-btn">Отмена</button><button class="btn btn-primary" id="avatar-save-btn">Сохранить</button></div>
-    </div>
-</div>
-<div id="media-view-modal" class="modal" style="display:none;">
-    <div class="media-modal-actions">
-        <button id="media-view-download-btn" title="Скачать"><i class="fas fa-download"></i></button>
-        <button id="media-view-close-btn"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-content" style="background:transparent; backdrop-filter:none; box-shadow:none; max-width:100%; max-height:100%; width:100%; height:100%; border-radius:0;">
-        <div id="media-view-container" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>
-    </div>
-</div>
+  </div>
 
-<script>
-(function() {
+  <div id="withdrawModal" class="modal">
+    <div class="modal-content">
+      <p>Вы уверены, что хотите отозвать анкету?</p>
+      <div class="buttons">
+        <button id="withdrawCancel">Отмена</button>
+        <button id="withdrawConfirm">Отозвать</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
     const API_BASE = '';
-    let currentUser = null, socket = null, publicMessagesCache = [], canSend = true, cooldownTimer;
-    const EMOJI_LIST = ['😀','😂','😍','👍','🔥','🎉','💡','❤️','😎','🤔','😢','😡','🥳','😴','🤯','😇','🙃','🤑','🤠','😈'];
-    const COLORS = ['#E57373','#F06292','#BA68C8','#9575CD','#7986CB','#64B5F6','#4FC3F7','#4DD0E1','#4DB6AC','#81C784','#AED581','#DCE775','#FFD54F','#FFB74D','#FF8A65','#A1887F','#E0E0E0','#90A4AE'];
-    let selectedEmoji = '', selectedColor = '#ccc';
-    let currentMediaSrc = null;
+    let currentTab = 'feed';
+    const myId = localStorage.getItem('myApplicationId');
+    let isAdmin = false;
+    let adminToken = localStorage.getItem('adminToken');
+    let feedData = [];
 
-    const publicSend = document.getElementById('public-send');
-    const publicAttach = document.getElementById('public-attach');
-    const publicInput = document.getElementById('public-input');
-    const profileNicknameTitle = document.getElementById('profile-nickname-title');
+    if (adminToken) isAdmin = true;
 
-    document.getElementById('theme-color-meta').setAttribute('content', '#000000');
+    document.getElementById('feedTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('feed'); });
+    document.getElementById('myTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('my'); });
+    document.getElementById('refreshBtn').addEventListener('click', refreshFeed);
 
-    const $ = id => document.getElementById(id);
-    const authScreen = $('auth-screen'), mainScreen = $('main-screen'),
-          authUsername = $('auth-username'), authPassword = $('auth-password'), authStatus = $('auth-status'),
-          authLogin = $('auth-login'), authRegister = $('auth-register'),
-          publicMessagesEl = $('public-messages'),
-          profileBtn = $('profile-btn'), profileModal = $('profile-modal'), profileAvatarCircle = $('profile-avatar-circle'),
-          changeAvatarBtn = $('change-avatar-btn'), avatarPickerModal = $('avatar-picker-modal'), colorScroll = $('color-scroll'),
-          emojiScroll = $('emoji-scroll'), avatarCancelBtn = $('avatar-cancel-btn'), avatarSaveBtn = $('avatar-save-btn'),
-          logoutBtn = $('logout-btn'), profileCloseBtn = $('profile-close-btn'),
-          mediaViewModal = $('media-view-modal'), mediaViewContainer = $('media-view-container'),
-          mediaViewDownloadBtn = $('media-view-download-btn'), mediaViewCloseBtn = $('media-view-close-btn'),
-          cooldownBar = $('cooldown-bar');
-
-    function showMain() { authScreen.classList.add('hidden'); mainScreen.style.display = 'flex'; }
-    function showAuth() { authScreen.classList.remove('hidden'); mainScreen.style.display = 'none'; }
-
-    function populateAvatarPicker() {
-        colorScroll.innerHTML = ''; COLORS.forEach(c => { const d = document.createElement('div'); d.className = 'color-option' + (c===selectedColor?' selected':''); d.style.backgroundColor = c; d.onclick = () => { selectedColor = c; updatePicker(); }; colorScroll.appendChild(d); });
-        emojiScroll.innerHTML = ''; EMOJI_LIST.forEach(e => { const d = document.createElement('div'); d.className = 'emoji-option' + (e===selectedEmoji?' selected':''); d.textContent = e; d.onclick = () => { selectedEmoji = e; updatePicker(); }; emojiScroll.appendChild(d); });
-        function updatePicker() { document.querySelectorAll('.color-option').forEach(el => el.classList.toggle('selected', el.style.backgroundColor === selectedColor)); document.querySelectorAll('.emoji-option').forEach(el => el.classList.toggle('selected', el.textContent === selectedEmoji)); }
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('feedTab').classList.toggle('active', tab === 'feed');
+      document.getElementById('myTab').classList.toggle('active', tab === 'my');
+      document.getElementById('feedSection').classList.toggle('hidden', tab !== 'feed');
+      document.getElementById('mySection').classList.toggle('hidden', tab !== 'my');
+      if (tab === 'feed') refreshFeed();
+      if (tab === 'my') loadMyApplication();
     }
-    function updateAvatarPreview() { profileAvatarCircle.textContent = selectedEmoji || (currentUser ? currentUser.username[0].toUpperCase() : '?'); profileAvatarCircle.style.backgroundColor = selectedColor; }
 
-    function updateProfileModal() {
-        if (currentUser) {
-            profileNicknameTitle.textContent = currentUser.username;
-            updateAvatarPreview();
+    let pressTimer;
+    const feedTab = document.getElementById('feedTab');
+    function startPress(e) {
+      e.preventDefault();
+      pressTimer = setTimeout(() => {
+        showAdminLogin();
+      }, 30000);
+    }
+    function cancelPress() {
+      clearTimeout(pressTimer);
+    }
+    feedTab.addEventListener('mousedown', startPress);
+    feedTab.addEventListener('mouseup', cancelPress);
+    feedTab.addEventListener('mouseleave', cancelPress);
+    feedTab.addEventListener('touchstart', startPress, {passive: false});
+    feedTab.addEventListener('touchend', cancelPress);
+    feedTab.addEventListener('touchcancel', cancelPress);
+
+    const adminModal = document.getElementById('adminModal');
+    function showAdminLogin() {
+      adminModal.style.display = 'flex';
+      document.getElementById('adminUsername').value = '';
+      document.getElementById('adminPassword').value = '';
+    }
+    document.getElementById('adminCancel').addEventListener('click', () => { adminModal.style.display = 'none'; });
+    document.getElementById('adminLogin').addEventListener('click', async () => {
+      const username = document.getElementById('adminUsername').value;
+      const password = document.getElementById('adminPassword').value;
+      try {
+        const res = await fetch(API_BASE + '/api/admin/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username, password })
+        });
+        if (!res.ok) throw new Error('Неверные данные');
+        const data = await res.json();
+        adminToken = data.token;
+        isAdmin = true;
+        localStorage.setItem('adminToken', adminToken);
+        adminModal.style.display = 'none';
+        refreshFeed();
+      } catch(e) {
+        alert('Ошибка входа: ' + e.message);
+      }
+    });
+
+    async function refreshFeed() {
+      const feedList = document.getElementById('feedList');
+      feedList.innerHTML = '<p>Загрузка...</p>';
+      try {
+        const res = await fetch(API_BASE + '/api/applications');
+        feedData = await res.json();
+        renderFeed();
+      } catch(e) {
+        feedList.innerHTML = '<p>Ошибка загрузки</p>';
+      }
+    }
+
+    function renderFeed() {
+      const feedList = document.getElementById('feedList');
+      if (!feedData.length) {
+        feedList.innerHTML = '<p>Нет анкет</p>';
+        return;
+      }
+      feedList.innerHTML = feedData.map(app => {
+        const statusClass = app.status === 'Актуально' ? 'color: #2980b9' :
+                            app.status === 'Принято' ? 'color: #27ae60' :
+                            app.status === 'Отклонено' ? 'color: #e74c3c' : 'color: #95a5a6';
+        let adminButtons = '';
+        if (isAdmin && app.status === 'Актуально') {
+          adminButtons = `<button class="admin-btn accept" data-id="${app.id}">Принять</button>
+                          <button class="admin-btn reject" data-id="${app.id}">Отклонить</button>`;
         }
+        return `<div class="card">
+          <strong>${app.nickname}</strong> | ${app.gender} | Возраст: ${app.age} | 
+          <span class="status" style="${statusClass}">${app.status}</span>
+          <div style="margin-top:5px;">${adminButtons}</div>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.admin-btn.accept').forEach(btn => {
+        btn.addEventListener('click', (e) => adminAction(e.target.dataset.id, 'accept'));
+      });
+      document.querySelectorAll('.admin-btn.reject').forEach(btn => {
+        btn.addEventListener('click', (e) => adminAction(e.target.dataset.id, 'reject'));
+      });
     }
 
-    async function login(username, password) {
-        try {
-            const res = await fetch(API_BASE + '/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
-            const data = await res.json(); if (!res.ok) throw new Error(data.error);
-            currentUser = { username: data.username, avatar_emoji: data.avatar_emoji || '', avatar_color: data.avatar_color || '' };
-            selectedEmoji = currentUser.avatar_emoji; selectedColor = currentUser.avatar_color || '#ccc';
-            localStorage.setItem('chatxUser', JSON.stringify(currentUser));
-            updateAvatarPreview(); showMain(); updateProfileModal();
-            connectSocket();
-        } catch (err) { authStatus.textContent = err.message; }
-    }
-    async function register(username, password) {
-        try {
-            const res = await fetch(API_BASE + '/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
-            if (!res.ok) throw new Error((await res.json()).error);
-            authStatus.textContent = 'Регистрация успешна, вход...';
-            await login(username, password);
-        } catch (err) { authStatus.textContent = err.message; }
-    }
-    authLogin.onclick = () => { const u = authUsername.value.trim(), p = authPassword.value.trim(); u && p ? login(u,p) : authStatus.textContent = 'Введите имя и пароль'; };
-    authRegister.onclick = () => { const u = authUsername.value.trim(), p = authPassword.value.trim(); u && p ? register(u,p) : authStatus.textContent = 'Введите имя и пароль'; };
-
-    (function restoreSession() {
-        const saved = localStorage.getItem('chatxUser');
-        if (saved) {
-            currentUser = JSON.parse(saved);
-            selectedEmoji = currentUser.avatar_emoji || ''; selectedColor = currentUser.avatar_color || '#ccc';
-            updateAvatarPreview();
-            fetch(API_BASE+'/api/avatar/'+currentUser.username).then(r=>r.json()).then(d=>{ if(d.emoji!==undefined){ currentUser.avatar_emoji=d.emoji||''; currentUser.avatar_color=d.color||''; selectedEmoji=currentUser.avatar_emoji; selectedColor=currentUser.avatar_color||'#ccc'; updateAvatarPreview(); }}).catch(()=>{});
-            showMain();
-            updateProfileModal();
-            connectSocket();
-        } else showAuth();
-    })();
-
-    function connectSocket() {
-        if (socket) socket.close();
-        socket = io({ reconnectionAttempts: 5, timeout: 10000 });
-        socket.on('connect', () => console.log('✅ Socket'));
-        socket.on('roomError', d => alert(d.message));
-        socket.on('roomJoined', d => {
-            publicMessagesCache = d.messages;
-            displayPublicMessages(true);
+    async function adminAction(appId, action) {
+      if (!adminToken) return;
+      try {
+        const endpoint = action === 'accept' ? `accept` : `reject`;
+        const res = await fetch(`${API_BASE}/api/applications/${appId}/${endpoint}`, {
+          method: 'PATCH',
+          headers: { 'X-Admin-Token': adminToken }
         });
-        socket.on('newMessage', d => {
-            const tempIndex = publicMessagesCache.findIndex(m => m._temp && m._tempId === d._tempId);
-            if (tempIndex !== -1) {
-                publicMessagesCache[tempIndex] = { ...d, _temp: false };
-                displayPublicMessages(false);
-            } else {
-                publicMessagesCache.push(d);
-                appendMessageElement(d, false);
-            }
-            publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
+        if (!res.ok) throw new Error('Ошибка');
+        refreshFeed();
+      } catch(e) {
+        alert('Не удалось выполнить действие');
+      }
+    }
+
+    async function loadMyApplication() {
+      const id = localStorage.getItem('myApplicationId');
+      if (!id) {
+        showForm();
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/applications/${id}`);
+        if (!res.ok) {
+          localStorage.removeItem('myApplicationId');
+          showForm();
+          return;
+        }
+        const app = await res.json();
+        showMyApplication(app);
+      } catch(e) {
+        showForm();
+      }
+    }
+
+    function showForm() {
+      document.getElementById('myFormBlock').classList.remove('hidden');
+      document.getElementById('myApplicationBlock').classList.add('hidden');
+      document.getElementById('nickname').value = '';
+      document.getElementById('description').value = '';
+      document.getElementById('age').value = '';
+      document.getElementById('gender').value = '';
+    }
+
+    function showMyApplication(app) {
+      document.getElementById('myFormBlock').classList.add('hidden');
+      const block = document.getElementById('myApplicationBlock');
+      block.classList.remove('hidden');
+      const statusColor = app.status === 'Актуально' ? '#2980b9' :
+                           app.status === 'Принято' ? '#27ae60' :
+                           app.status === 'Отклонено' ? '#e74c3c' : '#95a5a6';
+      let withdrawBtn = '';
+      if (app.status !== 'Принято' && app.status !== 'Отозвано') {
+        withdrawBtn = `<button id="withdrawBtn">Отозвать анкету</button>`;
+      }
+      block.innerHTML = `<div class="card">
+        <h3>Моя анкета</h3>
+        <p><strong>Ник:</strong> ${app.nickname}</p>
+        <p><strong>Возраст:</strong> ${app.age}</p>
+        <p><strong>Пол:</strong> ${app.gender}</p>
+        <p><strong>Статус:</strong> <span style="color:${statusColor}; font-weight:bold;">${app.status}</span></p>
+        <p><strong>Отправлено:</strong> ${app.createdAt}</p>
+        ${withdrawBtn}
+      </div>`;
+      if (withdrawBtn) {
+        document.getElementById('withdrawBtn').addEventListener('click', showWithdrawModal);
+      }
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      const nickname = document.getElementById('nickname').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const age = document.getElementById('age').value;
+      const gender = document.getElementById('gender').value;
+      if (!nickname || !description || !age || !gender) return alert('Заполните все поля');
+      if (description.length < 20 || description.length > 350) return alert('Описание должно быть от 20 до 350 символов');
+      try {
+        const res = await fetch(API_BASE + '/api/applications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nickname, description, age, gender })
         });
-        socket.emit('joinRoom', { roomId: 'public', username: currentUser.username });
+        if (!res.ok) {
+          const err = await res.json();
+          return alert(err.error);
+        }
+        const app = await res.json();
+        localStorage.setItem('myApplicationId', app.id);
+        showMyApplication(app);
+      } catch(e) {
+        alert('Ошибка отправки');
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('nickname').value = '';
+      document.getElementById('description').value = '';
+      document.getElementById('age').value = '';
+      document.getElementById('gender').value = '';
+    });
+
+    const withdrawModal = document.getElementById('withdrawModal');
+    function showWithdrawModal() {
+      withdrawModal.style.display = 'flex';
     }
-
-    function appendMessageElement(msg, isOwnMedia = false) {
-        const prevMsg = publicMessagesCache.length >= 2 ? publicMessagesCache[publicMessagesCache.length-2] : null;
-        const sameBatch = !isOwnMedia && prevMsg && prevMsg.sender === msg.sender && (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < 300000;
-        addMessageWithDate(publicMessagesEl, msg, sameBatch, isOwnMedia);
-    }
-
-    function isSingleEmoji(text) {
-        const emojiRegex = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)$/u;
-        return emojiRegex.test(text);
-    }
-
-    function sendMessage() {
-        if (!canSend || !socket || !currentUser) return;
-        const text = publicInput.value.trim(); if (!text) return;
-        const tempId = 'temp_' + Date.now() + Math.random();
-        const optimisticMsg = { id: tempId, _temp: true, _tempId: tempId, roomId: 'public', sender: currentUser.username, avatar_emoji: currentUser.avatar_emoji || '', avatar_color: currentUser.avatar_color || '', text, fileName: '', timestamp: new Date().toISOString() };
-        publicMessagesCache.push(optimisticMsg);
-        appendMessageElement(optimisticMsg, true);
-        publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
-        publicInput.value = ''; autoResize(publicInput); publicInput.focus();
-        socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text, fileName: '', _tempId: tempId });
-        canSend = false; publicSend.classList.add('disabled');
-        cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0';
-        requestAnimationFrame(() => { cooldownBar.style.transition = 'width 3s linear'; cooldownBar.style.width = '100%'; });
-        cooldownTimer = setTimeout(() => { canSend = true; publicSend.classList.remove('disabled'); cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0'; }, 3000);
-    }
-
-    function attachMediaHandler() {
-        const inp = document.createElement('input');
-        inp.type = 'file';
-        inp.accept = 'image/*';
-        inp.onchange = e => {
-            const f = e.target.files[0]; if (!f) return;
-            if (f.size > 25*1024*1024) { alert('Файл не должен превышать 25 МБ'); return; }
-            if (!canSend) return;
-            const reader = new FileReader();
-            reader.onload = ev => {
-                const tempId = 'temp_' + Date.now() + Math.random();
-                const optimisticMsg = { id: tempId, _temp: true, _tempId: tempId, roomId: 'public', sender: currentUser.username, avatar_emoji: currentUser.avatar_emoji || '', avatar_color: currentUser.avatar_color || '', text: ev.target.result, fileName: f.name, timestamp: new Date().toISOString() };
-                publicMessagesCache.push(optimisticMsg);
-                appendMessageElement(optimisticMsg, true);
-                publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
-                socket.emit('sendMessage', { roomId: 'public', username: currentUser.username, text: ev.target.result, fileName: f.name, _tempId: tempId });
-                canSend = false; publicSend.classList.add('disabled');
-                cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0';
-                requestAnimationFrame(() => { cooldownBar.style.transition = 'width 3s linear'; cooldownBar.style.width = '100%'; });
-                cooldownTimer = setTimeout(() => { canSend = true; publicSend.classList.remove('disabled'); cooldownBar.style.transition = 'none'; cooldownBar.style.width = '0'; }, 3000);
-            };
-            reader.readAsDataURL(f);
-        };
-        inp.click();
-    }
-    publicAttach.onclick = attachMediaHandler;
-    publicSend.onclick = sendMessage;
-    publicInput.addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (canSend) sendMessage(); } });
-
-    function escapeHtml(t) { return t.replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
-
-    function renderMessage(msg, own, showSender) {
-        const text = msg.text || '';
-        const isMedia = text.startsWith('data:');
-        let html = '';
-
-        if (!own) {
-            if (showSender) {
-                html += `<div class="message-avatar" style="background:${msg.avatar_color||'#ccc'};">${msg.avatar_emoji || (msg.sender?.[0]?.toUpperCase()||'?')}</div>`;
-                html += `<div class="message-content">`;
-                html += `<div class="message-sender">${escapeHtml(msg.sender)}</div>`;
-            } else {
-                html += `<div style="width:40px; flex-shrink:0;"></div>`;
-                html += `<div class="message-content">`;
-            }
+    document.getElementById('withdrawCancel').addEventListener('click', () => {
+      withdrawModal.style.display = 'none';
+    });
+    document.getElementById('withdrawConfirm').addEventListener('click', async () => {
+      const id = localStorage.getItem('myApplicationId');
+      if (!id) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/applications/${id}/withdraw`, { method: 'PATCH' });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.error);
         } else {
-            html += `<div class="message-content" style="align-items:flex-end;">`;
+          localStorage.removeItem('myApplicationId');
+          withdrawModal.style.display = 'none';
+          showForm();
+          refreshFeed();
         }
+      } catch(e) {
+        alert('Ошибка');
+      }
+    });
 
-        if (!isMedia && isSingleEmoji(text)) {
-            html += `<span class="emoji-only">${text}</span>`;
-        } else if (isMedia) {
-            const src = text;
-            if (src.startsWith('data:image')) {
-                html += `<img src="${src}" class="message-media" onclick="window.openMedia('${src}')">`;
-            } else {
-                html += `<div style="padding:10px;background:var(--input-bg);border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);"><i class="fas fa-file"></i> Неподдерживаемый файл</div>`;
-            }
-        } else {
-            html += `<div class="message-bubble ${own ? 'message-bubble-own' : ''}"><div class="message-text">${escapeHtml(text)}</div></div>`;
-        }
-
-        html += `</div>`;
-        return html;
-    }
-
-    function addMessageWithDate(container, msg, showSender) {
-        const own = msg.sender === currentUser?.username;
-        const div = document.createElement('div');
-        div.className = `message ${own ? 'message-own' : ''}`;
-        div.innerHTML = renderMessage(msg, own, showSender);
-        container.appendChild(div);
-        return div;
-    }
-
-    function displayPublicMessages(initial) {
-        publicMessagesEl.innerHTML = '';
-        publicMessagesCache.forEach((m,i) => {
-            const prev = i > 0 ? publicMessagesCache[i-1] : null;
-            const sameBatch = !(m.sender === currentUser?.username) && prev && prev.sender === m.sender && (new Date(m.timestamp) - new Date(prev.timestamp)) < 300000;
-            addMessageWithDate(publicMessagesEl, m, !sameBatch);
-        });
-        if (initial) publicMessagesEl.scrollTop = publicMessagesEl.scrollHeight;
-    }
-
-    profileBtn.onclick = () => { updateProfileModal(); profileModal.style.display = 'flex'; };
-    profileCloseBtn.onclick = () => profileModal.style.display = 'none';
-    changeAvatarBtn.onclick = () => { populateAvatarPicker(); avatarPickerModal.style.display = 'flex'; };
-    avatarCancelBtn.onclick = () => avatarPickerModal.style.display = 'none';
-    avatarSaveBtn.onclick = async () => {
-        if (!currentUser) return;
-        await fetch(API_BASE + '/api/update-avatar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser.username, emoji: selectedEmoji, color: selectedColor }) });
-        currentUser.avatar_emoji = selectedEmoji; currentUser.avatar_color = selectedColor;
-        localStorage.setItem('chatxUser', JSON.stringify(currentUser)); updateAvatarPreview();
-        avatarPickerModal.style.display = 'none';
-    };
-
-    logoutBtn.onclick = () => { if (socket) socket.close(); localStorage.removeItem('chatxUser'); currentUser = null; profileModal.style.display = 'none'; showAuth(); };
-
-    window.openMedia = src => {
-        currentMediaSrc = src;
-        mediaViewContainer.innerHTML = src.startsWith('data:video') ? `<video controls src="${src}"></video>` : `<img src="${src}">`;
-        mediaViewModal.style.display = 'flex';
-    };
-    mediaViewCloseBtn.onclick = () => { mediaViewModal.style.display = 'none'; mediaViewContainer.innerHTML = ''; currentMediaSrc = null; };
-    mediaViewDownloadBtn.onclick = () => { if (currentMediaSrc) window.downloadMedia(currentMediaSrc); };
-    window.downloadMedia = src => { const a = document.createElement('a'); a.href = src; a.download = 'media_'+Date.now(); document.body.appendChild(a); a.click(); document.body.removeChild(a); };
-
-    function autoResize(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; ta.style.overflowY = ta.scrollHeight > 120 ? 'auto' : 'hidden'; }
-    publicInput.addEventListener('input', () => autoResize(publicInput));
-})();
-</script>
+    refreshFeed();
+  </script>
 </body>
 </html>
