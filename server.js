@@ -30,9 +30,8 @@ async function initDB() {
 }
 initDB().catch(console.error);
 
-const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано'];
+const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано', 'Отозвано после отказа'];
 
-// Время по МСК
 function getMoscowTime() {
   const now = new Date();
   const mskOffset = 3 * 60 * 60 * 1000;
@@ -112,14 +111,18 @@ app.post('/api/applications', async (req, res) => {
   if (description.length < 20 || description.length > 350) {
     return res.status(400).json({ error: 'Описание должно быть от 20 до 350 символов' });
   }
+  const ageNum = parseInt(age, 10);
+  if (isNaN(ageNum) || ageNum < 1 || ageNum > 99) {
+    return res.status(400).json({ error: 'Возраст должен быть от 1 до 99' });
+  }
   const formattedDate = getMoscowTime();
   const id = uuidv4();
   try {
     await pool.query(
       'INSERT INTO applications (id, nickname, description, age, gender, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [id, nickname, description, age, gender, 'Актуально', formattedDate]
+      [id, nickname, description, ageNum, gender, 'Актуально', formattedDate]
     );
-    res.status(201).json({ id, nickname, description, age, gender, status: 'Актуально', createdAt: formattedDate });
+    res.status(201).json({ id, nickname, description, age: ageNum, gender, status: 'Актуально', createdAt: formattedDate });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Ошибка при создании анкеты' });
@@ -130,10 +133,15 @@ app.patch('/api/applications/:id/withdraw', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
-    if (result.rows[0].status === 'Принято') {
+    const app = result.rows[0];
+    if (app.status === 'Принято') {
       return res.status(400).json({ error: 'Нельзя отозвать уже принятую анкету' });
     }
-    await pool.query('UPDATE applications SET status = $1 WHERE id = $2', ['Отозвано', req.params.id]);
+    let newStatus = 'Отозвано';
+    if (app.status === 'Отклонено') {
+      newStatus = 'Отозвано после отказа';
+    }
+    await pool.query('UPDATE applications SET status = $1 WHERE id = $2', [newStatus, req.params.id]);
     const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
     res.json({
       id: updated.id,
@@ -153,6 +161,16 @@ function requireAdmin(req, res, next) {
   if (req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(403).json({ error: 'Доступ запрещён' });
   next();
 }
+
+app.delete('/api/applications/:id', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM applications WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
   try {
