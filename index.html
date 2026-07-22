@@ -12,7 +12,7 @@
       color: #eae6f0;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      padding-top: 70px; /* высота фиксированной навигации */
+      padding-top: 90px; /* увеличено, чтобы контент не залезал под навигацию */
     }
 
     nav {
@@ -320,7 +320,7 @@
       isAdmin = false;
       localStorage.removeItem('adminToken');
       adminLogoutModal.style.display = 'none';
-      refreshFeed(); // скроем админские элементы
+      refreshFeed();
     });
 
     // Подтверждение админ-действия
