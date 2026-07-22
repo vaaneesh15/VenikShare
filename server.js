@@ -5,7 +5,6 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Подключение к PostgreSQL (Render автоматически задаёт DATABASE_URL)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -16,7 +15,6 @@ const ADMIN_TOKEN = 'vaaneesh-secret-token-2024';
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Инициализация таблицы
 async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS applications (
@@ -34,7 +32,19 @@ initDB().catch(console.error);
 
 const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано'];
 
-// Получить все анкеты
+// Время по МСК
+function getMoscowTime() {
+  const now = new Date();
+  const mskOffset = 3 * 60 * 60 * 1000;
+  const msk = new Date(now.getTime() + mskOffset);
+  const hh = String(msk.getUTCHours()).padStart(2, '0');
+  const mm = String(msk.getUTCMinutes()).padStart(2, '0');
+  const dd = String(msk.getUTCDate()).padStart(2, '0');
+  const MM = String(msk.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = msk.getUTCFullYear();
+  return `${hh}:${mm} (МСК), ${dd}.${MM}.${yyyy}`;
+}
+
 app.get('/api/applications', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications');
@@ -48,7 +58,6 @@ app.get('/api/applications', async (req, res) => {
       description: row.description
     }));
 
-    // Сортировка
     apps.sort((a, b) => {
       const diff = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
       if (diff !== 0) return diff;
@@ -76,7 +85,6 @@ app.get('/api/applications', async (req, res) => {
   }
 });
 
-// Получить конкретную анкету
 app.get('/api/applications/:id', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
@@ -96,7 +104,6 @@ app.get('/api/applications/:id', async (req, res) => {
   }
 });
 
-// Создать анкету
 app.post('/api/applications', async (req, res) => {
   const { nickname, description, age, gender } = req.body;
   if (!nickname || !description || !age || !gender) {
@@ -105,8 +112,7 @@ app.post('/api/applications', async (req, res) => {
   if (description.length < 20 || description.length > 350) {
     return res.status(400).json({ error: 'Описание должно быть от 20 до 350 символов' });
   }
-  const now = new Date();
-  const formattedDate = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}, ${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth()+1).padStart(2, '0')}.${now.getFullYear()}`;
+  const formattedDate = getMoscowTime();
   const id = uuidv4();
   try {
     await pool.query(
@@ -120,7 +126,6 @@ app.post('/api/applications', async (req, res) => {
   }
 });
 
-// Отозвать анкету
 app.patch('/api/applications/:id/withdraw', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
@@ -144,13 +149,11 @@ app.patch('/api/applications/:id/withdraw', async (req, res) => {
   }
 });
 
-// Middleware админа
 function requireAdmin(req, res, next) {
   if (req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(403).json({ error: 'Доступ запрещён' });
   next();
 }
 
-// Принять
 app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
@@ -171,7 +174,6 @@ app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
   }
 });
 
-// Отклонить
 app.patch('/api/applications/:id/reject', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
@@ -192,7 +194,6 @@ app.patch('/api/applications/:id/reject', requireAdmin, async (req, res) => {
   }
 });
 
-// Вход администратора
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
   if (username === 'vaaneesh' && password === 'Serafima1410!!') {
