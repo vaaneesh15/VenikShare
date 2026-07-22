@@ -3,94 +3,201 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Анкеты сервера</title>
+  <title>Лента анкет сервера</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: sans-serif; background: #f5f5f5; color: #333; }
+    body { 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      background: #f0f2f5; 
+      color: #1a1a1a; 
+      line-height: 1.5;
+    }
     nav {
-      display: flex; align-items: center; gap: 20px; background: #2c3e50; padding: 10px 20px;
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      background: white; 
+      padding: 12px 24px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     nav a, nav button {
-      color: white; text-decoration: none; cursor: pointer; background: none; border: none; font-size: 16px;
-      padding: 8px 12px; border-radius: 4px; transition: background 0.2s;
+      color: #1a1a1a;
+      text-decoration: none; 
+      cursor: pointer; 
+      background: none; 
+      border: none; 
+      font-size: 15px;
+      padding: 8px 16px; 
+      border-radius: 8px; 
+      transition: all 0.2s ease;
+      font-weight: 500;
     }
-    nav a.active, nav button:hover { background: #34495e; }
-    .container { max-width: 700px; margin: 20px auto; padding: 0 15px; }
-    .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .form-group { margin-bottom: 12px; }
-    label { display: block; margin-bottom: 4px; font-weight: bold; }
-    input, select, textarea, button { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-    textarea { resize: vertical; }
-    .buttons { display: flex; gap: 10px; }
-    .buttons button { flex: 1; }
-    .status { font-weight: bold; text-transform: uppercase; font-size: 13px; }
+    nav a.active { 
+      background: #e8edf2; 
+      color: #0a0a0a; 
+    }
+    nav a:hover:not(.active) { background: #f5f6f8; }
+    nav button:hover { background: #f5f6f8; }
+    #refreshBtn { 
+      margin-left: auto; 
+      background: #f0f2f5; 
+      border: 1px solid #dde1e6;
+      color: #444;
+    }
+    #refreshBtn:hover { background: #e4e7eb; }
+    .container { 
+      max-width: 720px; 
+      margin: 24px auto; 
+      padding: 0 20px; 
+    }
+    .card { 
+      background: white; 
+      border-radius: 12px; 
+      padding: 20px; 
+      margin-bottom: 16px; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+      transition: box-shadow 0.2s;
+    }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #333; }
+    input, select, textarea { 
+      width: 100%; 
+      padding: 10px 12px; 
+      border: 1px solid #dce1e8; 
+      border-radius: 8px; 
+      font-size: 14px;
+      transition: border 0.2s;
+      background: #fafbfc;
+    }
+    input:focus, select:focus, textarea:focus { 
+      outline: none; 
+      border-color: #7c8b9a; 
+      background: white; 
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    .buttons { display: flex; gap: 10px; margin-top: 8px; }
+    .buttons button { 
+      flex: 1; 
+      padding: 10px; 
+      border: none; 
+      border-radius: 8px; 
+      font-weight: 600; 
+      font-size: 14px; 
+      cursor: pointer; 
+      transition: background 0.2s, transform 0.1s;
+    }
+    .buttons button:active { transform: scale(0.98); }
+    .btn-primary { background: #2b5f8a; color: white; }
+    .btn-primary:hover { background: #1e4b6e; }
+    .btn-secondary { background: #eef1f5; color: #333; }
+    .btn-secondary:hover { background: #dfe4ea; }
+    .btn-danger { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6cb; }
+    .btn-danger:hover { background: #fde8e8; }
+
+    .status {
+      display: inline-block;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
     .modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(2px);
+      justify-content: center; align-items: center; z-index: 100;
     }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 300px; }
-    .admin-btn { display: inline-block; margin-left: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 4px 10px; }
-    .admin-btn.reject { background: #e74c3c; }
-    #refreshBtn { background: #7f8c8d; }
+    .modal-content { 
+      background: white; 
+      padding: 24px; 
+      border-radius: 16px; 
+      width: 320px; 
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .admin-btn { 
+      display: inline-block; 
+      margin-right: 8px; 
+      background: #2b5f8a; 
+      color: white; 
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      padding: 6px 14px; 
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .admin-btn.reject { background: #c0392b; }
+    .admin-btn.reject:hover { background: #a93226; }
+    .admin-btn.accept:hover { background: #1e4b6e; }
     .hidden { display: none; }
+
+    .app-field { margin-bottom: 6px; }
+    .app-field strong { color: #2c3e50; }
   </style>
 </head>
 <body>
   <nav>
-    <a href="#" id="feedTab" class="active">Анкеты</a>
-    <a href="#" id="myTab">Моя анкета</a>
-    <button id="refreshBtn" style="margin-left: auto;">Обновить</button>
+    <a href="#" id="feedTab" class="active">📋 Лента анкет</a>
+    <a href="#" id="myTab">👤 Моя анкета</a>
+    <button id="refreshBtn">🔄 Обновить</button>
   </nav>
 
   <div class="container">
     <div id="feedSection">
-      <h2>Лента анкет</h2>
+      <h2 style="font-weight:600; margin-bottom:16px;">Все анкеты</h2>
       <div id="feedList"></div>
     </div>
 
     <div id="mySection" class="hidden">
       <div id="myFormBlock">
-        <h2>Создание анкеты</h2>
-        <div class="form-group"><label>Ник</label><input id="nickname" type="text"></div>
-        <div class="form-group"><label>Описание</label><textarea id="description" minlength="20" maxlength="350" placeholder="Например, откуда узнали о сервере..."></textarea></div>
-        <div class="form-group"><label>Возраст</label><input id="age" type="number" min="1"></div>
+        <h2 style="font-weight:600; margin-bottom:16px;">Новая анкета</h2>
+        <div class="form-group"><label>Ник</label><input id="nickname" type="text" placeholder="Ваш игровой ник"></div>
+        <div class="form-group"><label>Описание</label><textarea id="description" minlength="20" maxlength="350" placeholder="Например, откуда узнали о сервере, чем планируете заниматься, соглашаетесь ли Вы не гриферить и не читерить и так далее… (от 20 до 350 символов)"></textarea></div>
+        <div class="form-group"><label>Возраст</label><input id="age" type="number" min="1" placeholder="Возраст"></div>
         <div class="form-group">
           <label>Пол</label>
           <select id="gender">
-            <option value="">--</option>
+            <option value="">— выберите —</option>
             <option>Мужской</option>
             <option>Женский</option>
             <option>Не важно</option>
           </select>
         </div>
         <div class="buttons">
-          <button id="resetBtn">Сброс анкеты</button>
-          <button id="submitBtn">Отправить</button>
+          <button id="resetBtn" class="btn-secondary">Сброс анкеты</button>
+          <button id="submitBtn" class="btn-primary">Отправить</button>
         </div>
       </div>
       <div id="myApplicationBlock" class="hidden">
+        <!-- динамическое содержимое -->
       </div>
     </div>
   </div>
 
+  <!-- Модальное окно входа администратора -->
   <div id="adminModal" class="modal">
     <div class="modal-content">
-      <h3>Вход администратора</h3>
+      <h3 style="margin-bottom:16px;">Вход администратора</h3>
       <div class="form-group"><label>Ник</label><input id="adminUsername" type="text"></div>
       <div class="form-group"><label>Пароль</label><input id="adminPassword" type="password"></div>
       <div class="buttons">
-        <button id="adminCancel">Отмена</button>
-        <button id="adminLogin">Войти</button>
+        <button id="adminCancel" class="btn-secondary">Отмена</button>
+        <button id="adminLogin" class="btn-primary">Войти</button>
       </div>
     </div>
   </div>
 
+  <!-- Модальное окно подтверждения отзыва -->
   <div id="withdrawModal" class="modal">
     <div class="modal-content">
-      <p>Вы уверены, что хотите отозвать анкету?</p>
+      <p style="margin-bottom:16px;">Вы уверены, что хотите отозвать анкету?</p>
       <div class="buttons">
-        <button id="withdrawCancel">Отмена</button>
-        <button id="withdrawConfirm">Отозвать</button>
+        <button id="withdrawCancel" class="btn-secondary">Отмена</button>
+        <button id="withdrawConfirm" class="btn-danger">Отозвать</button>
       </div>
     </div>
   </div>
@@ -98,7 +205,6 @@
   <script>
     const API_BASE = '';
     let currentTab = 'feed';
-    const myId = localStorage.getItem('myApplicationId');
     let isAdmin = false;
     let adminToken = localStorage.getItem('adminToken');
     let feedData = [];
@@ -119,6 +225,7 @@
       if (tab === 'my') loadMyApplication();
     }
 
+    // Долгое нажатие (30 секунд) на "Лента анкет" для вызова модалки администратора
     let pressTimer;
     const feedTab = document.getElementById('feedTab');
     function startPress(e) {
@@ -169,7 +276,9 @@
       const feedList = document.getElementById('feedList');
       feedList.innerHTML = '<p>Загрузка...</p>';
       try {
-        const res = await fetch(API_BASE + '/api/applications');
+        const headers = {};
+        if (adminToken) headers['X-Admin-Token'] = adminToken;
+        const res = await fetch(API_BASE + '/api/applications', { headers });
         feedData = await res.json();
         renderFeed();
       } catch(e) {
@@ -177,27 +286,46 @@
       }
     }
 
+    function statusBadge(status) {
+      const colorMap = {
+        'Актуально': { bg: '#e8f0fe', color: '#1a56b0' },
+        'Принято': { bg: '#e6f4ea', color: '#137333' },
+        'Отклонено': { bg: '#fce8e6', color: '#c5221f' },
+        'Отозвано': { bg: '#f1f3f4', color: '#5f6368' }
+      };
+      const style = colorMap[status] || { bg: '#eee', color: '#333' };
+      return `<span class="status" style="background:${style.bg}; color:${style.color}">${status}</span>`;
+    }
+
     function renderFeed() {
       const feedList = document.getElementById('feedList');
       if (!feedData.length) {
-        feedList.innerHTML = '<p>Нет анкет</p>';
+        feedList.innerHTML = '<p>Нет анкет.</p>';
         return;
       }
       feedList.innerHTML = feedData.map(app => {
-        const statusClass = app.status === 'Актуально' ? 'color: #2980b9' :
-                            app.status === 'Принято' ? 'color: #27ae60' :
-                            app.status === 'Отклонено' ? 'color: #e74c3c' : 'color: #95a5a6';
         let adminButtons = '';
         if (isAdmin && app.status === 'Актуально') {
-          adminButtons = `<button class="admin-btn accept" data-id="${app.id}">Принять</button>
-                          <button class="admin-btn reject" data-id="${app.id}">Отклонить</button>`;
+          adminButtons = `
+            <div style="margin-top:12px; display:flex; gap:8px;">
+              <button class="admin-btn accept" data-id="${app.id}">✓ Принять</button>
+              <button class="admin-btn reject" data-id="${app.id}">✕ Отклонить</button>
+            </div>`;
         }
+        const descriptionRow = (isAdmin && app.description) 
+          ? `<div class="app-field"><strong>Описание:</strong> ${app.description}</div>` 
+          : '';
         return `<div class="card">
-          <strong>${app.nickname}</strong> | ${app.gender} | Возраст: ${app.age} | 
-          <span class="status" style="${statusClass}">${app.status}</span>
-          <div style="margin-top:5px;">${adminButtons}</div>
+          <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
+          ${descriptionRow}
+          <div class="app-field"><strong>Пол:</strong> ${app.gender}</div>
+          <div class="app-field"><strong>Возраст:</strong> ${app.age}</div>
+          <div class="app-field"><strong>Статус:</strong> ${statusBadge(app.status)}</div>
+          <div class="app-field"><strong>Отправлено:</strong> ${app.createdAt}</div>
+          ${adminButtons}
         </div>`;
       }).join('');
+      // Привязка событий к админским кнопкам
       document.querySelectorAll('.admin-btn.accept').forEach(btn => {
         btn.addEventListener('click', (e) => adminAction(e.target.dataset.id, 'accept'));
       });
@@ -254,26 +382,27 @@
       document.getElementById('myFormBlock').classList.add('hidden');
       const block = document.getElementById('myApplicationBlock');
       block.classList.remove('hidden');
-      const statusColor = app.status === 'Актуально' ? '#2980b9' :
-                           app.status === 'Принято' ? '#27ae60' :
-                           app.status === 'Отклонено' ? '#e74c3c' : '#95a5a6';
       let withdrawBtn = '';
       if (app.status !== 'Принято' && app.status !== 'Отозвано') {
-        withdrawBtn = `<button id="withdrawBtn">Отозвать анкету</button>`;
+        withdrawBtn = `<button id="withdrawBtn" class="btn-danger" style="margin-top:12px;">Отозвать анкету</button>`;
       }
       block.innerHTML = `<div class="card">
-        <h3>Моя анкета</h3>
-        <p><strong>Ник:</strong> ${app.nickname}</p>
-        <p><strong>Возраст:</strong> ${app.age}</p>
-        <p><strong>Пол:</strong> ${app.gender}</p>
-        <p><strong>Статус:</strong> <span style="color:${statusColor}; font-weight:bold;">${app.status}</span></p>
-        <p><strong>Отправлено:</strong> ${app.createdAt}</p>
+        <h3 style="margin-bottom:12px;">Моя анкета</h3>
+        <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
+        <div class="app-field"><strong>Описание:</strong> ${app.description}</div>
+        <div class="app-field"><strong>Возраст:</strong> ${app.age}</div>
+        <div class="app-field"><strong>Пол:</strong> ${app.gender}</div>
+        <div class="app-field"><strong>Статус:</strong> ${statusBadge(app.status)}</div>
+        <div class="app-field"><strong>Отправлено:</strong> ${app.createdAt}</div>
         ${withdrawBtn}
       </div>`;
       if (withdrawBtn) {
         document.getElementById('withdrawBtn').addEventListener('click', showWithdrawModal);
       }
     }
+
+    // Функция statusBadge используется и здесь, поэтому определена глобально выше
+    function statusBadge(status) { ... } // уже объявлена ранее
 
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const nickname = document.getElementById('nickname').value.trim();
@@ -333,6 +462,7 @@
       }
     });
 
+    // Первоначальная загрузка
     refreshFeed();
   </script>
 </body>
