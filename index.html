@@ -12,7 +12,7 @@
       color: #eae6f0;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      padding-top: 90px; /* увеличено, чтобы контент не залезал под навигацию */
+      padding-top: 90px;
     }
 
     nav {
@@ -146,6 +146,22 @@
     .admin-btn.reject { background: #6b2c38; color: #ffc2cc; }
     .admin-btn.reject:hover { background: #853b48; }
     .admin-btn.accept:hover { background: #5c4990; }
+
+    /* Стиль кнопки отзыва как у админских */
+    .withdraw-btn {
+      width: 100%;
+      margin-top: 16px;
+      padding: 12px;
+      background: #6b2c38;
+      color: #ffc2cc;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .withdraw-btn:hover { background: #853b48; }
 
     .hidden { display: none; }
     .app-field { margin-bottom: 6px; }
@@ -464,7 +480,7 @@
       block.classList.remove('hidden');
       let withdrawBtn = '';
       if (app.status !== 'Принято' && app.status !== 'Отозвано') {
-        withdrawBtn = `<button id="withdrawBtn" class="btn-danger" style="width:100%; margin-top:16px; padding:12px;">Отозвать анкету</button>`;
+        withdrawBtn = `<button id="withdrawBtn" class="withdraw-btn">Отозвать анкету</button>`;
       }
       block.innerHTML = `<div class="card">
         <h3 style="margin-bottom:12px;">Моя анкета</h3>
