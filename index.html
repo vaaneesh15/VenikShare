@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Лента анкет сервера</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dvexland - заявки</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -12,18 +12,18 @@
       color: #eae6f0;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
+      padding-top: 70px; /* высота фиксированной навигации */
     }
 
-    /* Навигация */
     nav {
+      position: fixed;
+      top: 0; left: 0; width: 100%;
       display: flex;
       align-items: center;
       gap: 8px;
       background: #1b1922;
       padding: 10px 20px;
       border-bottom: 1px solid #2b2635;
-      position: sticky;
-      top: 0;
       z-index: 20;
     }
     nav a, nav button {
@@ -52,9 +52,8 @@
     }
     #refreshBtn:hover { background: #302b3d; }
 
-    .container { max-width: 720px; margin: 24px auto; padding: 0 20px; }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 20px 40px; }
 
-    /* Карточки */
     .card {
       background: #1e1b26;
       border-radius: 16px;
@@ -65,7 +64,6 @@
     }
     .card:hover { border-color: #4a3f62; }
 
-    /* Поля формы */
     .form-group { margin-bottom: 16px; }
     label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #cbbef0; }
     input, select, textarea {
@@ -85,7 +83,6 @@
     }
     textarea { resize: vertical; min-height: 100px; }
 
-    /* Кнопки */
     .buttons { display: flex; gap: 10px; margin-top: 8px; }
     .buttons button {
       flex: 1;
@@ -106,7 +103,6 @@
     .btn-danger { background: #3d1e28; color: #f5a3b3; border: 1px solid #5a2e3a; }
     .btn-danger:hover { background: #4c2632; }
 
-    /* Статусы */
     .status {
       display: inline-block;
       font-weight: 600;
@@ -115,7 +111,6 @@
       border-radius: 20px;
     }
 
-    /* Модальные окна */
     .modal {
       display: none;
       position: fixed;
@@ -135,7 +130,6 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
 
-    /* Админ кнопки */
     .admin-btn {
       display: inline-block;
       margin-right: 8px;
@@ -199,7 +193,7 @@
     </div>
   </div>
 
-  <!-- Модальное окно входа администратора -->
+  <!-- Вход администратора -->
   <div id="adminModal" class="modal">
     <div class="modal-content">
       <h3 style="margin-bottom:16px;">Вход администратора</h3>
@@ -212,7 +206,29 @@
     </div>
   </div>
 
-  <!-- Модальное окно подтверждения отзыва -->
+  <!-- Выход администратора -->
+  <div id="adminLogoutModal" class="modal">
+    <div class="modal-content">
+      <p style="margin-bottom:16px;">Вы уверены, что хотите выйти из аккаунта администратора?</p>
+      <div class="buttons">
+        <button id="adminLogoutCancel" class="btn-secondary">Отмена</button>
+        <button id="adminLogoutConfirm" class="btn-danger">Да</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Подтверждение действия админа -->
+  <div id="adminActionModal" class="modal">
+    <div class="modal-content">
+      <p id="adminActionText" style="margin-bottom:16px;"></p>
+      <div class="buttons">
+        <button id="adminActionCancel" class="btn-secondary">Отмена</button>
+        <button id="adminActionConfirm" class="btn-primary">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Отзыв анкеты -->
   <div id="withdrawModal" class="modal">
     <div class="modal-content">
       <p style="margin-bottom:16px;">Вы уверены, что хотите отозвать анкету?</p>
@@ -229,13 +245,17 @@
     let isAdmin = false;
     let adminToken = localStorage.getItem('adminToken');
     let feedData = [];
+    let myAppData = null;
 
     if (adminToken) isAdmin = true;
 
-    // Навигация
+    // Навигация (без автоматической загрузки)
     document.getElementById('feedTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('feed'); });
     document.getElementById('myTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('my'); });
-    document.getElementById('refreshBtn').addEventListener('click', refreshFeed);
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      if (currentTab === 'feed') refreshFeed();
+      else loadMyApplication();
+    });
 
     function switchTab(tab) {
       currentTab = tab;
@@ -243,31 +263,24 @@
       document.getElementById('myTab').classList.toggle('active', tab === 'my');
       document.getElementById('feedSection').classList.toggle('hidden', tab !== 'feed');
       document.getElementById('mySection').classList.toggle('hidden', tab !== 'my');
-      if (tab === 'feed') refreshFeed();
-      if (tab === 'my') loadMyApplication();
     }
 
-    // 7 кликов для админа
+    // 7 кликов для входа/выхода
     let clickCount = 0;
     let clickTimer = null;
-    const feedTab = document.getElementById('feedTab');
-    feedTab.addEventListener('click', (e) => {
-      // Только если клик не по активной вкладке? Мы обрабатываем все клики, включая переключение вкладки.
-      // Но чтобы не мешать навигации, используем отдельную логику: подсчёт идёт по каждому клику,
-      // но переход на вкладку подавлять не будем. При 7 кликах откроем админку.
-      e.stopPropagation(); // чтобы не срабатывал switchTab дважды? Нет, лучше дать ему сработать.
+    document.getElementById('feedTab').addEventListener('click', (e) => {
       clickCount++;
       clearTimeout(clickTimer);
       if (clickCount >= 7) {
         clickCount = 0;
-        showAdminLogin();
+        if (isAdmin) showAdminLogout();
+        else showAdminLogin();
       } else {
         clickTimer = setTimeout(() => { clickCount = 0; }, 2000);
       }
-      // При этом сам переход по вкладке всё равно произойдёт через обработчик выше.
     });
 
-    // Админская модалка
+    // Админ: вход
     const adminModal = document.getElementById('adminModal');
     function showAdminLogin() {
       adminModal.style.display = 'flex';
@@ -290,9 +303,60 @@
         isAdmin = true;
         localStorage.setItem('adminToken', adminToken);
         adminModal.style.display = 'none';
-        refreshFeed();
+        refreshFeed(); // после входа обновим ленту
       } catch(e) {
         alert('Ошибка входа: ' + e.message);
+      }
+    });
+
+    // Админ: выход
+    const adminLogoutModal = document.getElementById('adminLogoutModal');
+    function showAdminLogout() {
+      adminLogoutModal.style.display = 'flex';
+    }
+    document.getElementById('adminLogoutCancel').addEventListener('click', () => { adminLogoutModal.style.display = 'none'; });
+    document.getElementById('adminLogoutConfirm').addEventListener('click', () => {
+      adminToken = null;
+      isAdmin = false;
+      localStorage.removeItem('adminToken');
+      adminLogoutModal.style.display = 'none';
+      refreshFeed(); // скроем админские элементы
+    });
+
+    // Подтверждение админ-действия
+    const adminActionModal = document.getElementById('adminActionModal');
+    const adminActionText = document.getElementById('adminActionText');
+    const adminActionConfirm = document.getElementById('adminActionConfirm');
+    let pendingAdminAction = null; // { appId, action }
+
+    function showAdminActionModal(appId, action) {
+      pendingAdminAction = { appId, action };
+      adminActionText.textContent = `Вы уверены, что хотите ${action === 'accept' ? 'принять' : 'отклонить'} эту анкету?`;
+      adminActionConfirm.textContent = action === 'accept' ? 'Принять' : 'Отклонить';
+      adminActionConfirm.className = action === 'accept' ? 'btn-primary' : 'btn-danger';
+      adminActionModal.style.display = 'flex';
+    }
+
+    document.getElementById('adminActionCancel').addEventListener('click', () => {
+      adminActionModal.style.display = 'none';
+      pendingAdminAction = null;
+    });
+
+    adminActionConfirm.addEventListener('click', async () => {
+      if (!pendingAdminAction) return;
+      const { appId, action } = pendingAdminAction;
+      try {
+        const endpoint = action === 'accept' ? 'accept' : 'reject';
+        const res = await fetch(`${API_BASE}/api/applications/${appId}/${endpoint}`, {
+          method: 'PATCH',
+          headers: { 'X-Admin-Token': adminToken }
+        });
+        if (!res.ok) throw new Error('Ошибка');
+        adminActionModal.style.display = 'none';
+        pendingAdminAction = null;
+        refreshFeed();
+      } catch(e) {
+        alert('Не удалось выполнить действие');
       }
     });
 
@@ -352,42 +416,33 @@
       }).join('');
 
       document.querySelectorAll('.admin-btn.accept').forEach(btn => {
-        btn.addEventListener('click', (e) => adminAction(e.target.dataset.id, 'accept'));
+        btn.addEventListener('click', (e) => showAdminActionModal(e.target.dataset.id, 'accept'));
       });
       document.querySelectorAll('.admin-btn.reject').forEach(btn => {
-        btn.addEventListener('click', (e) => adminAction(e.target.dataset.id, 'reject'));
+        btn.addEventListener('click', (e) => showAdminActionModal(e.target.dataset.id, 'reject'));
       });
-    }
-
-    async function adminAction(appId, action) {
-      if (!adminToken) return;
-      try {
-        const endpoint = action === 'accept' ? 'accept' : 'reject';
-        const res = await fetch(`${API_BASE}/api/applications/${appId}/${endpoint}`, {
-          method: 'PATCH',
-          headers: { 'X-Admin-Token': adminToken }
-        });
-        if (!res.ok) throw new Error('Ошибка');
-        refreshFeed();
-      } catch(e) {
-        alert('Не удалось выполнить действие');
-      }
     }
 
     // Моя анкета
     async function loadMyApplication() {
       const id = localStorage.getItem('myApplicationId');
-      if (!id) { showForm(); return; }
+      if (!id) {
+        myAppData = null;
+        showForm();
+        return;
+      }
       try {
         const res = await fetch(`${API_BASE}/api/applications/${id}`);
         if (!res.ok) {
           localStorage.removeItem('myApplicationId');
+          myAppData = null;
           showForm();
           return;
         }
-        const app = await res.json();
-        showMyApplication(app);
+        myAppData = await res.json();
+        showMyApplication();
       } catch(e) {
+        myAppData = null;
         showForm();
       }
     }
@@ -401,13 +456,15 @@
       document.getElementById('gender').value = '';
     }
 
-    function showMyApplication(app) {
+    function showMyApplication() {
+      if (!myAppData) return;
+      const app = myAppData;
       document.getElementById('myFormBlock').classList.add('hidden');
       const block = document.getElementById('myApplicationBlock');
       block.classList.remove('hidden');
       let withdrawBtn = '';
       if (app.status !== 'Принято' && app.status !== 'Отозвано') {
-        withdrawBtn = `<button id="withdrawBtn" class="btn-danger" style="margin-top:16px;">Отозвать анкету</button>`;
+        withdrawBtn = `<button id="withdrawBtn" class="btn-danger" style="width:100%; margin-top:16px; padding:12px;">Отозвать анкету</button>`;
       }
       block.innerHTML = `<div class="card">
         <h3 style="margin-bottom:12px;">Моя анкета</h3>
@@ -424,6 +481,7 @@
       }
     }
 
+    // Отправка анкеты
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const nickname = document.getElementById('nickname').value.trim();
       const description = document.getElementById('description').value.trim();
@@ -443,7 +501,8 @@
         }
         const app = await res.json();
         localStorage.setItem('myApplicationId', app.id);
-        showMyApplication(app);
+        myAppData = app;
+        showMyApplication();
       } catch(e) {
         alert('Ошибка отправки');
       }
@@ -456,6 +515,7 @@
       document.getElementById('gender').value = '';
     });
 
+    // Отзыв анкеты
     const withdrawModal = document.getElementById('withdrawModal');
     function showWithdrawModal() {
       withdrawModal.style.display = 'flex';
@@ -473,17 +533,19 @@
           alert(err.error);
         } else {
           localStorage.removeItem('myApplicationId');
+          myAppData = null;
           withdrawModal.style.display = 'none';
           showForm();
-          refreshFeed();
+          if (currentTab === 'feed') refreshFeed();
         }
       } catch(e) {
         alert('Ошибка');
       }
     });
 
-    // Первоначальная загрузка
+    // Первоначальная загрузка данных
     refreshFeed();
+    loadMyApplication();
   </script>
 </body>
 </html>
