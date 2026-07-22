@@ -1,184 +1,132 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '25mb' }));
-app.use(express.static(__dirname));
-
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 2.5e7 // 25 MB
-});
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-async function initDB() {
-  try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      username VARCHAR(50) UNIQUE NOT NULL,
-      password VARCHAR(100) NOT NULL,
-      avatar_emoji VARCHAR(10) DEFAULT '',
-      avatar_color VARCHAR(7) DEFAULT '',
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
-    )`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS messages (
-      id SERIAL PRIMARY KEY,
-      room_id VARCHAR(50) NOT NULL DEFAULT 'public',
-      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      sender VARCHAR(50) NOT NULL,
-      avatar_emoji VARCHAR(10) DEFAULT '',
-      avatar_color VARCHAR(7) DEFAULT '',
-      text TEXT NOT NULL,
-      file_name VARCHAR(255) DEFAULT '',
-      timestamp TIMESTAMP NOT NULL DEFAULT NOW()
-    )`);
-    console.log('✅ БД готова');
-  } catch (err) { console.error('❌ Ошибка БД:', err); }
-}
-initDB();
-
-const onlineUsers = new Set();
-
-// ---------- API ----------
-app.post('/api/register', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
-  try {
-    const exist = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-    if (exist.rows.length > 0) return res.status(409).json({ error: 'Пользователь уже существует' });
-    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, password]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
-  try {
-    const user = await pool.query(
-      'SELECT username, avatar_emoji, avatar_color FROM users WHERE username = $1 AND password = $2',
-      [username, password]
-    );
-    if (user.rows.length === 0) return res.status(401).json({ error: 'Неверное имя или пароль' });
-    res.json({
-      success: true,
-      username: user.rows[0].username,
-      avatar_emoji: user.rows[0].avatar_emoji,
-      avatar_color: user.rows[0].avatar_color
-    });
-  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/update-avatar', async (req, res) => {
-  const { username, emoji, color } = req.body;
-  if (!username || !emoji || !color) return res.status(400).json({ error: 'Не все поля' });
-  try {
-    await pool.query('UPDATE users SET avatar_emoji = $1, avatar_color = $2 WHERE username = $3', [emoji, color, username]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка сервера' }); }
-});
-
-app.get('/api/avatar/:username', async (req, res) => {
-  const user = await pool.query('SELECT avatar_emoji, avatar_color FROM users WHERE username = $1', [req.params.username]);
-  if (user.rows.length === 0) return res.status(404).json({ error: 'Не найден' });
-  res.json({ emoji: user.rows[0].avatar_emoji, color: user.rows[0].avatar_color });
-});
-
-app.get('/api/online/users', (req, res) => {
-  res.json(Array.from(onlineUsers));
-});
-
-// ---------- Сокеты ----------
-io.on('connection', (socket) => {
-  console.log('🔗', socket.id);
-
-  socket.on('joinRoom', async ({ roomId, username }) => {
-    if (roomId !== 'public') return socket.emit('roomError', { message: 'Нет такой комнаты' });
-    socket.join('public');
-    socket.data.roomId = 'public';
-    socket.data.username = username;
-
-    onlineUsers.add(username);
-    io.emit('onlineCount', onlineUsers.size);
-
-    const messages = await pool.query(
-      `SELECT m.id, u.username AS sender, m.text, m.file_name, m.timestamp, m.avatar_emoji, m.avatar_color 
-       FROM messages m 
-       JOIN users u ON m.user_id = u.id 
-       WHERE m.room_id = 'public' 
-       ORDER BY m.timestamp DESC 
-       LIMIT 15`
-    );
-    socket.emit('roomJoined', { roomId: 'public', messages: messages.rows.reverse(), userCount: onlineUsers.size });
-  });
-
-  socket.on('loadOlderMessages', async ({ roomId, beforeTimestamp }) => {
-    if (roomId !== 'public' || !beforeTimestamp) return;
-    const messages = await pool.query(
-      `SELECT m.id, u.username AS sender, m.text, m.file_name, m.timestamp, m.avatar_emoji, m.avatar_color 
-       FROM messages m 
-       JOIN users u ON m.user_id = u.id 
-       WHERE m.room_id = 'public' AND m.timestamp < $1 
-       ORDER BY m.timestamp DESC 
-       LIMIT 20`,
-      [beforeTimestamp]
-    );
-    socket.emit('olderMessages', { messages: messages.rows.reverse() });
-  });
-
-  socket.on('sendMessage', async ({ roomId, username, text, fileName, _tempId }) => {
-    if (roomId !== 'public' || !username) return;
-    const user = await pool.query('SELECT id, avatar_emoji, avatar_color FROM users WHERE username = $1', [username]);
-    if (user.rows.length === 0) return;
-    const userId = user.rows[0].id;
-    const emoji = user.rows[0].avatar_emoji || '';
-    const color = user.rows[0].avatar_color || '';
-    const result = await pool.query(
-      'INSERT INTO messages (room_id, user_id, sender, avatar_emoji, avatar_color, text, file_name) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, timestamp',
-      ['public', userId, username, emoji, color, text, fileName || '']
-    );
-    const newMsg = result.rows[0];
-    const msg = {
-      id: newMsg.id,
-      roomId: 'public',
-      sender: username,
-      avatar_emoji: emoji,
-      avatar_color: color,
-      text,
-      fileName: fileName || '',
-      timestamp: newMsg.timestamp.toISOString(),
-      _tempId
-    };
-    io.to('public').emit('newMessage', msg);
-
-    // Лимит 40 сообщений
-    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM messages WHERE room_id = $1', ['public']);
-    if (parseInt(countRows[0].count) > 40) {
-      await pool.query(
-        'DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE room_id = $1 ORDER BY timestamp ASC LIMIT $2)',
-        ['public', parseInt(countRows[0].count) - 40]
-      );
-    }
-  });
-
-  socket.on('disconnect', () => {
-    if (socket.data.username) {
-      onlineUsers.delete(socket.data.username);
-      io.emit('onlineCount', onlineUsers.size);
-    }
-  });
-});
-
-app.use((req, res) => res.status(404).json({ error: 'Маршрут не найден' }));
-
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Порт ${PORT}`));
+const DATA_FILE = path.join(__dirname, 'data', 'applications.json');
+const ADMIN_TOKEN = 'vaaneesh-secret-token-2024';
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
+
+if (!fs.existsSync(path.join(__dirname, 'data'))) {
+  fs.mkdirSync(path.join(__dirname, 'data'));
+}
+if (!fs.existsSync(DATA_FILE)) {
+  fs.writeFileSync(DATA_FILE, '[]');
+}
+
+function readApplications() {
+  const raw = fs.readFileSync(DATA_FILE);
+  return JSON.parse(raw);
+}
+
+function writeApplications(apps) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(apps, null, 2));
+}
+
+const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано'];
+function sortApplications(apps) {
+  return apps.sort((a, b) => {
+    const statusDiff = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+    if (statusDiff !== 0) return statusDiff;
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
+}
+
+app.get('/api/applications', (req, res) => {
+  const apps = readApplications();
+  const sorted = sortApplications(apps);
+  const sanitized = sorted.map(({ id, nickname, gender, age, status, createdAt }) => ({
+    id,
+    nickname,
+    gender,
+    age,
+    status,
+    createdAt
+  }));
+  res.json(sanitized);
+});
+
+app.get('/api/applications/:id', (req, res) => {
+  const apps = readApplications();
+  const app = apps.find(a => a.id === req.params.id);
+  if (!app) return res.status(404).json({ error: 'Анкета не найдена' });
+  res.json(app);
+});
+
+app.post('/api/applications', (req, res) => {
+  const { nickname, description, age, gender } = req.body;
+  if (!nickname || !description || !age || !gender) {
+    return res.status(400).json({ error: 'Все поля обязательны' });
+  }
+  if (description.length < 20 || description.length > 350) {
+    return res.status(400).json({ error: 'Описание должно быть от 20 до 350 символов' });
+  }
+  const now = new Date();
+  const formattedDate = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}, ${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth()+1).padStart(2, '0')}.${now.getFullYear()}`;
+  const newApp = {
+    id: uuidv4(),
+    nickname,
+    description,
+    age,
+    gender,
+    status: 'Актуально',
+    createdAt: formattedDate
+  };
+  const apps = readApplications();
+  apps.push(newApp);
+  writeApplications(apps);
+  res.status(201).json(newApp);
+});
+
+app.patch('/api/applications/:id/withdraw', (req, res) => {
+  const apps = readApplications();
+  const index = apps.findIndex(a => a.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'Анкета не найдена' });
+  if (apps[index].status === 'Принято') {
+    return res.status(400).json({ error: 'Нельзя отозвать уже принятую анкету' });
+  }
+  apps[index].status = 'Отозвано';
+  writeApplications(apps);
+  res.json(apps[index]);
+});
+
+function requireAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: 'Доступ запрещён' });
+  next();
+}
+
+app.patch('/api/applications/:id/accept', requireAdmin, (req, res) => {
+  const apps = readApplications();
+  const index = apps.findIndex(a => a.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'Анкета не найдена' });
+  apps[index].status = 'Принято';
+  writeApplications(apps);
+  res.json(apps[index]);
+});
+
+app.patch('/api/applications/:id/reject', requireAdmin, (req, res) => {
+  const apps = readApplications();
+  const index = apps.findIndex(a => a.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'Анкета не найдена' });
+  apps[index].status = 'Отклонено';
+  writeApplications(apps);
+  res.json(apps[index]);
+});
+
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === 'vaaneesh' && password === 'Serafima1410!!') {
+    res.json({ token: ADMIN_TOKEN });
+  } else {
+    res.status(401).json({ error: 'Неверные данные' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
