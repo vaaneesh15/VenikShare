@@ -53,17 +53,6 @@
       fill: none; stroke: currentColor; stroke-width: 2;
       stroke-linecap: round; stroke-linejoin: round;
     }
-    #rulesBtn {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 8px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #rulesBtn:hover { background: #252232; }
     #refreshBtn { margin-left: auto; }
     #discordBtn, #refreshBtn {
       background: transparent;
@@ -156,7 +145,7 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
 
-    .admin-btn {
+    .admin-btn, .review-btn {
       display: inline-block;
       margin-right: 8px;
       background: #4b3a72;
@@ -172,6 +161,8 @@
     .admin-btn.reject { background: #6b2c38; color: #ffc2cc; }
     .admin-btn.reject:hover { background: #853b48; }
     .admin-btn.accept:hover { background: #5c4990; }
+    .review-btn { background: #4b3a72; }
+    .review-btn:hover { background: #5c4990; }
 
     .withdraw-btn {
       width: 100%;
@@ -203,15 +194,9 @@
 </head>
 <body>
   <nav>
-    <a href="#" id="feedTab" class="active">Лента анкет</a>
-    <a href="#" id="myTab">Моя анкета</a>
+    <a href="#" id="feedTab" class="active">Анкеты</a>
+    <a href="#" id="myTab">Моя</a>
     <a href="#" id="rulesTab">Правила</a>
-    <button id="rulesBtn" title="Правила сервера">
-      <svg class="nav-icon" viewBox="0 0 24 24">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-      </svg>
-    </button>
     <button id="refreshBtn" title="Обновить">
       <svg class="nav-icon" viewBox="0 0 24 24">
         <polyline points="23 4 23 10 17 10"></polyline>
@@ -239,7 +224,7 @@
       <div id="myFormBlock">
         <h2 style="margin-bottom:16px;">Новая анкета</h2>
         <div class="form-group"><label>Ник</label><input id="nickname" type="text" placeholder="Ваш игровой ник"></div>
-        <div class="form-group"><label>Описание</label><textarea id="description" minlength="20" maxlength="350" placeholder="Например, откуда узнали о сервере, чем планируете заниматься, соглашаетесь ли Вы не гриферить и не читерить и так далее… (от 20 до 350 символов)"></textarea></div>
+        <div class="form-group"><label>Описание</label><textarea id="description" minlength="20" maxlength="350" placeholder="Например, откуда узнали о сервере, чем планируете заниматься на сервере, и так далее… (от 20 до 350 символов)"></textarea></div>
         <div class="form-group"><label>Возраст</label><input id="age" type="number" min="1" max="99" placeholder="Возраст"></div>
         <div class="form-group">
           <label>Пол</label>
@@ -269,19 +254,19 @@
 
     <!-- Секция Правила -->
     <div id="rulesSection" class="hidden">
-      <h2 style="margin-bottom:16px;">Правила сервера Dvexland в Minecraft</h2>
+      <h2 style="margin-bottom:16px;">Правила сервера Dvexland</h2>
       <div class="card">
         <p class="rules-text">
-1. Не гриферить
-2. Не использовать читы или различного рода софт, упрощающий или как-либо вообще изменяющий игровой процесс
-3. Не перегружать сервер лаг-машинами и очень крупными механизмами
-4. Подчиняться правилам, указанным игроками локально на определённой территории игрового сервера, если эта территория принадлежит им и эти правила не нарушают правила, прописанные здесь
+1. Не гриферить.
+2. Не использовать читы или различного рода софт, упрощающий или как-либо вообще изменяющий игровой процесс.
+3. Не перегружать сервер лаг-машинами и очень крупными механизмами.
+4. Подчиняться правилам, указанным игроками локально на определённой территории игрового сервера, если эта территория принадлежит им и эти правила не нарушают правила, прописанные здесь.
         </p>
       </div>
     </div>
   </div>
 
-  <!-- Модалка подтверждения правил -->
+  <!-- Модалки: подтверждение правил, вход/выход админа, отзыв, удаление, запрос пересмотра, пересмотр админа -->
   <div id="rulesConfirmModal" class="modal">
     <div class="modal-content">
       <h3 style="margin-bottom:12px;">Подтверждение правил</h3>
@@ -296,7 +281,6 @@
     </div>
   </div>
 
-  <!-- Вход администратора -->
   <div id="adminModal" class="modal">
     <div class="modal-content">
       <h3 style="margin-bottom:16px;">Вход администратора</h3>
@@ -309,7 +293,6 @@
     </div>
   </div>
 
-  <!-- Выход администратора -->
   <div id="adminLogoutModal" class="modal">
     <div class="modal-content">
       <p style="margin-bottom:16px;">Вы уверены, что хотите выйти из аккаунта администратора?</p>
@@ -320,7 +303,6 @@
     </div>
   </div>
 
-  <!-- Подтверждение действия админа -->
   <div id="adminActionModal" class="modal">
     <div class="modal-content">
       <p id="adminActionText" style="margin-bottom:16px;"></p>
@@ -335,7 +317,6 @@
     </div>
   </div>
 
-  <!-- Удаление анкеты админом -->
   <div id="adminDeleteModal" class="modal">
     <div class="modal-content">
       <p style="margin-bottom:16px;">Вы уверены, что хотите удалить анкету? Это действие необратимо.</p>
@@ -346,13 +327,43 @@
     </div>
   </div>
 
-  <!-- Отзыв анкеты -->
   <div id="withdrawModal" class="modal">
     <div class="modal-content">
       <p style="margin-bottom:16px;">Вы уверены, что хотите отозвать анкету?</p>
       <div class="buttons">
         <button id="withdrawCancel" class="btn-secondary">Отмена</button>
         <button id="withdrawConfirm" class="btn-danger">Отозвать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Запрос пересмотра (пользователь) -->
+  <div id="requestReviewModal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-bottom:12px;">Запросить пересмотр</h3>
+      <div class="form-group">
+        <label>Причина запроса</label>
+        <input id="requestReviewReason" type="text" placeholder="Почему вы считаете, что решение нужно пересмотреть?">
+      </div>
+      <div class="buttons">
+        <button id="requestReviewCancel" class="btn-secondary">Отмена</button>
+        <button id="requestReviewConfirm" class="btn-primary">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Пересмотр админом -->
+  <div id="adminReviewModal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-bottom:12px;">Пересмотр анкеты</h3>
+      <p id="adminReviewStatusText" style="margin-bottom:12px;"></p>
+      <div class="form-group">
+        <label>Причина</label>
+        <input id="adminReviewReason" type="text" placeholder="Причина пересмотра">
+      </div>
+      <div class="buttons">
+        <button id="adminReviewCancel" class="btn-secondary">Отмена</button>
+        <button id="adminReviewConfirm" class="btn-primary">Подтвердить</button>
       </div>
     </div>
   </div>
@@ -386,11 +397,6 @@
       document.getElementById('rulesSection').classList.toggle('hidden', tab !== 'rules');
     }
 
-    document.getElementById('rulesBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      switchTab('rules');
-    });
-
     // 7 кликов для входа/выхода
     let clickCount = 0;
     let clickTimer = null;
@@ -406,8 +412,15 @@
       }
     });
 
-    // Админ: вход
+    // Админ: вход, выход, удаление, пересмотр
     const adminModal = document.getElementById('adminModal');
+    const adminLogoutModal = document.getElementById('adminLogoutModal');
+    const adminActionModal = document.getElementById('adminActionModal');
+    const adminDeleteModal = document.getElementById('adminDeleteModal');
+    const adminReviewModal = document.getElementById('adminReviewModal');
+    const adminReviewReason = document.getElementById('adminReviewReason');
+    const adminReviewStatusText = document.getElementById('adminReviewStatusText');
+
     function showAdminLogin() {
       adminModal.style.display = 'flex';
       document.getElementById('adminUsername').value = '';
@@ -435,11 +448,7 @@
       }
     });
 
-    // Админ: выход
-    const adminLogoutModal = document.getElementById('adminLogoutModal');
-    function showAdminLogout() {
-      adminLogoutModal.style.display = 'flex';
-    }
+    function showAdminLogout() { adminLogoutModal.style.display = 'flex'; }
     document.getElementById('adminLogoutCancel').addEventListener('click', () => { adminLogoutModal.style.display = 'none'; });
     document.getElementById('adminLogoutConfirm').addEventListener('click', () => {
       adminToken = null;
@@ -449,8 +458,7 @@
       refreshFeed();
     });
 
-    // Подтверждение админ-действия
-    const adminActionModal = document.getElementById('adminActionModal');
+    // Подтверждение действия админа (принять/отклонить)
     const adminActionText = document.getElementById('adminActionText');
     const adminActionConfirm = document.getElementById('adminActionConfirm');
     const rejectReasonGroup = document.getElementById('rejectReasonGroup');
@@ -478,7 +486,6 @@
       adminActionModal.style.display = 'none';
       pendingAdminAction = null;
     });
-
     adminActionConfirm.addEventListener('click', async () => {
       if (!pendingAdminAction) return;
       const { appId, action } = pendingAdminAction;
@@ -506,17 +513,10 @@
       }
     });
 
-    // Удаление анкеты админом (тройной клик)
-    const adminDeleteModal = document.getElementById('adminDeleteModal');
+    // Удаление анкеты админом
     let deleteTargetId = null;
-    function showAdminDeleteModal(appId) {
-      deleteTargetId = appId;
-      adminDeleteModal.style.display = 'flex';
-    }
-    document.getElementById('adminDeleteCancel').addEventListener('click', () => {
-      adminDeleteModal.style.display = 'none';
-      deleteTargetId = null;
-    });
+    function showAdminDeleteModal(appId) { deleteTargetId = appId; adminDeleteModal.style.display = 'flex'; }
+    document.getElementById('adminDeleteCancel').addEventListener('click', () => { adminDeleteModal.style.display = 'none'; });
     document.getElementById('adminDeleteConfirm').addEventListener('click', async () => {
       if (!deleteTargetId) return;
       try {
@@ -526,30 +526,85 @@
         });
         if (!res.ok) throw new Error('Ошибка');
         adminDeleteModal.style.display = 'none';
-        deleteTargetId = null;
         refreshFeed();
-      } catch(e) {
-        alert('Не удалось удалить анкету');
-      }
+      } catch(e) { alert('Не удалось удалить анкету'); }
     });
 
+    // Тройной клик по карточке
     let cardClickTimers = {};
     function handleCardTripleClick(appId) {
       if (!isAdmin) return;
-      if (!cardClickTimers[appId]) {
-        cardClickTimers[appId] = { count: 0, timer: null };
-      }
-      const tracker = cardClickTimers[appId];
-      tracker.count++;
-      if (tracker.count >= 3) {
-        clearTimeout(tracker.timer);
-        tracker.count = 0;
+      if (!cardClickTimers[appId]) cardClickTimers[appId] = { count: 0, timer: null };
+      const t = cardClickTimers[appId];
+      t.count++;
+      if (t.count >= 3) {
+        clearTimeout(t.timer);
+        t.count = 0;
         showAdminDeleteModal(appId);
       } else {
-        clearTimeout(tracker.timer);
-        tracker.timer = setTimeout(() => { tracker.count = 0; }, 2000);
+        clearTimeout(t.timer);
+        t.timer = setTimeout(() => { t.count = 0; }, 2000);
       }
     }
+
+    // Админский пересмотр
+    let reviewAppId = null;
+    function showAdminReviewModal(appId, currentStatus) {
+      reviewAppId = appId;
+      const isAccepted = currentStatus === 'Принято' || currentStatus === 'Принята после пересмотра';
+      adminReviewStatusText.textContent = `Анкета ${isAccepted ? 'принята' : 'отклонена'}. Выберите противоположное решение:`;
+      adminReviewConfirm.textContent = isAccepted ? 'Отклонить' : 'Принять';
+      adminReviewConfirm.className = isAccepted ? 'btn-danger' : 'btn-primary';
+      adminReviewReason.value = '';
+      adminReviewModal.style.display = 'flex';
+    }
+    document.getElementById('adminReviewCancel').addEventListener('click', () => {
+      adminReviewModal.style.display = 'none';
+      reviewAppId = null;
+    });
+    document.getElementById('adminReviewConfirm').addEventListener('click', async () => {
+      if (!reviewAppId) return;
+      const reason = adminReviewReason.value.trim() || null;
+      const isAcceptReview = adminReviewConfirm.textContent === 'Принять';
+      try {
+        const res = await fetch(`${API_BASE}/api/applications/${reviewAppId}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+          body: JSON.stringify({ decision: isAcceptReview ? 'accept' : 'reject', reason })
+        });
+        if (!res.ok) throw new Error('Ошибка');
+        adminReviewModal.style.display = 'none';
+        refreshFeed();
+      } catch(e) { alert('Не удалось пересмотреть'); }
+    });
+
+    // Запрос пересмотра от пользователя
+    const requestReviewModal = document.getElementById('requestReviewModal');
+    let requestReviewAppId = null;
+    function showRequestReviewModal(appId) {
+      requestReviewAppId = appId;
+      document.getElementById('requestReviewReason').value = '';
+      requestReviewModal.style.display = 'flex';
+    }
+    document.getElementById('requestReviewCancel').addEventListener('click', () => {
+      requestReviewModal.style.display = 'none';
+      requestReviewAppId = null;
+    });
+    document.getElementById('requestReviewConfirm').addEventListener('click', async () => {
+      if (!requestReviewAppId) return;
+      const reason = document.getElementById('requestReviewReason').value.trim();
+      try {
+        const res = await fetch(`${API_BASE}/api/applications/${requestReviewAppId}/request-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason })
+        });
+        if (!res.ok) throw new Error('Ошибка');
+        requestReviewModal.style.display = 'none';
+        loadMyApplication();
+        if (currentTab === 'feed') refreshFeed();
+      } catch(e) { alert('Не удалось отправить запрос'); }
+    });
 
     // Лента анкет
     async function refreshFeed() {
@@ -561,16 +616,18 @@
         const res = await fetch(API_BASE + '/api/applications', { headers });
         feedData = await res.json();
         renderFeed();
-      } catch(e) {
-        feedList.innerHTML = '<p>Ошибка загрузки</p>';
-      }
+      } catch(e) { feedList.innerHTML = '<p>Ошибка загрузки</p>'; }
     }
 
     function statusBadge(status) {
       const colorMap = {
         'Актуально': { bg: '#3e2e5c', color: '#cbbef0' },
         'Принято': { bg: '#1e3b2f', color: '#a0d9b4' },
+        'Принята после пересмотра': { bg: '#1f3b2f', color: '#a0d9b4' },
         'Отклонено': { bg: '#4a2632', color: '#f5a3b3' },
+        'Отклонена после пересмотра': { bg: '#4a2632', color: '#f5a3b3' },
+        'Запрошен пересмотр после отказа': { bg: '#5a4a2e', color: '#f5d7a7' },
+        'Повторно отклонена': { bg: '#4a2632', color: '#f5a3b3' },
         'Отозвано': { bg: '#2a2533', color: '#8e8a9e' },
         'Отозвано после отказа': { bg: '#3d2a2e', color: '#e5989b' },
         'Ожидание ответа от Администрации': { bg: '#4a3b2e', color: '#f5d7a7' }
@@ -581,55 +638,58 @@
 
     function renderFeed() {
       const feedList = document.getElementById('feedList');
-      if (!feedData.length) {
-        feedList.innerHTML = '<p>Нет анкет.</p>';
-        return;
-      }
+      if (!feedData.length) { feedList.innerHTML = '<p>Нет анкет.</p>'; return; }
+
       feedList.innerHTML = feedData.map(app => {
         let adminButtons = '';
-        if (isAdmin && (app.status === 'Актуально' || app.status === 'Ожидание ответа от Администрации')) {
-          adminButtons = `
-            <div style="margin-top:14px; display:flex; gap:10px;">
+        if (isAdmin) {
+          if (app.status === 'Актуально' || app.status === 'Ожидание ответа от Администрации' || app.status === 'Запрошен пересмотр после отказа') {
+            adminButtons = `<div style="margin-top:14px; display:flex; gap:10px;">
               <button class="admin-btn accept" data-id="${app.id}">Принять</button>
               <button class="admin-btn reject" data-id="${app.id}">Отклонить</button>
             </div>`;
+          }
+          if (app.status === 'Принято' || app.status === 'Принята после пересмотра' || app.status === 'Отклонено' || app.status === 'Отклонена после пересмотра') {
+            adminButtons += `<button class="review-btn" data-id="${app.id}">Пересмотреть</button>`;
+          }
         }
-        const descriptionRow = (isAdmin && app.description)
-          ? `<div class="app-field"><strong>Описание:</strong> ${app.description}</div>`
-          : '';
-        const reasonRow = ((app.status === 'Отклонено' || app.status === 'Отозвано после отказа') && app.reason)
-          ? `<div class="app-field"><strong>Причина:</strong> ${app.reason}</div>`
-          : '';
+        const descRow = (isAdmin && app.description) ? `<div class="app-field"><strong>Описание:</strong> ${app.description}</div>` : '';
+        const reasonRow = ((app.status === 'Отклонено' || app.status === 'Отклонена после пересмотра' || app.status === 'Повторно отклонена' || app.status === 'Принята после пересмотра') && app.reason)
+          ? `<div class="app-field"><strong>Причина:</strong> ${app.reason}</div>` : '';
+        const reviewReqRow = (app.status === 'Запрошен пересмотр после отказа' && app.reviewRequestReason)
+          ? `<div class="app-field"><strong>Запрос пересмотра:</strong> ${app.reviewRequestReason}</div>` : '';
+
         return `<div class="card" data-app-id="${app.id}">
           <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
-          ${descriptionRow}
+          ${descRow}
           <div class="app-field"><strong>Пол:</strong> ${app.gender}</div>
           <div class="app-field"><strong>Возраст:</strong> ${app.age}</div>
           <div class="app-field"><strong>Статус:</strong> ${statusBadge(app.status)}</div>
           <div class="app-field"><strong>Отправлено:</strong> ${app.createdAt}</div>
           ${reasonRow}
+          ${reviewReqRow}
           ${adminButtons}
         </div>`;
       }).join('');
 
-      document.querySelectorAll('.admin-btn.accept').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.admin-btn.accept').forEach(b => {
+        b.addEventListener('click', (e) => { e.stopPropagation(); showAdminActionModal(e.target.dataset.id, 'accept'); });
+      });
+      document.querySelectorAll('.admin-btn.reject').forEach(b => {
+        b.addEventListener('click', (e) => { e.stopPropagation(); showAdminActionModal(e.target.dataset.id, 'reject'); });
+      });
+      document.querySelectorAll('.review-btn').forEach(b => {
+        b.addEventListener('click', (e) => {
           e.stopPropagation();
-          showAdminActionModal(e.target.dataset.id, 'accept');
+          const id = e.target.dataset.id;
+          const app = feedData.find(a => a.id === id);
+          if (app) showAdminReviewModal(id, app.status);
         });
       });
-      document.querySelectorAll('.admin-btn.reject').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          showAdminActionModal(e.target.dataset.id, 'reject');
-        });
-      });
-
       document.querySelectorAll('.card').forEach(card => {
         card.addEventListener('click', (e) => {
           if (e.target.tagName === 'BUTTON') return;
-          const appId = card.dataset.appId;
-          if (appId) handleCardTripleClick(appId);
+          handleCardTripleClick(card.dataset.appId);
         });
       });
     }
@@ -637,25 +697,13 @@
     // Моя анкета
     async function loadMyApplication() {
       const id = localStorage.getItem('myApplicationId');
-      if (!id) {
-        myAppData = null;
-        showForm();
-        return;
-      }
+      if (!id) { myAppData = null; showForm(); return; }
       try {
         const res = await fetch(`${API_BASE}/api/applications/${id}`);
-        if (!res.ok) {
-          localStorage.removeItem('myApplicationId');
-          myAppData = null;
-          showForm();
-          return;
-        }
+        if (!res.ok) { localStorage.removeItem('myApplicationId'); myAppData = null; showForm(); return; }
         myAppData = await res.json();
         showMyApplication();
-      } catch(e) {
-        myAppData = null;
-        showForm();
-      }
+      } catch(e) { myAppData = null; showForm(); }
     }
 
     function showForm() {
@@ -674,14 +722,17 @@
       document.getElementById('myFormBlock').classList.add('hidden');
       const block = document.getElementById('myApplicationBlock');
       block.classList.remove('hidden');
-      const canWithdraw = !['Принято', 'Отозвано', 'Отозвано после отказа', 'Ожидание ответа от Администрации'].includes(app.status);
-      let withdrawBtn = '';
-      if (canWithdraw) {
-        withdrawBtn = `<button id="withdrawBtn" class="withdraw-btn">Отозвать анкету</button>`;
-      }
-      const reasonRow = ((app.status === 'Отклонено' || app.status === 'Отозвано после отказа') && app.reason)
-        ? `<div class="app-field"><strong>Причина:</strong> ${app.reason}</div>`
-        : '';
+      const canWithdraw = !['Принято', 'Принята после пересмотра', 'Ожидание ответа от Администрации', 'Повторно отклонена', 'Запрошен пересмотр после отказа'].includes(app.status);
+      const canRequestReview = app.status === 'Отклонено';
+      let actionHtml = '';
+      if (canWithdraw) actionHtml += `<button id="withdrawBtn" class="withdraw-btn">Отозвать анкету</button>`;
+      if (canRequestReview) actionHtml += `<button id="requestReviewBtn" class="withdraw-btn" style="margin-top:8px;">Запросить пересмотр</button>`;
+
+      const reasonRow = ((app.status === 'Отклонено' || app.status === 'Отклонена после пересмотра' || app.status === 'Повторно отклонена' || app.status === 'Принята после пересмотра') && app.reason)
+        ? `<div class="app-field"><strong>Причина:</strong> ${app.reason}</div>` : '';
+      const reviewReqRow = (app.status === 'Запрошен пересмотр после отказа' && app.reviewRequestReason)
+        ? `<div class="app-field"><strong>Запрос пересмотра:</strong> ${app.reviewRequestReason}</div>` : '';
+
       block.innerHTML = `<div class="card">
         <h3 style="margin-bottom:12px;">Моя анкета</h3>
         <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
@@ -691,26 +742,24 @@
         <div class="app-field"><strong>Статус:</strong> ${statusBadge(app.status)}</div>
         <div class="app-field"><strong>Отправлено:</strong> ${app.createdAt}</div>
         ${reasonRow}
-        ${withdrawBtn}
+        ${reviewReqRow}
+        ${actionHtml}
       </div>`;
-      if (withdrawBtn) {
-        document.getElementById('withdrawBtn').addEventListener('click', showWithdrawModal);
-      }
+      if (canWithdraw) document.getElementById('withdrawBtn').addEventListener('click', showWithdrawModal);
+      if (canRequestReview) document.getElementById('requestReviewBtn').addEventListener('click', () => showRequestReviewModal(app.id));
     }
 
-    // Проверка правил
+    // Правила подтверждение
     const rulesConfirmModal = document.getElementById('rulesConfirmModal');
     const rulesCountInput = document.getElementById('rulesCountInput');
     let resolveRulesPromise = null;
-
     function askRulesConfirmation() {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         rulesCountInput.value = '';
         rulesConfirmModal.style.display = 'flex';
         resolveRulesPromise = resolve;
       });
     }
-
     document.getElementById('rulesConfirmCancel').addEventListener('click', () => {
       rulesConfirmModal.style.display = 'none';
       if (resolveRulesPromise) resolveRulesPromise(false);
@@ -727,34 +776,24 @@
       const age = document.getElementById('age').value.trim();
       const gender = document.getElementById('gender').value;
       const rulesRead = document.getElementById('rulesRead').value;
-
       if (!nickname || !description || !age || !gender) return alert('Заполните все поля');
       if (description.length < 20 || description.length > 350) return alert('Описание должно быть от 20 до 350 символов');
       const ageNum = parseInt(age, 10);
       if (isNaN(ageNum) || ageNum < 1 || ageNum > 99) return alert('Возраст должен быть от 1 до 99');
-
       let rulesConfirmed = false;
-      if (rulesRead === 'yes') {
-        rulesConfirmed = await askRulesConfirmation();
-      }
-
+      if (rulesRead === 'yes') rulesConfirmed = await askRulesConfirmation();
       try {
         const res = await fetch(API_BASE + '/api/applications', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ nickname, description, age: ageNum, gender, rulesConfirmed })
         });
-        if (!res.ok) {
-          const err = await res.json();
-          return alert(err.error);
-        }
+        if (!res.ok) { const err = await res.json(); return alert(err.error); }
         const app = await res.json();
         localStorage.setItem('myApplicationId', app.id);
         myAppData = app;
         showMyApplication();
-      } catch(e) {
-        alert('Ошибка отправки');
-      }
+      } catch(e) { alert('Ошибка отправки'); }
     });
 
     document.getElementById('resetBtn').addEventListener('click', () => {
@@ -765,25 +804,18 @@
       document.getElementById('rulesRead').value = 'yes';
     });
 
-    // Отзыв анкеты
     const withdrawModal = document.getElementById('withdrawModal');
-    function showWithdrawModal() {
-      withdrawModal.style.display = 'flex';
-    }
-    document.getElementById('withdrawCancel').addEventListener('click', () => {
-      withdrawModal.style.display = 'none';
-    });
+    function showWithdrawModal() { withdrawModal.style.display = 'flex'; }
+    document.getElementById('withdrawCancel').addEventListener('click', () => { withdrawModal.style.display = 'none'; });
     document.getElementById('withdrawConfirm').addEventListener('click', async () => {
       const id = localStorage.getItem('myApplicationId');
       if (!id) return;
       try {
         const res = await fetch(`${API_BASE}/api/applications/${id}/withdraw`, { method: 'PATCH' });
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err.error);
-        } else {
+        if (!res.ok) { const err = await res.json(); alert(err.error); }
+        else {
           const updated = await res.json();
-          if (updated.status === 'Отозвано' || updated.status === 'Отозвано после отказа') {
+          if (updated.status.startsWith('Отозвано')) {
             localStorage.removeItem('myApplicationId');
             myAppData = null;
             withdrawModal.style.display = 'none';
@@ -795,12 +827,9 @@
             withdrawModal.style.display = 'none';
           }
         }
-      } catch(e) {
-        alert('Ошибка');
-      }
+      } catch(e) { alert('Ошибка'); }
     });
 
-    // Первоначальная загрузка
     refreshFeed();
     loadMyApplication();
   </script>
