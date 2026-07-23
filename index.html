@@ -53,7 +53,7 @@
       fill: none; stroke: currentColor; stroke-width: 2;
       stroke-linecap: round; stroke-linejoin: round;
     }
-    #refreshBtn, #discordBtn {
+    #rulesBtn {
       background: transparent;
       border: none;
       cursor: pointer;
@@ -63,8 +63,19 @@
       align-items: center;
       justify-content: center;
     }
+    #rulesBtn:hover { background: #252232; }
     #refreshBtn { margin-left: auto; }
-    #refreshBtn:hover, #discordBtn:hover { background: #252232; }
+    #discordBtn, #refreshBtn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #discordBtn:hover, #refreshBtn:hover { background: #252232; }
 
     .container { max-width: 720px; margin: 0 auto; padding: 0 20px 40px; }
 
@@ -140,7 +151,7 @@
       background: #1f1b2b;
       padding: 24px;
       border-radius: 20px;
-      width: 320px;
+      width: 360px;
       border: 1px solid #3a3050;
       box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
@@ -182,12 +193,25 @@
     .app-field strong { color: #b6a8d6; }
 
     h2, h3 { color: #ede4ff; font-weight: 600; }
+    .rules-text {
+      white-space: pre-line;
+      line-height: 1.8;
+      font-size: 15px;
+      color: #d2c9e8;
+    }
   </style>
 </head>
 <body>
   <nav>
     <a href="#" id="feedTab" class="active">Лента анкет</a>
     <a href="#" id="myTab">Моя анкета</a>
+    <a href="#" id="rulesTab">Правила</a>
+    <button id="rulesBtn" title="Правила сервера">
+      <svg class="nav-icon" viewBox="0 0 24 24">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+      </svg>
+    </button>
     <button id="refreshBtn" title="Обновить">
       <svg class="nav-icon" viewBox="0 0 24 24">
         <polyline points="23 4 23 10 17 10"></polyline>
@@ -204,11 +228,13 @@
   </nav>
 
   <div class="container">
+    <!-- Секция Ленты -->
     <div id="feedSection">
       <h2 style="margin-bottom:16px;">Все анкеты</h2>
       <div id="feedList"></div>
     </div>
 
+    <!-- Секция Моя анкета -->
     <div id="mySection" class="hidden">
       <div id="myFormBlock">
         <h2 style="margin-bottom:16px;">Новая анкета</h2>
@@ -224,6 +250,13 @@
             <option>Не важно</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Правила сервера</label>
+          <select id="rulesRead">
+            <option value="yes">Прочитаны</option>
+            <option value="no">Не прочитаны</option>
+          </select>
+        </div>
         <div class="buttons">
           <button id="resetBtn" class="btn-secondary">Сброс анкеты</button>
           <button id="submitBtn" class="btn-primary">Отправить</button>
@@ -231,6 +264,34 @@
       </div>
       <div id="myApplicationBlock" class="hidden">
         <!-- динамическое содержимое -->
+      </div>
+    </div>
+
+    <!-- Секция Правила -->
+    <div id="rulesSection" class="hidden">
+      <h2 style="margin-bottom:16px;">Правила сервера Dvexland в Minecraft</h2>
+      <div class="card">
+        <p class="rules-text">
+1. Не гриферить
+2. Не использовать читы или различного рода софт, упрощающий или как-либо вообще изменяющий игровой процесс
+3. Не перегружать сервер лаг-машинами и очень крупными механизмами
+4. Подчиняться правилам, указанным игроками локально на определённой территории игрового сервера, если эта территория принадлежит им и эти правила не нарушают правила, прописанные здесь
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка подтверждения правил -->
+  <div id="rulesConfirmModal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-bottom:12px;">Подтверждение правил</h3>
+      <p style="margin-bottom:12px;">Введите количество правил сервера (цифрой):</p>
+      <div class="form-group">
+        <input id="rulesCountInput" type="number" min="0" max="10" placeholder="Количество правил">
+      </div>
+      <div class="buttons">
+        <button id="rulesConfirmCancel" class="btn-secondary">Отмена</button>
+        <button id="rulesConfirmOk" class="btn-primary">Подтвердить</button>
       </div>
     </div>
   </div>
@@ -263,6 +324,10 @@
   <div id="adminActionModal" class="modal">
     <div class="modal-content">
       <p id="adminActionText" style="margin-bottom:16px;"></p>
+      <div class="form-group" id="rejectReasonGroup" style="display:none;">
+        <label>Причина (необязательно)</label>
+        <input id="rejectReasonInput" type="text" placeholder="Укажите причину">
+      </div>
       <div class="buttons">
         <button id="adminActionCancel" class="btn-secondary">Отмена</button>
         <button id="adminActionConfirm" class="btn-primary">Подтвердить</button>
@@ -305,18 +370,26 @@
     // Навигация
     document.getElementById('feedTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('feed'); });
     document.getElementById('myTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('my'); });
+    document.getElementById('rulesTab').addEventListener('click', (e) => { e.preventDefault(); switchTab('rules'); });
     document.getElementById('refreshBtn').addEventListener('click', () => {
       if (currentTab === 'feed') refreshFeed();
-      else loadMyApplication();
+      else if (currentTab === 'my') loadMyApplication();
     });
 
     function switchTab(tab) {
       currentTab = tab;
       document.getElementById('feedTab').classList.toggle('active', tab === 'feed');
       document.getElementById('myTab').classList.toggle('active', tab === 'my');
+      document.getElementById('rulesTab').classList.toggle('active', tab === 'rules');
       document.getElementById('feedSection').classList.toggle('hidden', tab !== 'feed');
       document.getElementById('mySection').classList.toggle('hidden', tab !== 'my');
+      document.getElementById('rulesSection').classList.toggle('hidden', tab !== 'rules');
     }
+
+    document.getElementById('rulesBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      switchTab('rules');
+    });
 
     // 7 кликов для входа/выхода
     let clickCount = 0;
@@ -380,13 +453,24 @@
     const adminActionModal = document.getElementById('adminActionModal');
     const adminActionText = document.getElementById('adminActionText');
     const adminActionConfirm = document.getElementById('adminActionConfirm');
+    const rejectReasonGroup = document.getElementById('rejectReasonGroup');
+    const rejectReasonInput = document.getElementById('rejectReasonInput');
     let pendingAdminAction = null;
 
     function showAdminActionModal(appId, action) {
       pendingAdminAction = { appId, action };
-      adminActionText.textContent = `Вы уверены, что хотите ${action === 'accept' ? 'принять' : 'отклонить'} эту анкету?`;
-      adminActionConfirm.textContent = action === 'accept' ? 'Принять' : 'Отклонить';
-      adminActionConfirm.className = action === 'accept' ? 'btn-primary' : 'btn-danger';
+      if (action === 'reject') {
+        adminActionText.textContent = 'Вы уверены, что хотите отклонить эту анкету?';
+        adminActionConfirm.textContent = 'Отклонить';
+        adminActionConfirm.className = 'btn-danger';
+        rejectReasonGroup.style.display = 'block';
+        rejectReasonInput.value = '';
+      } else {
+        adminActionText.textContent = 'Вы уверены, что хотите принять эту анкету?';
+        adminActionConfirm.textContent = 'Принять';
+        adminActionConfirm.className = 'btn-primary';
+        rejectReasonGroup.style.display = 'none';
+      }
       adminActionModal.style.display = 'flex';
     }
 
@@ -399,11 +483,20 @@
       if (!pendingAdminAction) return;
       const { appId, action } = pendingAdminAction;
       try {
-        const endpoint = action === 'accept' ? 'accept' : 'reject';
-        const res = await fetch(`${API_BASE}/api/applications/${appId}/${endpoint}`, {
-          method: 'PATCH',
-          headers: { 'X-Admin-Token': adminToken }
-        });
+        let res;
+        if (action === 'accept') {
+          res = await fetch(`${API_BASE}/api/applications/${appId}/accept`, {
+            method: 'PATCH',
+            headers: { 'X-Admin-Token': adminToken }
+          });
+        } else {
+          const reason = rejectReasonInput.value.trim() || null;
+          res = await fetch(`${API_BASE}/api/applications/${appId}/reject`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+            body: JSON.stringify({ reason })
+          });
+        }
         if (!res.ok) throw new Error('Ошибка');
         adminActionModal.style.display = 'none';
         pendingAdminAction = null;
@@ -413,22 +506,18 @@
       }
     });
 
-    // Удаление анкеты админом (тройной клик + модалка)
+    // Удаление анкеты админом (тройной клик)
     const adminDeleteModal = document.getElementById('adminDeleteModal');
-    const adminDeleteConfirm = document.getElementById('adminDeleteConfirm');
     let deleteTargetId = null;
-
     function showAdminDeleteModal(appId) {
       deleteTargetId = appId;
       adminDeleteModal.style.display = 'flex';
     }
-
     document.getElementById('adminDeleteCancel').addEventListener('click', () => {
       adminDeleteModal.style.display = 'none';
       deleteTargetId = null;
     });
-
-    adminDeleteConfirm.addEventListener('click', async () => {
+    document.getElementById('adminDeleteConfirm').addEventListener('click', async () => {
       if (!deleteTargetId) return;
       try {
         const res = await fetch(`${API_BASE}/api/applications/${deleteTargetId}`, {
@@ -444,7 +533,6 @@
       }
     });
 
-    // Тройной клик по карточке для админа
     let cardClickTimers = {};
     function handleCardTripleClick(appId) {
       if (!isAdmin) return;
@@ -484,7 +572,8 @@
         'Принято': { bg: '#1e3b2f', color: '#a0d9b4' },
         'Отклонено': { bg: '#4a2632', color: '#f5a3b3' },
         'Отозвано': { bg: '#2a2533', color: '#8e8a9e' },
-        'Отозвано после отказа': { bg: '#3d2a2e', color: '#e5989b' }
+        'Отозвано после отказа': { bg: '#3d2a2e', color: '#e5989b' },
+        'Ожидание ответа от Администрации': { bg: '#4a3b2e', color: '#f5d7a7' }
       };
       const style = colorMap[status] || { bg: '#2a2533', color: '#8e8a9e' };
       return `<span class="status" style="background:${style.bg}; color:${style.color}">${status}</span>`;
@@ -498,7 +587,7 @@
       }
       feedList.innerHTML = feedData.map(app => {
         let adminButtons = '';
-        if (isAdmin && app.status === 'Актуально') {
+        if (isAdmin && (app.status === 'Актуально' || app.status === 'Ожидание ответа от Администрации')) {
           adminButtons = `
             <div style="margin-top:14px; display:flex; gap:10px;">
               <button class="admin-btn accept" data-id="${app.id}">Принять</button>
@@ -508,6 +597,9 @@
         const descriptionRow = (isAdmin && app.description)
           ? `<div class="app-field"><strong>Описание:</strong> ${app.description}</div>`
           : '';
+        const reasonRow = ((app.status === 'Отклонено' || app.status === 'Отозвано после отказа') && app.reason)
+          ? `<div class="app-field"><strong>Причина:</strong> ${app.reason}</div>`
+          : '';
         return `<div class="card" data-app-id="${app.id}">
           <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
           ${descriptionRow}
@@ -515,11 +607,11 @@
           <div class="app-field"><strong>Возраст:</strong> ${app.age}</div>
           <div class="app-field"><strong>Статус:</strong> ${statusBadge(app.status)}</div>
           <div class="app-field"><strong>Отправлено:</strong> ${app.createdAt}</div>
+          ${reasonRow}
           ${adminButtons}
         </div>`;
       }).join('');
 
-      // Обработчики на админские кнопки
       document.querySelectorAll('.admin-btn.accept').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -533,10 +625,8 @@
         });
       });
 
-      // Тройной клик по карточке
       document.querySelectorAll('.card').forEach(card => {
         card.addEventListener('click', (e) => {
-          // Не обрабатываем клики по кнопкам внутри
           if (e.target.tagName === 'BUTTON') return;
           const appId = card.dataset.appId;
           if (appId) handleCardTripleClick(appId);
@@ -575,6 +665,7 @@
       document.getElementById('description').value = '';
       document.getElementById('age').value = '';
       document.getElementById('gender').value = '';
+      document.getElementById('rulesRead').value = 'yes';
     }
 
     function showMyApplication() {
@@ -583,10 +674,14 @@
       document.getElementById('myFormBlock').classList.add('hidden');
       const block = document.getElementById('myApplicationBlock');
       block.classList.remove('hidden');
+      const canWithdraw = !['Принято', 'Отозвано', 'Отозвано после отказа', 'Ожидание ответа от Администрации'].includes(app.status);
       let withdrawBtn = '';
-      if (app.status !== 'Принято' && app.status !== 'Отозвано' && app.status !== 'Отозвано после отказа') {
+      if (canWithdraw) {
         withdrawBtn = `<button id="withdrawBtn" class="withdraw-btn">Отозвать анкету</button>`;
       }
+      const reasonRow = ((app.status === 'Отклонено' || app.status === 'Отозвано после отказа') && app.reason)
+        ? `<div class="app-field"><strong>Причина:</strong> ${app.reason}</div>`
+        : '';
       block.innerHTML = `<div class="card">
         <h3 style="margin-bottom:12px;">Моя анкета</h3>
         <div class="app-field"><strong>Ник:</strong> ${app.nickname}</div>
@@ -595,6 +690,7 @@
         <div class="app-field"><strong>Пол:</strong> ${app.gender}</div>
         <div class="app-field"><strong>Статус:</strong> ${statusBadge(app.status)}</div>
         <div class="app-field"><strong>Отправлено:</strong> ${app.createdAt}</div>
+        ${reasonRow}
         ${withdrawBtn}
       </div>`;
       if (withdrawBtn) {
@@ -602,21 +698,51 @@
       }
     }
 
-    // Отправка анкеты
+    // Проверка правил
+    const rulesConfirmModal = document.getElementById('rulesConfirmModal');
+    const rulesCountInput = document.getElementById('rulesCountInput');
+    let resolveRulesPromise = null;
+
+    function askRulesConfirmation() {
+      return new Promise((resolve) => {
+        rulesCountInput.value = '';
+        rulesConfirmModal.style.display = 'flex';
+        resolveRulesPromise = resolve;
+      });
+    }
+
+    document.getElementById('rulesConfirmCancel').addEventListener('click', () => {
+      rulesConfirmModal.style.display = 'none';
+      if (resolveRulesPromise) resolveRulesPromise(false);
+    });
+    document.getElementById('rulesConfirmOk').addEventListener('click', () => {
+      const val = parseInt(rulesCountInput.value, 10);
+      rulesConfirmModal.style.display = 'none';
+      if (resolveRulesPromise) resolveRulesPromise(val === 4);
+    });
+
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const nickname = document.getElementById('nickname').value.trim();
       const description = document.getElementById('description').value.trim();
       const age = document.getElementById('age').value.trim();
       const gender = document.getElementById('gender').value;
+      const rulesRead = document.getElementById('rulesRead').value;
+
       if (!nickname || !description || !age || !gender) return alert('Заполните все поля');
       if (description.length < 20 || description.length > 350) return alert('Описание должно быть от 20 до 350 символов');
       const ageNum = parseInt(age, 10);
       if (isNaN(ageNum) || ageNum < 1 || ageNum > 99) return alert('Возраст должен быть от 1 до 99');
+
+      let rulesConfirmed = false;
+      if (rulesRead === 'yes') {
+        rulesConfirmed = await askRulesConfirmation();
+      }
+
       try {
         const res = await fetch(API_BASE + '/api/applications', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nickname, description, age: ageNum, gender })
+          body: JSON.stringify({ nickname, description, age: ageNum, gender, rulesConfirmed })
         });
         if (!res.ok) {
           const err = await res.json();
@@ -636,6 +762,7 @@
       document.getElementById('description').value = '';
       document.getElementById('age').value = '';
       document.getElementById('gender').value = '';
+      document.getElementById('rulesRead').value = 'yes';
     });
 
     // Отзыв анкеты
@@ -663,7 +790,6 @@
             showForm();
             if (currentTab === 'feed') refreshFeed();
           } else {
-            // на случай, если статус не поменялся
             myAppData = updated;
             showMyApplication();
             withdrawModal.style.display = 'none';
