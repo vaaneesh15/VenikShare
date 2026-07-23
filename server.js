@@ -24,13 +24,15 @@ async function initDB() {
       age INTEGER NOT NULL,
       gender TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'Актуально',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      reason TEXT
     );
   `);
+  await pool.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS reason TEXT;`).catch(() => {});
 }
 initDB().catch(console.error);
 
-const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано', 'Отозвано после отказа'];
+const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано', 'Отозвано после отказа', 'Ожидание ответа от Администрации'];
 
 function getMoscowTime() {
   const now = new Date();
@@ -54,7 +56,8 @@ app.get('/api/applications', async (req, res) => {
       age: row.age,
       status: row.status,
       createdAt: row.created_at,
-      description: row.description
+      description: row.description,
+      reason: row.reason
     }));
 
     apps.sort((a, b) => {
@@ -73,7 +76,10 @@ app.get('/api/applications', async (req, res) => {
         status: app.status,
         createdAt: app.createdAt
       };
-      if (isAdmin) base.description = app.description;
+      if (isAdmin) {
+        base.description = app.description;
+        base.reason = app.reason;
+      }
       return base;
     });
 
@@ -96,7 +102,8 @@ app.get('/api/applications/:id', async (req, res) => {
       age: app.age,
       gender: app.gender,
       status: app.status,
-      createdAt: app.created_at
+      createdAt: app.created_at,
+      reason: app.reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -104,8 +111,8 @@ app.get('/api/applications/:id', async (req, res) => {
 });
 
 app.post('/api/applications', async (req, res) => {
-  const { nickname, description, age, gender } = req.body;
-  if (!nickname || !description || !age || !gender) {
+  const { nickname, description, age, gender, rulesConfirmed } = req.body;
+  if (!nickname || !description || !age || !gender || rulesConfirmed === undefined) {
     return res.status(400).json({ error: 'Все поля обязательны' });
   }
   if (description.length < 20 || description.length > 350) {
@@ -115,14 +122,16 @@ app.post('/api/applications', async (req, res) => {
   if (isNaN(ageNum) || ageNum < 1 || ageNum > 99) {
     return res.status(400).json({ error: 'Возраст должен быть от 1 до 99' });
   }
+
+  const status = rulesConfirmed ? 'Актуально' : 'Ожидание ответа от Администрации';
   const formattedDate = getMoscowTime();
   const id = uuidv4();
   try {
     await pool.query(
       'INSERT INTO applications (id, nickname, description, age, gender, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [id, nickname, description, ageNum, gender, 'Актуально', formattedDate]
+      [id, nickname, description, ageNum, gender, status, formattedDate]
     );
-    res.status(201).json({ id, nickname, description, age: ageNum, gender, status: 'Актуально', createdAt: formattedDate });
+    res.status(201).json({ id, nickname, description, age: ageNum, gender, status, createdAt: formattedDate });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Ошибка при создании анкеты' });
@@ -134,8 +143,8 @@ app.patch('/api/applications/:id/withdraw', async (req, res) => {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
     const app = result.rows[0];
-    if (app.status === 'Принято') {
-      return res.status(400).json({ error: 'Нельзя отозвать уже принятую анкету' });
+    if (app.status === 'Принято' || app.status === 'Ожидание ответа от Администрации') {
+      return res.status(400).json({ error: 'Нельзя отозвать эту анкету' });
     }
     let newStatus = 'Отозвано';
     if (app.status === 'Отклонено') {
@@ -150,7 +159,8 @@ app.patch('/api/applications/:id/withdraw', async (req, res) => {
       age: updated.age,
       gender: updated.gender,
       status: updated.status,
-      createdAt: updated.created_at
+      createdAt: updated.created_at,
+      reason: updated.reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -176,7 +186,7 @@ app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
-    await pool.query('UPDATE applications SET status = $1 WHERE id = $2', ['Принято', req.params.id]);
+    await pool.query('UPDATE applications SET status = $1, reason = NULL WHERE id = $2', ['Принято', req.params.id]);
     const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
     res.json({
       id: updated.id,
@@ -185,7 +195,8 @@ app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
       age: updated.age,
       gender: updated.gender,
       status: updated.status,
-      createdAt: updated.created_at
+      createdAt: updated.created_at,
+      reason: updated.reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -194,9 +205,12 @@ app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
 
 app.patch('/api/applications/:id/reject', requireAdmin, async (req, res) => {
   try {
+    const { reason } = req.body;
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
-    await pool.query('UPDATE applications SET status = $1 WHERE id = $2', ['Отклонено', req.params.id]);
+    // Разрешаем отклонять любой статус, кроме финальных? По логике — да.
+    await pool.query('UPDATE applications SET status = $1, reason = $2 WHERE id = $3',
+      ['Отклонено', reason || null, req.params.id]);
     const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
     res.json({
       id: updated.id,
@@ -205,7 +219,8 @@ app.patch('/api/applications/:id/reject', requireAdmin, async (req, res) => {
       age: updated.age,
       gender: updated.gender,
       status: updated.status,
-      createdAt: updated.created_at
+      createdAt: updated.created_at,
+      reason: updated.reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
