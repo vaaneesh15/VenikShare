@@ -25,14 +25,26 @@ async function initDB() {
       gender TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'Актуально',
       created_at TEXT NOT NULL,
-      reason TEXT
+      reason TEXT,
+      review_request_reason TEXT
     );
   `);
-  await pool.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS reason TEXT;`).catch(() => {});
+  await pool.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS review_request_reason TEXT;`).catch(() => {});
 }
 initDB().catch(console.error);
 
-const STATUS_ORDER = ['Актуально', 'Отклонено', 'Принято', 'Отозвано', 'Отозвано после отказа', 'Ожидание ответа от Администрации'];
+const STATUS_ORDER = [
+  'Актуально',
+  'Отклонено',
+  'Принято',
+  'Принята после пересмотра',
+  'Отклонена после пересмотра',
+  'Запрошен пересмотр после отказа',
+  'Повторно отклонена',
+  'Отозвано',
+  'Отозвано после отказа',
+  'Ожидание ответа от Администрации'
+];
 
 function getMoscowTime() {
   const now = new Date();
@@ -57,7 +69,8 @@ app.get('/api/applications', async (req, res) => {
       status: row.status,
       createdAt: row.created_at,
       description: row.description,
-      reason: row.reason
+      reason: row.reason,
+      reviewRequestReason: row.review_request_reason
     }));
 
     apps.sort((a, b) => {
@@ -79,6 +92,7 @@ app.get('/api/applications', async (req, res) => {
       if (isAdmin) {
         base.description = app.description;
         base.reason = app.reason;
+        base.reviewRequestReason = app.reviewRequestReason;
       }
       return base;
     });
@@ -103,7 +117,8 @@ app.get('/api/applications/:id', async (req, res) => {
       gender: app.gender,
       status: app.status,
       createdAt: app.created_at,
-      reason: app.reason
+      reason: app.reason,
+      reviewRequestReason: app.review_request_reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -143,11 +158,12 @@ app.patch('/api/applications/:id/withdraw', async (req, res) => {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
     const app = result.rows[0];
-    if (app.status === 'Принято' || app.status === 'Ожидание ответа от Администрации') {
+    const disallow = ['Принято', 'Принята после пересмотра', 'Ожидание ответа от Администрации', 'Повторно отклонена'];
+    if (disallow.includes(app.status)) {
       return res.status(400).json({ error: 'Нельзя отозвать эту анкету' });
     }
     let newStatus = 'Отозвано';
-    if (app.status === 'Отклонено') {
+    if (app.status === 'Отклонено' || app.status === 'Отклонена после пересмотра') {
       newStatus = 'Отозвано после отказа';
     }
     await pool.query('UPDATE applications SET status = $1 WHERE id = $2', [newStatus, req.params.id]);
@@ -160,7 +176,37 @@ app.patch('/api/applications/:id/withdraw', async (req, res) => {
       gender: updated.gender,
       status: updated.status,
       createdAt: updated.created_at,
-      reason: updated.reason
+      reason: updated.reason,
+      reviewRequestReason: updated.review_request_reason
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Запрос пересмотра от пользователя
+app.post('/api/applications/:id/request-review', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
+    const app = result.rows[0];
+    if (app.status !== 'Отклонено') {
+      return res.status(400).json({ error: 'Пересмотр можно запросить только для отклонённой анкеты' });
+    }
+    const { reason: requestReason } = req.body;
+    await pool.query('UPDATE applications SET status = $1, review_request_reason = $2 WHERE id = $3',
+      ['Запрошен пересмотр после отказа', requestReason || null, req.params.id]);
+    const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
+    res.json({
+      id: updated.id,
+      nickname: updated.nickname,
+      description: updated.description,
+      age: updated.age,
+      gender: updated.gender,
+      status: updated.status,
+      createdAt: updated.created_at,
+      reason: updated.reason,
+      reviewRequestReason: updated.review_request_reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -171,6 +217,48 @@ function requireAdmin(req, res, next) {
   if (req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(403).json({ error: 'Доступ запрещён' });
   next();
 }
+
+// Пересмотр админом
+app.post('/api/applications/:id/review', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
+    const app = result.rows[0];
+    const { decision, reason: reviewReason } = req.body; // decision = 'accept' или 'reject'
+    let newStatus;
+    if (app.status === 'Принято' || app.status === 'Принята после пересмотра') {
+      if (decision === 'reject') newStatus = 'Отклонена после пересмотра';
+      else return res.status(400).json({ error: 'Некорректное решение' });
+    } else if (app.status === 'Отклонено' || app.status === 'Отклонена после пересмотра' || app.status === 'Запрошен пересмотр после отказа' || app.status === 'Повторно отклонена') {
+      if (decision === 'accept') newStatus = 'Принята после пересмотра';
+      else if (decision === 'reject') {
+        if (app.status === 'Запрошен пересмотр после отказа') newStatus = 'Повторно отклонена';
+        else newStatus = 'Отклонена после пересмотра';
+      } else {
+        return res.status(400).json({ error: 'Некорректное решение' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Эту анкету нельзя пересмотреть' });
+    }
+
+    await pool.query('UPDATE applications SET status = $1, reason = $2, review_request_reason = NULL WHERE id = $3',
+      [newStatus, reviewReason || null, req.params.id]);
+    const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
+    res.json({
+      id: updated.id,
+      nickname: updated.nickname,
+      description: updated.description,
+      age: updated.age,
+      gender: updated.gender,
+      status: updated.status,
+      createdAt: updated.created_at,
+      reason: updated.reason,
+      reviewRequestReason: updated.review_request_reason
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 app.delete('/api/applications/:id', requireAdmin, async (req, res) => {
   try {
@@ -186,7 +274,8 @@ app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
-    await pool.query('UPDATE applications SET status = $1, reason = NULL WHERE id = $2', ['Принято', req.params.id]);
+    await pool.query('UPDATE applications SET status = $1, reason = NULL, review_request_reason = NULL WHERE id = $2',
+      ['Принято', req.params.id]);
     const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
     res.json({
       id: updated.id,
@@ -196,7 +285,8 @@ app.patch('/api/applications/:id/accept', requireAdmin, async (req, res) => {
       gender: updated.gender,
       status: updated.status,
       createdAt: updated.created_at,
-      reason: updated.reason
+      reason: updated.reason,
+      reviewRequestReason: updated.review_request_reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -208,9 +298,15 @@ app.patch('/api/applications/:id/reject', requireAdmin, async (req, res) => {
     const { reason } = req.body;
     const result = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Анкета не найдена' });
-    // Разрешаем отклонять любой статус, кроме финальных? По логике — да.
-    await pool.query('UPDATE applications SET status = $1, reason = $2 WHERE id = $3',
-      ['Отклонено', reason || null, req.params.id]);
+    const app = result.rows[0];
+    // Если админ отклоняет запрос пересмотра
+    if (app.status === 'Запрошен пересмотр после отказа') {
+      await pool.query('UPDATE applications SET status = $1, reason = $2 WHERE id = $3',
+        ['Повторно отклонена', reason || null, req.params.id]);
+    } else {
+      await pool.query('UPDATE applications SET status = $1, reason = $2 WHERE id = $3',
+        ['Отклонено', reason || null, req.params.id]);
+    }
     const updated = (await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id])).rows[0];
     res.json({
       id: updated.id,
@@ -220,7 +316,8 @@ app.patch('/api/applications/:id/reject', requireAdmin, async (req, res) => {
       gender: updated.gender,
       status: updated.status,
       createdAt: updated.created_at,
-      reason: updated.reason
+      reason: updated.reason,
+      reviewRequestReason: updated.review_request_reason
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
