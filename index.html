@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="ChatX" />
+  <title>ChatX</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <main id="setupView" class="screen center-screen hidden">
+    <section class="card setup-card">
+      <div class="app-mark">X</div>
+      <h1>Подключение ChatX</h1>
+      <p class="muted">Укажи адрес backend с Render. Например: <b>https://chatx-xxxx.onrender.com</b></p>
+      <label class="field">
+        <span>Адрес сервера</span>
+        <input id="serverUrlInput" type="url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://...onrender.com" />
+      </label>
+      <button id="saveServerBtn" class="primary-btn">Подключиться</button>
+      <p class="tiny muted">Адрес сохранится только в этом браузере. Его можно сменить позже в профиле.</p>
+    </section>
+  </main>
+
+  <main id="authView" class="screen center-screen hidden">
+    <section class="auth-shell">
+      <div class="brand">
+        <div class="app-mark">X</div>
+        <h1>ChatX</h1>
+        <p>Простой личный мессенджер</p>
+      </div>
+
+      <div class="segment" role="tablist">
+        <button class="segment-btn active" data-auth-tab="login">Вход</button>
+        <button class="segment-btn" data-auth-tab="register">Регистрация</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <label class="field">
+          <span>Логин</span>
+          <input id="loginLogin" autocomplete="username" autocapitalize="off" required />
+        </label>
+        <label class="field password-field">
+          <span>Пароль</span>
+          <div class="input-with-action">
+            <input id="loginPassword" type="password" autocomplete="current-password" required />
+            <button type="button" class="eye-btn" data-eye-for="loginPassword" aria-label="Показать пароль">◉</button>
+          </div>
+        </label>
+        <button class="primary-btn" type="submit">Войти</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <label class="field">
+          <span>Логин</span>
+          <input id="registerLogin" autocomplete="username" autocapitalize="off" required />
+        </label>
+        <label class="field password-field">
+          <span>Пароль</span>
+          <div class="input-with-action">
+            <input id="registerPassword" type="password" autocomplete="new-password" required />
+            <button type="button" class="eye-btn" data-eye-for="registerPassword" aria-label="Показать пароль">◉</button>
+          </div>
+        </label>
+        <label class="field password-field">
+          <span>Повторите пароль</span>
+          <div class="input-with-action">
+            <input id="registerRepeat" type="password" autocomplete="new-password" required />
+            <button type="button" class="eye-btn" data-eye-for="registerRepeat" aria-label="Показать пароль">◉</button>
+          </div>
+        </label>
+        <button class="primary-btn" type="submit">Создать аккаунт</button>
+      </form>
+    </section>
+  </main>
+
+  <main id="appView" class="app-shell hidden">
+    <section id="chatsPage" class="page active-page">
+      <header class="large-header">
+        <h1>Чаты</h1>
+      </header>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="chatSearch" type="search" placeholder="Поиск" autocomplete="off" />
+      </div>
+      <div id="chatList" class="list"></div>
+      <div id="userSearchBlock" class="hidden">
+        <div class="section-label">Пользователи</div>
+        <div id="userSearchList" class="list"></div>
+      </div>
+    </section>
+
+    <section id="profilePage" class="page">
+      <header class="large-header">
+        <h1>Профиль</h1>
+      </header>
+      <div class="profile-wrap">
+        <button id="avatarButton" class="avatar-editor" aria-label="Изменить аватар">
+          <span id="profileAvatar" class="avatar avatar-xl"></span>
+          <span class="avatar-edit-badge">✎</span>
+        </button>
+        <input id="avatarInput" type="file" accept="image/*" hidden />
+
+        <div class="group-card">
+          <label class="ios-row input-row">
+            <span>Имя</span>
+            <input id="profileName" maxlength="40" />
+          </label>
+          <div class="ios-row static-row">
+            <span>Логин</span>
+            <span id="profileLogin" class="secondary-text"></span>
+          </div>
+        </div>
+
+        <button id="saveProfileBtn" class="primary-btn">Сохранить</button>
+
+        <div class="group-card actions-card">
+          <button id="changePasswordBtn" class="ios-row action-row">Изменить пароль <span>›</span></button>
+          <button id="changeServerBtn" class="ios-row action-row">Сменить сервер <span>›</span></button>
+          <button id="logoutBtn" class="ios-row action-row destructive">Выйти</button>
+        </div>
+      </div>
+    </section>
+
+    <nav class="tabbar" aria-label="Основная навигация">
+      <button class="tab-btn active" data-page="chatsPage">
+        <span class="tab-icon">◫</span>
+        <span>Чаты</span>
+      </button>
+      <button class="tab-btn" data-page="profilePage">
+        <span class="tab-icon">●</span>
+        <span>Профиль</span>
+      </button>
+    </nav>
+  </main>
+
+  <section id="chatView" class="chat-screen hidden">
+    <header class="chat-header">
+      <button id="closeChatBtn" class="text-btn">Выйти</button>
+      <div class="chat-title-wrap">
+        <span id="chatHeaderAvatar" class="avatar avatar-sm"></span>
+        <div class="chat-title-text">
+          <strong id="chatHeaderName">Пользователь</strong>
+          <small id="chatHeaderStatus">не в сети</small>
+        </div>
+      </div>
+      <span class="header-spacer"></span>
+    </header>
+    <div id="messages" class="messages"></div>
+    <form id="messageForm" class="composer">
+      <textarea id="messageInput" rows="1" maxlength="4000" placeholder="Сообщение" enterkeyhint="send"></textarea>
+      <button id="sendBtn" type="submit" aria-label="Отправить">↑</button>
+    </form>
+  </section>
+
+  <div id="passwordSheet" class="sheet-backdrop hidden">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="passwordTitle">
+      <div class="sheet-grabber"></div>
+      <h2 id="passwordTitle">Изменить пароль</h2>
+      <form id="passwordForm">
+        <label class="field"><span>Старый пароль</span><input id="oldPassword" type="password" required /></label>
+        <label class="field"><span>Новый пароль</span><input id="newPassword" type="password" required /></label>
+        <label class="field"><span>Повторите новый пароль</span><input id="newPasswordRepeat" type="password" required /></label>
+        <div class="sheet-actions">
+          <button id="cancelPasswordBtn" type="button" class="secondary-btn">Отмена</button>
+          <button type="submit" class="primary-btn compact">ОК</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="confirmBackdrop" class="sheet-backdrop hidden">
+    <section class="alert-card" role="alertdialog" aria-modal="true">
+      <h2>Выйти из ChatX?</h2>
+      <p class="muted">На этом устройстве потребуется войти снова.</p>
+      <div class="alert-actions">
+        <button id="cancelLogoutBtn" class="alert-btn">Отмена</button>
+        <button id="confirmLogoutBtn" class="alert-btn destructive">Выйти</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
